@@ -1,0 +1,21 @@
+﻿name: "建设银行"
+mapping_file: "src/mapping/ccb.yml"
+
+default_asset_account: "Assets:Bank:CCB:Checking"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules: []

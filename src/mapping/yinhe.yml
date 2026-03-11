@@ -1,0 +1,24 @@
+# 银河证券字段映射（GBK + Tab 分隔）
+
+date: "成交日期"
+transaction_type: "业务类型"
+symbol: "证券代码"
+security_name: "证券全称"
+quantity: "成交数量"
+unit_price: "成交价格"
+amount: "发生金额"
+currency: "币种"
+reference: "产品账号"
+narration: "备注"
+payee: "证券名称"
+
+date_formats:
+  - "%Y%m%d"
+
+extra_fields:
+  txType: "业务类型"
+  item: "备注"
+  orderId: "产品账号"
+  payTime: "成交日期"
+  peer: "证券名称"
+  securityCode: "证券代码"

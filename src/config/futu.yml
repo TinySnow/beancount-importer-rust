@@ -1,0 +1,26 @@
+﻿name: "富途"
+mapping_file: "src/mapping/futu.yml"
+
+default_asset_account: "Assets:Broker:Futu:Securities"
+default_expense_account: "Expenses:Investing:Fees"
+default_income_account: "Income:Investing:Capital-Gains"
+default_currency: "USD"
+
+# 证券场景默认账户（可被规则逐条覆盖）
+default_fee_account: "Expenses:Broker:Futu:Fee"
+default_pnl_account: "Income:Broker:Futu:PnL"
+default_rounding_account: "Expenses:Broker:Futu:Rounding"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 4
+
+rules: []

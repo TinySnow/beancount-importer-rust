@@ -1,0 +1,22 @@
+﻿name: "支付宝"
+mapping_file: "src/mapping/alipay.yml"
+
+default_asset_account: "Assets:Wallet:Alipay:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+# 支付宝常见导出前有说明区，默认跳过 24 行
+skip_header_lines: 24
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules: []

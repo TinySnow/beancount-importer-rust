@@ -1,0 +1,30 @@
+# Alipay 字段映射
+
+date: "交易时间"
+payee: "交易对方"
+narration: "商品说明"
+transaction_type: "收/支"
+
+amount:
+  column: "金额"
+  transform: abs
+
+status: "交易状态"
+reference: "交易订单号"
+
+date_formats:
+  - "%Y/%m/%d %H:%M"
+  - "%Y-%m-%d %H:%M:%S"
+
+extra_fields:
+  source: "交易来源"
+  category: "交易分类"
+  method: "收/付款方式"
+  item: "商品说明"
+  peer: "交易对方"
+  peerAccount: "对方账号"
+  type: "收/支"
+  status: "交易状态"
+  orderId: "交易订单号"
+  merchantId: "商家订单号"
+  payTime: "交易时间"

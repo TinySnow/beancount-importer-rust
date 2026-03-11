@@ -1,0 +1,19 @@
+﻿date: "Trade Date"
+symbol: "Symbol"
+security_name: "Name"
+transaction_type: "Side"
+quantity: "Quantity"
+unit_price: "Price"
+amount: "Amount"
+currency: "Currency"
+reference: "Order ID"
+fee: "Fee"
+tax: "Tax"
+
+date_formats:
+  - "%Y-%m-%d"
+  - "%Y/%m/%d"
+
+extra_fields:
+  market: "Market"
+  account: "Account"

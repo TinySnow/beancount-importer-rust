@@ -1,0 +1,27 @@
+﻿name: "银河证券"
+mapping_file: "src/mapping/yinhe.yml"
+
+default_asset_account: "Assets:Broker:Galaxy:Securities"
+default_expense_account: "Expenses:Investing:Fees"
+default_income_account: "Income:Investing:Capital-Gains"
+default_currency: "CNY"
+
+# 证券场景默认账户（可被规则逐条覆盖）
+default_fee_account: "Expenses:Broker:Galaxy:Fee"
+default_pnl_account: "Income:Broker:Galaxy:PnL"
+default_rounding_account: "Expenses:Broker:Galaxy:Rounding"
+
+csv_options:
+  delimiter: "\t"
+  flexible: true
+  encoding: "GBK"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 4
+  emit_open_directives: true
+
+rules: []

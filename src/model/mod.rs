@@ -1,0 +1,18 @@
+//! 【模块文档】
+//!
+//! 模块名称：源码模块
+//! 文件路径：
+//! 核心职责：承担当前文件对应的功能实现
+//! 主要输入：上游模块传入的数据
+//! 主要输出：下游模块消费的数据或行为
+//! 维护说明：变更前应确认其在导入链路中的位置与影响
+pub mod account;
+pub mod cli;
+pub mod config;
+pub mod data;
+pub mod mapping;
+pub mod reader;
+pub mod registry;
+pub mod rule;
+pub mod transaction;
+pub mod writer;

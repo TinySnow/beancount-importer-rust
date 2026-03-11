@@ -1,0 +1,28 @@
+# 京东字段映射（请按你的导出列名核对）
+
+date: "交易时间"
+payee: "交易对方"
+narration: "商品"
+transaction_type: "收/支"
+
+amount:
+  column: "金额"
+  transform: abs
+
+status: "交易状态"
+reference: "交易单号"
+
+date_formats:
+  - "%Y-%m-%d %H:%M:%S"
+  - "%Y-%m-%d %H:%M"
+
+extra_fields:
+  category: "交易分类"
+  txType: "交易分类"
+  method: "支付方式"
+  item: "商品"
+  peer: "交易对方"
+  type: "收/支"
+  status: "交易状态"
+  orderId: "交易单号"
+  payTime: "交易时间"

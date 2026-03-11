@@ -1,0 +1,29 @@
+# 建设银行字段映射（请按你的导出列名核对）
+
+date: "交易时间"
+payee: "交易对方"
+narration: "摘要"
+transaction_type: "收/支"
+
+amount:
+  column: "交易金额"
+  transform: abs
+
+status: "交易状态"
+reference: "交易流水号"
+
+date_formats:
+  - "%Y-%m-%d %H:%M:%S"
+  - "%Y-%m-%d"
+  - "%Y/%m/%d %H:%M:%S"
+  - "%Y/%m/%d"
+
+extra_fields:
+  txType: "摘要"
+  method: "交易渠道"
+  item: "摘要"
+  peer: "交易对方"
+  type: "收/支"
+  status: "交易状态"
+  orderId: "交易流水号"
+  payTime: "交易时间"

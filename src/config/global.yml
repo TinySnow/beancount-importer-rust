@@ -1,0 +1,142 @@
+﻿# 通用全局配置（不包含个人账户信息）
+default_currency: CNY
+
+default_expense_account: Expenses:Unknown
+default_asset_account: Assets:Unknown
+default_income_account: Income:Unknown
+
+# 可选：全局规则（默认留空，避免误判）
+global_rules: []
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+# 可选：在一个文件中集中维护各 provider 默认配置。
+# 如果你使用 --config 指定了单独 provider 文件，则以 provider 文件为准。
+providers:
+  alipay:
+    name: "支付宝"
+    mapping_file: "src/mapping/alipay.yml"
+    default_asset_account: "Assets:Wallet:Alipay:Balance"
+    default_expense_account: "Expenses:Unknown"
+    default_income_account: "Income:Unknown"
+    default_currency: "CNY"
+    csv_options:
+      delimiter: ","
+      flexible: true
+      encoding: "auto"
+    skip_header_lines: 24
+    has_csv_header: true
+
+  wechat:
+    name: "微信"
+    mapping_file: "src/mapping/wechat.yml"
+    default_asset_account: "Assets:Wallet:WeChat:Balance"
+    default_expense_account: "Expenses:Unknown"
+    default_income_account: "Income:Unknown"
+    default_currency: "CNY"
+    csv_options:
+      delimiter: ","
+      flexible: true
+      encoding: "auto"
+    skip_header_lines: 0
+    has_csv_header: true
+
+  jd:
+    name: "京东"
+    mapping_file: "src/mapping/jd.yml"
+    default_asset_account: "Assets:Wallet:JD:Balance"
+    default_expense_account: "Expenses:Unknown"
+    default_income_account: "Income:Unknown"
+    default_currency: "CNY"
+    csv_options:
+      delimiter: ","
+      flexible: true
+      encoding: "auto"
+    skip_header_lines: 0
+    has_csv_header: true
+
+  mt:
+    name: "美团"
+    mapping_file: "src/mapping/mt.yml"
+    default_asset_account: "Assets:Wallet:Meituan:Balance"
+    default_expense_account: "Expenses:Unknown"
+    default_income_account: "Income:Unknown"
+    default_currency: "CNY"
+    csv_options:
+      delimiter: ","
+      flexible: true
+      encoding: "auto"
+    skip_header_lines: 0
+    has_csv_header: true
+
+  icbc:
+    name: "工商银行"
+    mapping_file: "src/mapping/icbc.yml"
+    default_asset_account: "Assets:Bank:ICBC:Checking"
+    default_expense_account: "Expenses:Unknown"
+    default_income_account: "Income:Unknown"
+    default_currency: "CNY"
+    csv_options:
+      delimiter: ","
+      flexible: true
+      encoding: "auto"
+    skip_header_lines: 0
+    has_csv_header: true
+
+  ccb:
+    name: "建设银行"
+    mapping_file: "src/mapping/ccb.yml"
+    default_asset_account: "Assets:Bank:CCB:Checking"
+    default_expense_account: "Expenses:Unknown"
+    default_income_account: "Income:Unknown"
+    default_currency: "CNY"
+    csv_options:
+      delimiter: ","
+      flexible: true
+      encoding: "auto"
+    skip_header_lines: 0
+    has_csv_header: true
+
+  futu:
+    name: "富途"
+    mapping_file: "src/mapping/futu.yml"
+    default_asset_account: "Assets:Broker:Futu:Securities"
+    default_expense_account: "Expenses:Investing:Fees"
+    default_income_account: "Income:Investing:Capital-Gains"
+    default_currency: "USD"
+    default_fee_account: "Expenses:Broker:Futu:Fee"
+    default_pnl_account: "Income:Broker:Futu:PnL"
+    default_rounding_account: "Expenses:Broker:Futu:Rounding"
+    csv_options:
+      delimiter: ","
+      quote: "\""
+      flexible: true
+      encoding: "auto"
+    skip_header_lines: 0
+    has_csv_header: true
+    output:
+      date_format: "%Y-%m-%d"
+      decimal_places: 4
+
+  yinhe:
+    name: "银河证券"
+    mapping_file: "src/mapping/yinhe.yml"
+    default_asset_account: "Assets:Broker:Galaxy:Securities"
+    default_expense_account: "Expenses:Investing:Fees"
+    default_income_account: "Income:Investing:Capital-Gains"
+    default_currency: "CNY"
+    default_fee_account: "Expenses:Broker:Galaxy:Fee"
+    default_pnl_account: "Income:Broker:Galaxy:PnL"
+    default_rounding_account: "Expenses:Broker:Galaxy:Rounding"
+    csv_options:
+      delimiter: "\t"
+      flexible: true
+      encoding: "GBK"
+    skip_header_lines: 0
+    has_csv_header: true
+    output:
+      date_format: "%Y-%m-%d"
+      decimal_places: 4
+      emit_open_directives: true
