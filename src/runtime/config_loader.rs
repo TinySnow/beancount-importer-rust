@@ -34,12 +34,14 @@ pub struct LoadedConfig {
 /// - 约定默认路径其次；
 /// - 最后回退到内置默认值（仅全局与供应商）。
 pub fn load(cli: &Cli) -> Result<LoadedConfig> {
+    let normalized_provider = cli.provider.to_lowercase();
+
     // 先加载全局配置，后续配置合并需要它。
     let (global_config, global_config_path) = load_global_config(cli.global_config.as_deref())?;
 
     // 再加载供应商配置，并叠加全局默认字段。
     let (mut provider_config, provider_config_path) =
-        load_provider_config(&cli.config, &cli.provider, &global_config)?;
+        load_provider_config(&cli.config, &normalized_provider, &global_config)?;
     provider_config.merge_with_global(&global_config);
 
     // 映射文件相对路径按“供应商/全局/命令行”路径就近解析。
@@ -49,7 +51,8 @@ pub fn load(cli: &Cli) -> Result<LoadedConfig> {
         .or(Some(cli.config.as_path()))
         .unwrap_or_else(|| Path::new("."));
 
-    let field_mapping = load_field_mapping(&provider_config, &cli.provider, mapping_base_path)?;
+    let field_mapping =
+        load_field_mapping(&provider_config, &normalized_provider, mapping_base_path)?;
 
     Ok(LoadedConfig {
         global: global_config,
@@ -141,10 +144,14 @@ fn load_provider_config(
         }
     }
 
-    if let Some(provider_config) = global_config.providers.get(provider_name) {
+    if let Some((provider_key, provider_config)) = global_config
+        .providers
+        .iter()
+        .find(|(key, _)| key.eq_ignore_ascii_case(provider_name))
+    {
         info!(
-            "Using provider config for '{}' from global config context",
-            provider_name
+            "Using provider config for '{}' from global config context key '{}'",
+            provider_name, provider_key
         );
         return Ok((provider_config.clone(), None));
     }
@@ -223,4 +230,53 @@ fn resolve_candidate_paths(path: &Path, base_path: &Path) -> Vec<PathBuf> {
 fn deduplicate_paths(paths: &mut Vec<PathBuf>) {
     let mut seen = std::collections::HashSet::new();
     paths.retain(|path| seen.insert(path.to_string_lossy().to_ascii_lowercase()));
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::{Path, PathBuf};
+
+    use crate::model::{
+        cli::{Cli, log_level::LogLevel},
+        config::{global::GlobalConfig, provider::ProviderConfig},
+    };
+
+    use super::{load, load_provider_config};
+
+    #[test]
+    fn load_provider_config_matches_global_key_case_insensitively() {
+        let mut global = GlobalConfig::default();
+        let mut provider = ProviderConfig::default();
+        provider.default_asset_account = Some("Assets:Broker:Case:Cash".to_string());
+
+        global
+            .providers
+            .insert("MyProvider".to_string(), provider.clone());
+
+        let (loaded, source_path) =
+            load_provider_config(Path::new("__missing__.yml"), "myprovider", &global)
+                .expect("global provider context lookup should work");
+
+        assert!(source_path.is_none());
+        assert_eq!(loaded.default_asset_account, provider.default_asset_account);
+    }
+
+    #[test]
+    fn load_normalizes_provider_name_before_resolving_paths() {
+        let cli = Cli {
+            provider: "WECHAT".to_string(),
+            source: PathBuf::from("dummy.csv"),
+            config: PathBuf::from("__missing__.yml"),
+            global_config: None,
+            output: None,
+            log_level: LogLevel::Warn,
+            quiet: false,
+            verbose: false,
+            strict: false,
+        };
+
+        let loaded =
+            load(&cli).expect("uppercase provider name should still resolve config and mapping");
+        assert!(loaded.mapping.date.is_some() || loaded.mapping.amount.is_some());
+    }
 }

@@ -1,0 +1,74 @@
+﻿name: "支付宝（基础示例）"
+mapping_file: "src/mapping/alipay.yml"
+
+default_asset_account: "Assets:Wallet:Alipay:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 24
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 基础规则1：退款/关闭状态忽略，避免重复记账。
+  - name: "ignore-refund-or-closed"
+    conditions:
+      - field: "status"
+        in: ["退款成功", "交易关闭", "已全额退款", "对方已退还"]
+    action:
+      ignore: true
+    priority: 10
+    terminal: true
+
+  # 基础规则2：餐饮类支出归到餐饮账户。
+  - name: "expense-food"
+    conditions:
+      - field: "type"
+        equals: "支出"
+      - field: "category"
+        equals: "餐饮美食"
+    action:
+      debit_account: "Expenses:Food"
+      credit_account: "Assets:Wallet:Alipay:Balance"
+    priority: 20
+
+  # 基础规则3：交通类支出归到交通账户。
+  - name: "expense-transport"
+    conditions:
+      - field: "type"
+        equals: "支出"
+      - field: "category"
+        equals: "交通出行"
+    action:
+      debit_account: "Expenses:Transport"
+      credit_account: "Assets:Wallet:Alipay:Balance"
+    priority: 30
+
+  # 基础规则4：收入类统一归收入账户。
+  - name: "income-default"
+    conditions:
+      - field: "type"
+        equals: "收入"
+    action:
+      debit_account: "Assets:Wallet:Alipay:Balance"
+      credit_account: "Income:Misc"
+    priority: 40
+
+  # 基础规则5：其余支出兜底。
+  - name: "expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Wallet:Alipay:Balance"
+    priority: 50

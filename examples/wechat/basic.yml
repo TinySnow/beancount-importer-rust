@@ -1,0 +1,62 @@
+﻿name: "微信（基础示例）"
+mapping_file: "src/mapping/wechat.yml"
+
+default_asset_account: "Assets:Wallet:WeChat:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 基础规则1：退款类状态忽略。
+  - name: "ignore-refund"
+    conditions:
+      - field: "status"
+        in: ["已全额退款", "对方已退还"]
+    action:
+      ignore: true
+    priority: 10
+    terminal: true
+
+  # 基础规则2：餐饮关键词归餐饮账户。
+  - name: "expense-food-keyword"
+    conditions:
+      - field: "type"
+        equals: "支出"
+      - field: "item"
+        regex: "(咖啡|奶茶|外卖|餐饮|美食)"
+    action:
+      debit_account: "Expenses:Food"
+      credit_account: "Assets:Wallet:WeChat:Balance"
+    priority: 20
+
+  # 基础规则3：收入统一归收入账户。
+  - name: "income-default"
+    conditions:
+      - field: "type"
+        equals: "收入"
+    action:
+      debit_account: "Assets:Wallet:WeChat:Balance"
+      credit_account: "Income:Misc"
+    priority: 30
+
+  # 基础规则4：其余支出兜底。
+  - name: "expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Wallet:WeChat:Balance"
+    priority: 40

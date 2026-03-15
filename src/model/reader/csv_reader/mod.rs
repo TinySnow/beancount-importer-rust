@@ -1,4 +1,4 @@
-﻿//! CSV/XLSX 账单读取与字段映射。
+//! CSV/XLSX statement reader and field mapping entry.
 
 use std::path::Path;
 
@@ -18,24 +18,31 @@ mod xlsx_source;
 
 use table::build_positional_headers;
 
-/// CSV 记录读取器。
+/// Reader that loads CSV/XLSX rows and maps them to `RawRecord`.
 pub struct CsvRecordReader {
     csv_options: CsvOptions,
     skip_lines: usize,
     has_header: bool,
+    strict_mode: bool,
 }
 
 impl CsvRecordReader {
-    /// 创建 CSV 记录读取器。
-    pub fn new(csv_options: CsvOptions, skip_lines: usize, has_header: bool) -> Self {
+    /// Build a new reader.
+    pub fn new(
+        csv_options: CsvOptions,
+        skip_lines: usize,
+        has_header: bool,
+        strict_mode: bool,
+    ) -> Self {
         Self {
             csv_options,
             skip_lines,
             has_header,
+            strict_mode,
         }
     }
 
-    /// 从源文件读取记录并映射为 `RawRecord`。
+    /// Read a source file and map rows into `RawRecord`.
     pub fn read_file(
         &self,
         path: &Path,
@@ -50,7 +57,7 @@ impl CsvRecordReader {
         self.map_table_to_records(table, mapping)
     }
 
-    /// 判断当前路径是否应使用 XLSX 读取流程。
+    /// Return true if the path has `.xlsx` extension.
     fn is_xlsx_path(path: &Path) -> bool {
         path.extension()
             .and_then(|ext| ext.to_str())
@@ -58,12 +65,12 @@ impl CsvRecordReader {
             .unwrap_or(false)
     }
 
-    /// 构造无表头模式下的位置列名。
+    /// Build synthetic headers for no-header mode.
     fn build_positional_headers() -> Vec<String> {
         build_positional_headers()
     }
 
-    /// 返回标准字段映射定义，用于表头校验与 XLSX 表头识别评分。
+    /// Return all standard mapping specs used for validation/scoring.
     fn mapped_specs<'a>(mapping: &'a FieldMapping) -> [(&'static str, Option<&'a FieldSpec>); 14] {
         [
             ("date", mapping.date.as_ref()),
@@ -95,18 +102,18 @@ mod tests {
 
     #[test]
     fn xlsx_header_score_prefers_real_header_row() {
-        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true);
+        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
 
         let mut mapping = FieldMapping::default();
-        mapping.date = Some(FieldSpec::Simple("交易时间".to_string()));
-        mapping.amount = Some(FieldSpec::Simple("金额(元)".to_string()));
-        mapping.payee = Some(FieldSpec::Simple("交易对方".to_string()));
+        mapping.date = Some(FieldSpec::Simple("date".to_string()));
+        mapping.amount = Some(FieldSpec::Simple("amount".to_string()));
+        mapping.payee = Some(FieldSpec::Simple("payee".to_string()));
 
-        let meta_row = vec!["微信支付账单明细".to_string(), "".to_string()];
+        let meta_row = vec!["meta title".to_string(), "".to_string()];
         let header_row = vec![
-            "交易时间".to_string(),
-            "交易对方".to_string(),
-            "金额(元)".to_string(),
+            "date".to_string(),
+            "payee".to_string(),
+            "amount".to_string(),
         ];
 
         let meta_score = reader.xlsx_header_match_score(&mapping, &meta_row);

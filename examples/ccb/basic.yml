@@ -1,0 +1,62 @@
+﻿name: "建设银行（基础示例）"
+mapping_file: "src/mapping/ccb.yml"
+
+default_asset_account: "Assets:Bank:CCB:Checking"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 基础规则1：失败/冲正状态忽略。
+  - name: "ignore-failed-status"
+    conditions:
+      - field: "status"
+        in: ["交易失败", "已撤销", "已冲正"]
+    action:
+      ignore: true
+    priority: 10
+    terminal: true
+
+  # 基础规则2：理财关键词支出。
+  - name: "expense-invest"
+    conditions:
+      - field: "type"
+        contains: "支出"
+      - field: "item"
+        regex: "(理财|基金|证券|定投)"
+    action:
+      debit_account: "Assets:Investments"
+      credit_account: "Assets:Bank:CCB:Checking"
+    priority: 20
+
+  # 基础规则3：收入统一归收入账户。
+  - name: "income-default"
+    conditions:
+      - field: "type"
+        equals: "收入"
+    action:
+      debit_account: "Assets:Bank:CCB:Checking"
+      credit_account: "Income:Misc"
+    priority: 30
+
+  # 基础规则4：其余支出兜底。
+  - name: "expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Bank:CCB:Checking"
+    priority: 40

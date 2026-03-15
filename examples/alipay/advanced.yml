@@ -1,0 +1,155 @@
+﻿name: "支付宝（高级示例）"
+mapping_file: "src/mapping/alipay.yml"
+
+default_asset_account: "Assets:Wallet:Alipay:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 24
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 规则01：将明显失败/退款状态直接忽略，避免重复入账。
+  - name: "01-ignore-failed-status"
+    conditions:
+      - field: "status"
+        in:
+          - "交易关闭"
+          - "退款成功"
+          - "已全额退款"
+          - "对方已退还"
+    action:
+      ignore: true
+      metadata:
+        reason: "status_filtered"
+    priority: 10
+    terminal: true
+
+  # 规则02：状态缺失时打审阅标签（覆盖 is_empty）。
+  - name: "02-missing-status-review"
+    conditions:
+      - field: "status"
+        is_empty:
+    action:
+      tags: ["needs_review", "missing_status"]
+      metadata:
+        quality: "missing_status"
+    priority: 20
+
+  # 规则03：大额流水标记风险（覆盖 greater_than + not_empty + flag）。
+  - name: "03-high-amount-alert"
+    conditions:
+      - field: "amount"
+        greater_than: 1000
+      - field: "orderId"
+        not_empty:
+    action:
+      tags: ["risk_high_amount"]
+      links: ["risk/high-amount"]
+      flag: "!"
+      metadata:
+        risk_level: "high"
+    priority: 30
+
+  # 规则04：超小额流水打零星标签（覆盖 less_than）。
+  - name: "04-small-amount"
+    conditions:
+      - field: "amount"
+        less_than: 1
+    action:
+      tags: ["tiny_amount"]
+      metadata:
+        bucket: "tiny"
+    priority: 40
+
+  # 规则05：中额支出打金额分层（覆盖 between）。
+  - name: "05-mid-amount-expense"
+    conditions:
+      - field: "amount"
+        between:
+          min: 50
+          max: 200
+      - field: "type"
+        equals: "支出"
+    action:
+      metadata:
+        amount_bucket: "50_200"
+    priority: 50
+
+  # 规则06：餐饮关键词归类到餐饮账户（覆盖 regex）。
+  - name: "06-food-by-item-regex"
+    conditions:
+      - field: "item"
+        regex: "(?i)(咖啡|奶茶|外卖|餐饮|美食)"
+    action:
+      debit_account: "Expenses:Food"
+      metadata:
+        scene: "food"
+    priority: 60
+
+  # 规则07：银行卡渠道按前缀识别付款账户（覆盖 starts_with）。
+  - name: "07-bank-method-starts-with"
+    conditions:
+      - field: "method"
+        starts_with: "中国工商银行"
+    action:
+      credit_account: "Assets:Bank:ICBC:Checking"
+      metadata:
+        funding_source: "icbc"
+    priority: 70
+
+  # 规则08：测试尾号订单打沙箱标签（覆盖 ends_with）。
+  - name: "08-test-order-suffix"
+    conditions:
+      - field: "orderId"
+        ends_with: "-TEST"
+    action:
+      tags: ["sandbox"]
+      metadata:
+        scenario: "test_order_suffix"
+    priority: 80
+
+  # 规则09：对方账号非空且像邮箱时标记在线对手（覆盖 not_empty + contains）。
+  - name: "09-online-peer-account"
+    conditions:
+      - field: "peerAccount"
+        not_empty:
+      - field: "peerAccount"
+        contains: "@"
+    action:
+      metadata:
+        peer_type: "online_account"
+    priority: 90
+
+  # 规则10：收入或转入统一走收入分录（覆盖 match_mode=or + equals）。
+  - name: "10-income-or-transfer-in"
+    match_mode: or
+    conditions:
+      - field: "type"
+        equals: "收入"
+      - field: "type"
+        equals: "转入"
+    action:
+      debit_account: "Assets:Wallet:Alipay:Balance"
+      credit_account: "Income:Misc"
+    priority: 100
+
+  # 规则11：兜底支出规则，保证支出类可落账。
+  - name: "11-expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Wallet:Alipay:Balance"
+    priority: 110

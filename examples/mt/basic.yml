@@ -1,0 +1,74 @@
+﻿name: "美团（基础示例）"
+mapping_file: "src/mapping/mt.yml"
+
+default_asset_account: "Assets:Wallet:Meituan:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 基础规则1：退款/关闭状态忽略。
+  - name: "ignore-close-refund"
+    conditions:
+      - field: "status"
+        in: ["交易关闭", "退款成功"]
+    action:
+      ignore: true
+    priority: 10
+    terminal: true
+
+  # 基础规则2：餐饮美食类支出。
+  - name: "expense-food"
+    conditions:
+      - field: "type"
+        equals: "支出"
+      - field: "category"
+        equals: "餐饮美食"
+    action:
+      debit_account: "Expenses:Food"
+      credit_account: "Assets:Wallet:Meituan:Balance"
+    priority: 20
+
+  # 基础规则3：休闲娱乐类支出。
+  - name: "expense-fun"
+    conditions:
+      - field: "type"
+        equals: "支出"
+      - field: "category"
+        equals: "休闲娱乐"
+    action:
+      debit_account: "Expenses:Entertainment"
+      credit_account: "Assets:Wallet:Meituan:Balance"
+    priority: 30
+
+  # 基础规则4：收入统一归收入账户。
+  - name: "income-default"
+    conditions:
+      - field: "type"
+        equals: "收入"
+    action:
+      debit_account: "Assets:Wallet:Meituan:Balance"
+      credit_account: "Income:Misc"
+    priority: 40
+
+  # 基础规则5：其余支出兜底。
+  - name: "expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Wallet:Meituan:Balance"
+    priority: 50

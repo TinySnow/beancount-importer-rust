@@ -1,0 +1,129 @@
+﻿name: "京东（高级示例）"
+mapping_file: "src/mapping/jd.yml"
+
+default_asset_account: "Assets:Wallet:JD:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 规则01：关闭/退款类状态忽略。
+  - name: "01-ignore-close-refund"
+    conditions:
+      - field: "status"
+        in:
+          - "交易关闭"
+          - "退款成功"
+    action:
+      ignore: true
+      metadata:
+        reason: "status_filtered"
+    priority: 10
+    terminal: true
+
+  # 规则02：状态缺失打标签。
+  - name: "02-missing-status"
+    conditions:
+      - field: "status"
+        is_empty:
+    action:
+      tags: ["needs_review"]
+    priority: 20
+
+  # 规则03：大额风险标记。
+  - name: "03-high-amount-alert"
+    conditions:
+      - field: "amount"
+        greater_than: 1000
+      - field: "orderId"
+        not_empty:
+    action:
+      tags: ["risk_high_amount"]
+      links: ["risk/high-amount"]
+      flag: "!"
+    priority: 30
+
+  # 规则04：区间金额打分层。
+  - name: "04-mid-amount"
+    conditions:
+      - field: "amount"
+        between:
+          min: 50
+          max: 200
+    action:
+      metadata:
+        amount_bucket: "50_200"
+    priority: 40
+
+  # 规则05：品类命中电脑办公走设备账户（equals）。
+  - name: "05-category-office"
+    conditions:
+      - field: "category"
+        equals: "电脑办公"
+    action:
+      debit_account: "Expenses:Equipment"
+    priority: 50
+
+  # 规则06：商品关键词识别餐饮（regex）。
+  - name: "06-food-item-regex"
+    conditions:
+      - field: "item"
+        regex: "(?i)(咖啡|奶茶|零食|餐饮|外卖)"
+    action:
+      debit_account: "Expenses:Food"
+    priority: 60
+
+  # 规则07：支付方式前缀匹配白条。
+  - name: "07-method-starts-with-baitiao"
+    conditions:
+      - field: "method"
+        starts_with: "京东白条"
+    action:
+      credit_account: "Liabilities:JD:Baitiao"
+      metadata:
+        funding_source: "baitiao"
+    priority: 70
+
+  # 规则08：测试订单尾号标记。
+  - name: "08-order-suffix-test"
+    conditions:
+      - field: "orderId"
+        ends_with: "-TEST"
+    action:
+      tags: ["sandbox"]
+    priority: 80
+
+  # 规则09：收入或转入统一收入分录（or）。
+  - name: "09-income-or-transfer-in"
+    match_mode: or
+    conditions:
+      - field: "type"
+        equals: "收入"
+      - field: "type"
+        equals: "转入"
+    action:
+      debit_account: "Assets:Wallet:JD:Balance"
+      credit_account: "Income:Misc"
+    priority: 90
+
+  # 规则10：兜底支出规则。
+  - name: "10-expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Wallet:JD:Balance"
+    priority: 100

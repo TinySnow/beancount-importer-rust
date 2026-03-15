@@ -1,0 +1,131 @@
+﻿name: "建设银行（高级示例）"
+mapping_file: "src/mapping/ccb.yml"
+
+default_asset_account: "Assets:Bank:CCB:Checking"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 规则01：失败/冲正状态忽略。
+  - name: "01-ignore-failed-status"
+    conditions:
+      - field: "status"
+        in:
+          - "交易失败"
+          - "已撤销"
+          - "已冲正"
+    action:
+      ignore: true
+      metadata:
+        reason: "status_filtered"
+    priority: 10
+    terminal: true
+
+  # 规则02：状态缺失打审阅标签。
+  - name: "02-missing-status"
+    conditions:
+      - field: "status"
+        is_empty:
+    action:
+      tags: ["needs_review"]
+    priority: 20
+
+  # 规则03：大额流水风险标记。
+  - name: "03-high-amount"
+    conditions:
+      - field: "amount"
+        greater_than: 5000
+      - field: "orderId"
+        not_empty:
+    action:
+      tags: ["risk_high_amount"]
+      flag: "!"
+    priority: 30
+
+  # 规则04：中额区间标记。
+  - name: "04-mid-amount"
+    conditions:
+      - field: "amount"
+        between:
+          min: 300
+          max: 2000
+    action:
+      metadata:
+        amount_bucket: "300_2000"
+    priority: 40
+
+  # 规则05：摘要关键词识别理财类。
+  - name: "05-invest-summary-regex"
+    conditions:
+      - field: "item"
+        regex: "(理财|基金|证券|定投)"
+    action:
+      debit_account: "Assets:Investments"
+      metadata:
+        scene: "investment"
+    priority: 50
+
+  # 规则06：网银渠道前缀识别。
+  - name: "06-method-starts-with-ebank"
+    conditions:
+      - field: "method"
+        starts_with: "网银"
+    action:
+      metadata:
+        channel: "online_banking"
+    priority: 60
+
+  # 规则07：测试流水后缀标记。
+  - name: "07-orderid-suffix-test"
+    conditions:
+      - field: "orderId"
+        ends_with: "-TEST"
+    action:
+      tags: ["sandbox"]
+    priority: 70
+
+  # 规则08：收入或转入统一收入分录。
+  - name: "08-income-or-transfer-in"
+    match_mode: or
+    conditions:
+      - field: "type"
+        equals: "收入"
+      - field: "type"
+        equals: "转入"
+    action:
+      debit_account: "Assets:Bank:CCB:Checking"
+      credit_account: "Income:Misc"
+    priority: 80
+
+  # 规则09：未知方向标记回退路径。
+  - name: "09-unknown-direction-fallback"
+    conditions:
+      - field: "type"
+        equals: "未知方向"
+    action:
+      metadata:
+        direction_resolution: "fallback_by_amount_sign"
+    priority: 90
+
+  # 规则10：兜底支出规则。
+  - name: "10-expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Bank:CCB:Checking"
+    priority: 100

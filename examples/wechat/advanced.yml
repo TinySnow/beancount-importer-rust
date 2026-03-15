@@ -1,0 +1,148 @@
+﻿name: "微信（高级示例）"
+mapping_file: "src/mapping/wechat.yml"
+
+default_asset_account: "Assets:Wallet:WeChat:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 规则01：退款/退还状态忽略，防止重复计账。
+  - name: "01-ignore-refund-status"
+    conditions:
+      - field: "status"
+        in:
+          - "已全额退款"
+          - "对方已退还"
+    action:
+      ignore: true
+      metadata:
+        reason: "refund_status"
+    priority: 10
+    terminal: true
+
+  # 规则02：状态为空时打审阅标签。
+  - name: "02-missing-status-review"
+    conditions:
+      - field: "status"
+        is_empty:
+    action:
+      tags: ["needs_review"]
+      metadata:
+        quality: "missing_status"
+    priority: 20
+
+  # 规则03：大额流水风险标记。
+  - name: "03-high-amount-alert"
+    conditions:
+      - field: "amount"
+        greater_than: 1000
+      - field: "orderId"
+        not_empty:
+    action:
+      tags: ["risk_high_amount"]
+      links: ["risk/high-amount"]
+      flag: "!"
+    priority: 30
+
+  # 规则04：小额流水标签。
+  - name: "04-small-amount"
+    conditions:
+      - field: "amount"
+        less_than: 1
+    action:
+      metadata:
+        bucket: "tiny"
+    priority: 40
+
+  # 规则05：金额区间标记。
+  - name: "05-mid-amount"
+    conditions:
+      - field: "amount"
+        between:
+          min: 50
+          max: 200
+    action:
+      metadata:
+        amount_bucket: "50_200"
+    priority: 50
+
+  # 规则06：餐饮关键词归类。
+  - name: "06-food-by-item-regex"
+    conditions:
+      - field: "item"
+        regex: "(?i)(咖啡|奶茶|外卖|餐饮|美食)"
+    action:
+      debit_account: "Expenses:Food"
+      metadata:
+        scene: "food"
+    priority: 60
+
+  # 规则07：银行卡方式前缀识别。
+  - name: "07-bank-method-starts-with"
+    conditions:
+      - field: "method"
+        starts_with: "银行卡"
+    action:
+      credit_account: "Assets:Bank:ICBC:Checking"
+      metadata:
+        funding_source: "bank_card"
+    priority: 70
+
+  # 规则08：测试订单后缀标记。
+  - name: "08-test-order-suffix"
+    conditions:
+      - field: "orderId"
+        ends_with: "-TEST"
+    action:
+      tags: ["sandbox"]
+      metadata:
+        scenario: "test_order_suffix"
+    priority: 80
+
+  # 规则09：收款类交易类型统一标记（regex + txType）。
+  - name: "09-income-txtype-regex"
+    conditions:
+      - field: "txType"
+        regex: "(收款|转账|二维码)"
+      - field: "type"
+        equals: "收入"
+    action:
+      debit_account: "Assets:Wallet:WeChat:Balance"
+      credit_account: "Income:Transfer"
+    priority: 90
+
+  # 规则10：收入或转入统一收入分录（or）。
+  - name: "10-income-or-transfer-in"
+    match_mode: or
+    conditions:
+      - field: "type"
+        equals: "收入"
+      - field: "type"
+        equals: "转入"
+    action:
+      debit_account: "Assets:Wallet:WeChat:Balance"
+      credit_account: "Income:Misc"
+    priority: 100
+
+  # 规则11：兜底支出规则。
+  - name: "11-expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Wallet:WeChat:Balance"
+    priority: 110

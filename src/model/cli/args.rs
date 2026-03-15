@@ -51,6 +51,10 @@ pub struct Cli {
     /// 详细模式，等同于 `--log-level=debug`
     #[arg(short, long, conflicts_with_all = ["log_level", "quiet"])]
     pub verbose: bool,
+
+    /// 严格模式：解析或转换任意一条记录失败时立即失败退出
+    #[arg(long)]
+    pub strict: bool,
 }
 
 impl Cli {

@@ -17,7 +17,7 @@ use crate::{
 use super::{CsvRecordReader, table::TabularData};
 
 impl CsvRecordReader {
-    /// 将统一表格结构映射为 `RawRecord`。
+    /// Map normalized table rows into `RawRecord`.
     pub(super) fn map_table_to_records(
         &self,
         table: TabularData,
@@ -39,6 +39,17 @@ impl CsvRecordReader {
                     expected_columns,
                     row.cells.len()
                 );
+
+                if self.strict_mode {
+                    return Err(ImporterError::Parse {
+                        line: row.line_no,
+                        message: format!(
+                            "Field count mismatch (expected {}, got {})",
+                            expected_columns,
+                            row.cells.len()
+                        ),
+                    });
+                }
             }
 
             let field_map = table
@@ -53,6 +64,13 @@ impl CsvRecordReader {
                 Err(error) => {
                     mapping_errors += 1;
                     warn!("Line {}: mapping error - {}", row.line_no, error);
+
+                    if self.strict_mode {
+                        return Err(ImporterError::Parse {
+                            line: row.line_no,
+                            message: format!("Mapping error: {error}"),
+                        });
+                    }
                 }
             }
         }
@@ -68,7 +86,7 @@ impl CsvRecordReader {
         Ok(records)
     }
 
-    /// 校验映射中声明的列名是否存在于表头。
+    /// Validate whether mapped columns exist in header row.
     fn validate_mapping(&self, mapping: &FieldMapping, headers: &[String]) {
         for (name, spec) in Self::mapped_specs(mapping) {
             if let Some(spec) = spec {
@@ -121,7 +139,7 @@ impl CsvRecordReader {
         Ok(record)
     }
 
-    /// 将指定列映射为日期字段。
+    /// Map a date field using configured formats.
     fn map_date(
         &self,
         fields: &HashMap<String, String>,
@@ -137,7 +155,7 @@ impl CsvRecordReader {
             .and_then(|value| self.parse_date(&value, formats)))
     }
 
-    /// 将指定列映射为十进制数值，并应用可选转换（如 `abs`）。
+    /// Map a decimal field and apply optional transform.
     fn map_decimal(
         &self,
         fields: &HashMap<String, String>,
@@ -152,7 +170,7 @@ impl CsvRecordReader {
             .and_then(|value| parse_decimal_with_transform(&value, spec.transformer())))
     }
 
-    /// 将指定列映射为文本字段。
+    /// Map a text field.
     fn map_text(
         &self,
         fields: &HashMap<String, String>,
@@ -171,8 +189,8 @@ impl CsvRecordReader {
         mapping: &FieldMapping,
         record: &mut RawRecord,
     ) {
-        // 推荐格式：`extra_key -> csv_column`
-        // 仍兼容旧格式：`csv_column -> extra_key`
+        // Preferred format: extra_key -> csv_column.
+        // Backward-compatible format: csv_column -> extra_key.
         for (left, right) in &mapping.extra_fields {
             if let Some(value) = self.non_empty_value(fields.get(right).map(String::as_str)) {
                 record.extra.insert(left.clone(), value.to_string());
@@ -182,7 +200,7 @@ impl CsvRecordReader {
         }
     }
 
-    /// 解析并提取一个文本字段，支持默认值与正则提取。
+    /// Resolve a text field, supporting default value and regex extraction.
     fn resolve_text_field(
         &self,
         fields: &HashMap<String, String>,
@@ -203,12 +221,7 @@ impl CsvRecordReader {
         self.apply_regex_extract(spec, base_value)
     }
 
-    /// 对字段值应用 `regex_extract`。
-    ///
-    /// 规则：
-    /// - 有捕获组时优先取第一个捕获组；
-    /// - 无捕获组时取整体匹配；
-    /// - 未匹配时返回空值（而非报错）。
+    /// Apply `regex_extract` if present.
     fn apply_regex_extract(&self, spec: &FieldSpec, value: &str) -> ImporterResult<Option<String>> {
         let Some(pattern) = spec.regex_extract_pattern() else {
             return Ok(Some(value.to_string()));
@@ -238,7 +251,7 @@ impl CsvRecordReader {
         Ok(matched)
     }
 
-    /// 将空串或纯空白字符串归一化为空值。
+    /// Convert empty/blank strings to `None`.
     fn non_empty_value<'a>(&self, value: Option<&'a str>) -> Option<&'a str> {
         value.and_then(|value| {
             let trimmed = value.trim();
@@ -250,9 +263,7 @@ impl CsvRecordReader {
         })
     }
 
-    /// 按配置的日期格式列表顺序尝试解析。
-    ///
-    /// 同时支持日期时间格式和纯日期格式。
+    /// Try to parse as datetime first, then date, with configured formats.
     fn parse_date(&self, value: &str, formats: &[String]) -> Option<NaiveDate> {
         for format in formats {
             if let Ok(date_time) = NaiveDateTime::parse_from_str(value, format) {
@@ -265,5 +276,95 @@ impl CsvRecordReader {
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::model::{
+        config::csv_options::CsvOptions,
+        mapping::{
+            field_mapping::FieldMapping,
+            field_spec::{DetailedFieldSpec, FieldSpec},
+        },
+    };
+
+    use super::super::{
+        CsvRecordReader,
+        table::{RowData, TabularData},
+    };
+
+    #[test]
+    fn strict_mode_fails_on_field_count_mismatch() {
+        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, true);
+        let table = TabularData {
+            source_name: "CSV",
+            headers: vec!["A".to_string(), "B".to_string()],
+            rows: vec![RowData {
+                line_no: 2,
+                cells: vec!["value".to_string()],
+            }],
+            pre_parse_errors: 0,
+        };
+
+        let result = reader.map_table_to_records(table, None);
+        assert!(
+            result.is_err(),
+            "strict mode should fail on field count mismatch"
+        );
+    }
+
+    #[test]
+    fn strict_mode_fails_on_mapping_error() {
+        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, true);
+
+        let mut mapping = FieldMapping::default();
+        mapping.payee = Some(FieldSpec::Detailed(DetailedFieldSpec {
+            column: "A".to_string(),
+            default: None,
+            transform: None,
+            regex_extract: Some("(".to_string()),
+        }));
+
+        let table = TabularData {
+            source_name: "CSV",
+            headers: vec!["A".to_string()],
+            rows: vec![RowData {
+                line_no: 2,
+                cells: vec!["value".to_string()],
+            }],
+            pre_parse_errors: 0,
+        };
+
+        let result = reader.map_table_to_records(table, Some(&mapping));
+        assert!(result.is_err(), "strict mode should fail on mapping error");
+    }
+
+    #[test]
+    fn non_strict_mode_skips_mapping_error() {
+        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
+
+        let mut mapping = FieldMapping::default();
+        mapping.payee = Some(FieldSpec::Detailed(DetailedFieldSpec {
+            column: "A".to_string(),
+            default: None,
+            transform: None,
+            regex_extract: Some("(".to_string()),
+        }));
+
+        let table = TabularData {
+            source_name: "CSV",
+            headers: vec!["A".to_string()],
+            rows: vec![RowData {
+                line_no: 2,
+                cells: vec!["value".to_string()],
+            }],
+            pre_parse_errors: 0,
+        };
+
+        let result = reader
+            .map_table_to_records(table, Some(&mapping))
+            .expect("non-strict mode should keep going");
+        assert!(result.is_empty());
     }
 }

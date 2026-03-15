@@ -15,18 +15,13 @@ use crate::{
 
 use super::{
     SecurityTransformOptions,
-    logic::{derive_rounding_account, infer_is_buy, is_repo_trade},
+    logic::{derive_cash_account, derive_rounding_account, infer_is_buy, is_repo_trade},
     normalize::normalize_security_commodity,
     trade_repo::{RepoPostingInput, apply_repo_postings},
     trade_spot::{SpotPostingInput, apply_spot_postings},
 };
 
 /// 构建证券买卖/逆回购交易。
-///
-/// 该函数负责：
-/// - 校验证券必填字段（symbol/quantity）。
-/// - 选择逆回购或普通买卖分支。
-/// - 汇总证券相关 metadata，并应用规则引擎结果。
 pub(super) fn build_security_trade_transaction(
     options: SecurityTransformOptions,
     match_result: &MatchResult,
@@ -84,16 +79,19 @@ pub(super) fn build_security_trade_transaction(
             .unwrap_or_else(|| "Assets:Investments".to_string())
     };
 
+    // 兜底现金账户从 default_asset_account 推导，避免落到通用 Assets:Cash。
+    let broker_cash_account = derive_cash_account(config.default_asset_account.as_deref());
+
     let cash_account = if is_buy {
         match_result
             .credit_account
             .clone()
-            .unwrap_or_else(|| "Assets:Cash".to_string())
+            .unwrap_or_else(|| broker_cash_account.clone())
     } else {
         match_result
             .debit_account
             .clone()
-            .unwrap_or_else(|| "Assets:Cash".to_string())
+            .unwrap_or_else(|| broker_cash_account.clone())
     };
 
     let fee_account = match_result
@@ -204,4 +202,55 @@ pub(super) fn build_security_trade_transaction(
     );
 
     Ok(tx)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use chrono::NaiveDate;
+    use rust_decimal_macros::dec;
+
+    use super::build_security_trade_transaction;
+    use crate::{
+        model::{config::provider::ProviderConfig, rule::match_result::MatchResult},
+        providers::shared::SecurityTransformOptions,
+    };
+
+    #[test]
+    fn uses_broker_cash_account_as_fallback_in_security_trade() {
+        let options = SecurityTransformOptions {
+            provider_name: "yinhe",
+            default_payee: "Galaxy",
+        };
+        let mut config = ProviderConfig::default();
+        config.default_asset_account = Some("Assets:Broker:Galaxy:Securities".to_string());
+
+        let tx = build_security_trade_transaction(
+            options,
+            &MatchResult::default(),
+            &config,
+            NaiveDate::from_ymd_opt(2026, 3, 1).expect("valid date"),
+            Some(dec!(1000)),
+            "CNY",
+            None,
+            Some("证券买入".to_string()),
+            Some("证券买入".to_string()),
+            None,
+            Some("159915".to_string()),
+            Some("某ETF".to_string()),
+            Some(dec!(100)),
+            Some(dec!(10)),
+            None,
+            None,
+            HashMap::new(),
+        )
+        .expect("trade should build");
+
+        let has_expected_cash_account = tx
+            .postings
+            .iter()
+            .any(|posting| posting.account == "Assets:Broker:Galaxy:Cash");
+        assert!(has_expected_cash_account);
+    }
 }

@@ -35,11 +35,13 @@ pub trait Provider: Send + Sync {
         path: &Path,
         mapping: &FieldMapping,
         config: &ProviderConfig,
+        strict_mode: bool,
     ) -> ImporterResult<Vec<RawRecord>> {
         let reader = CsvRecordReader::new(
             config.csv_options.clone(),
             config.skip_header_lines,
             config.has_csv_header,
+            strict_mode,
         );
 
         reader.read_file(path, Some(mapping))

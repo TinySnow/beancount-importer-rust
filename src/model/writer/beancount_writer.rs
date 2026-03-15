@@ -195,32 +195,29 @@ impl BeancountWriter {
 
         let date_format = Self::sanitize_date_format(&self.config.date_format);
         write!(writer, "{} {}", tx.date.format(date_format), tx.flag)?;
+        let tags_links = Self::render_tags_links(tx);
 
         match (&tx.payee, &tx.narration) {
             (Some(payee), narration) => {
                 writeln!(
                     writer,
-                    " \"{}\" \"{}\"",
+                    " \"{}\" \"{}\"{}",
                     self.escape_string(payee),
-                    self.escape_string(narration)
+                    self.escape_string(narration),
+                    tags_links
                 )?;
             }
             (None, narration) => {
-                writeln!(writer, " \"{}\"", self.escape_string(narration))?;
+                writeln!(
+                    writer,
+                    " \"{}\"{}",
+                    self.escape_string(narration),
+                    tags_links
+                )?;
             }
         }
 
         self.write_sorted_metadata(&tx.metadata, "  ", writer)?;
-
-        if !tx.tags.is_empty() {
-            let tags: Vec<_> = tx.tags.iter().map(|tag| format!("#{}", tag)).collect();
-            writeln!(writer, "  ; Tags: {}", tags.join(" "))?;
-        }
-
-        if !tx.links.is_empty() {
-            let links: Vec<_> = tx.links.iter().map(|link| format!("^{}", link)).collect();
-            writeln!(writer, "  ; Links: {}", links.join(" "))?;
-        }
 
         for posting in &tx.postings {
             self.write_posting(posting, writer)?;
@@ -315,7 +312,30 @@ impl BeancountWriter {
         }
         trimmed
     }
+    /// 渲染交易头行的 tags/links。
+    fn render_tags_links(tx: &Transaction) -> String {
+        let mut parts = Vec::new();
 
+        for tag in &tx.tags {
+            let normalized = tag.trim();
+            if !normalized.is_empty() {
+                parts.push(format!("#{}", normalized));
+            }
+        }
+
+        for link in &tx.links {
+            let normalized = link.trim();
+            if !normalized.is_empty() {
+                parts.push(format!("^{}", normalized));
+            }
+        }
+
+        if parts.is_empty() {
+            String::new()
+        } else {
+            format!(" {}", parts.join(" "))
+        }
+    }
     /// 转义字符串中的反斜杠和双引号，避免 Beancount 语法错误。
     fn escape_string(&self, raw: &str) -> String {
         raw.replace('\\', "\\\\").replace('"', "\\\"")
@@ -451,5 +471,32 @@ mod tests {
         assert!(result.contains("2024-01-01 open Assets:Broker:Cash CNY"));
         assert!(result.contains("2024-01-01 open Assets:Broker:Securities"));
         assert!(result.contains("2024-01-01 open Expenses:Investing:Fees CNY"));
+    }
+    #[test]
+    fn test_tags_and_links_are_emitted_on_header_line() {
+        let tx = Transaction::new(
+            NaiveDate::from_ymd_opt(2024, 6, 1).expect("valid date"),
+            "Tagged transaction",
+        )
+        .with_payee("Payee")
+        .with_tag("food")
+        .with_tag("lunch")
+        .with_link("order123")
+        .with_posting(Posting::new("Expenses:Food").with_amount(Amount::new(dec!(10), "CNY")))
+        .with_posting(Posting::new("Assets:Cash").with_amount(Amount::new(dec!(-10), "CNY")));
+
+        let writer = BeancountWriter::new(OutputConfig::default());
+        let mut output = Vec::new();
+        {
+            let mut cursor = std::io::Cursor::new(&mut output);
+            writer
+                .write(&[tx], &mut cursor)
+                .expect("writer should succeed");
+        }
+
+        let result = String::from_utf8(output).expect("utf8 output");
+        assert!(result.contains("\"Payee\" \"Tagged transaction\" #food #lunch ^order123"));
+        assert!(!result.contains("; Tags:"));
+        assert!(!result.contains("; Links:"));
     }
 }

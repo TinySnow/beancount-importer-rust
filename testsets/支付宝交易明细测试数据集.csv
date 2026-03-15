@@ -1,0 +1,48 @@
+﻿说明行01,,,,,,,,,,,
+说明行02,,,,,,,,,,,
+说明行03,,,,,,,,,,,
+说明行04,,,,,,,,,,,
+说明行05,,,,,,,,,,,
+说明行06,,,,,,,,,,,
+说明行07,,,,,,,,,,,
+说明行08,,,,,,,,,,,
+说明行09,,,,,,,,,,,
+说明行10,,,,,,,,,,,
+说明行11,,,,,,,,,,,
+说明行12,,,,,,,,,,,
+说明行13,,,,,,,,,,,
+说明行14,,,,,,,,,,,
+说明行15,,,,,,,,,,,
+说明行16,,,,,,,,,,,
+说明行17,,,,,,,,,,,
+说明行18,,,,,,,,,,,
+说明行19,,,,,,,,,,,
+说明行20,,,,,,,,,,,
+说明行21,,,,,,,,,,,
+说明行22,,,,,,,,,,,
+说明行23,,,,,,,,,,,
+说明行24,,,,,,,,,,,
+交易时间,交易分类,交易对方,对方账号,商品说明,收/支,金额,收/付款方式,交易状态,交易订单号,商家订单号,备注
+2026/03/01 10:00,交通出行,白盒商户A,alice@example.com,白盒状态基线,支出,88.88,账户余额,交易成功,ALIPAY-WB-001,M-001,case=status-success
+2026/03/01 10:00,交通出行,白盒商户A,alice@example.com,白盒状态基线,支出,88.88,账户余额,交易关闭,ALIPAY-WB-001,M-001,case=status-closed
+2026/03/01 10:00,交通出行,白盒商户A,alice@example.com,白盒状态基线,支出,88.88,账户余额,退款成功,ALIPAY-WB-001,M-001,case=status-refunded
+2026/03/01 10:00,交通出行,白盒商户A,alice@example.com,白盒状态基线,支出,88.88,账户余额,支付成功,ALIPAY-WB-001,M-001,case=status-paid
+2026/03/01 10:05,交通出行,白盒商户A,alice@example.com,白盒方向对照,支出,88.88,账户余额,交易成功,ALIPAY-WB-002,M-002,case=direction-expense
+2026/03/01 10:05,交通出行,白盒商户A,alice@example.com,白盒方向对照,收入,88.88,账户余额,交易成功,ALIPAY-WB-002,M-002,case=direction-income
+2026/03/01 10:05,交通出行,白盒商户A,alice@example.com,白盒方向对照,不计收支,88.88,账户余额,交易成功,ALIPAY-WB-002,M-002,case=direction-neutral
+2026/03/01 10:10,餐饮美食,白盒商户B,bob@example.com,白盒金额格式,支出,"¥1,234.56",中国工商银行储蓄卡,交易成功,ALIPAY-WB-003,M-003,case=amount-format
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,支出,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=baseline
+2026-03-02 09:30:00,交通出行,基线商户,acct-001,基线商品,支出,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-date-format2
+2026/03/02 09:30,日用百货,基线商户,acct-001,基线商品,支出,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-category
+2026/03/02 09:30,白盒商户-变化,acct-001,acct-001,基线商品,支出,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-payee
+2026/03/02 09:30,交通出行,基线商户,acct-XYZ,基线商品,支出,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-peer-account
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品-变化,支出,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-item
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,收入,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-direction-income
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,转出,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-direction-out
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,expense,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-direction-english-expense
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,支出,"¥1,108.88",账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-amount-format
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,支出,108.88,中国工商银行储蓄卡,交易成功,ALIPAY-WB-A0,ALI-M-A0,append=var-method
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,支出,108.88,账户余额,交易关闭,ALIPAY-WB-A0,ALI-M-A0,append=var-status-closed
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,支出,108.88,账户余额,等待确认收货,ALIPAY-WB-A0,ALI-M-A0,append=var-status-wait-confirm
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,支出,108.88,账户余额,交易成功,ALIPAY-WB-A0-REFX,ALI-M-A0,append=var-order-id
+2026/03/02 09:30,交通出行,基线商户,acct-001,基线商品,支出,108.88,账户余额,交易成功,ALIPAY-WB-A0,ALI-M-A0-MERX,append=var-merchant-id

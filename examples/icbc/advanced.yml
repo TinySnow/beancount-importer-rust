@@ -1,0 +1,131 @@
+﻿name: "工商银行（高级示例）"
+mapping_file: "src/mapping/icbc.yml"
+
+default_asset_account: "Assets:Bank:ICBC:Checking"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 规则01：失败类状态忽略。
+  - name: "01-ignore-failed-status"
+    conditions:
+      - field: "status"
+        in:
+          - "交易失败"
+          - "已撤销"
+          - "已冲正"
+    action:
+      ignore: true
+      metadata:
+        reason: "status_filtered"
+    priority: 10
+    terminal: true
+
+  # 规则02：状态缺失打质检标签。
+  - name: "02-missing-status"
+    conditions:
+      - field: "status"
+        is_empty:
+    action:
+      tags: ["needs_review"]
+    priority: 20
+
+  # 规则03：大额转账风险标记。
+  - name: "03-high-amount"
+    conditions:
+      - field: "amount"
+        greater_than: 5000
+      - field: "orderId"
+        not_empty:
+    action:
+      tags: ["risk_high_amount"]
+      flag: "!"
+    priority: 30
+
+  # 规则04：金额区间标注。
+  - name: "04-mid-amount"
+    conditions:
+      - field: "amount"
+        between:
+          min: 300
+          max: 2000
+    action:
+      metadata:
+        amount_bucket: "300_2000"
+    priority: 40
+
+  # 规则05：摘要关键词识别理财（regex）。
+  - name: "05-invest-summary-regex"
+    conditions:
+      - field: "item"
+        regex: "(理财|基金|证券|定投)"
+    action:
+      debit_account: "Assets:Investments"
+      metadata:
+        scene: "investment"
+    priority: 50
+
+  # 规则06：渠道前缀识别手机银行。
+  - name: "06-method-starts-with-mobile"
+    conditions:
+      - field: "method"
+        starts_with: "手机"
+    action:
+      metadata:
+        channel: "mobile_banking"
+    priority: 60
+
+  # 规则07：测试流水号后缀标记。
+  - name: "07-orderid-suffix-test"
+    conditions:
+      - field: "orderId"
+        ends_with: "-TEST"
+    action:
+      tags: ["sandbox"]
+    priority: 70
+
+  # 规则08：收入或转入走收入分录。
+  - name: "08-income-or-transfer-in"
+    match_mode: or
+    conditions:
+      - field: "type"
+        equals: "收入"
+      - field: "type"
+        equals: "转入"
+    action:
+      debit_account: "Assets:Bank:ICBC:Checking"
+      credit_account: "Income:Misc"
+    priority: 80
+
+  # 规则09：未知方向时标记回退路径。
+  - name: "09-unknown-direction-fallback"
+    conditions:
+      - field: "type"
+        equals: "未知方向"
+    action:
+      metadata:
+        direction_resolution: "fallback_by_amount_sign"
+    priority: 90
+
+  # 规则10：兜底支出规则。
+  - name: "10-expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Bank:ICBC:Checking"
+    priority: 100

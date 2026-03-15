@@ -1,0 +1,74 @@
+﻿name: "京东（基础示例）"
+mapping_file: "src/mapping/jd.yml"
+
+default_asset_account: "Assets:Wallet:JD:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 基础规则1：关闭/退款状态忽略。
+  - name: "ignore-close-refund"
+    conditions:
+      - field: "status"
+        in: ["交易关闭", "退款成功"]
+    action:
+      ignore: true
+    priority: 10
+    terminal: true
+
+  # 基础规则2：电脑办公类支出。
+  - name: "expense-office"
+    conditions:
+      - field: "type"
+        equals: "支出"
+      - field: "category"
+        equals: "电脑办公"
+    action:
+      debit_account: "Expenses:Equipment"
+      credit_account: "Assets:Wallet:JD:Balance"
+    priority: 20
+
+  # 基础规则3：数码电器类支出。
+  - name: "expense-digital"
+    conditions:
+      - field: "type"
+        equals: "支出"
+      - field: "category"
+        equals: "数码电器"
+    action:
+      debit_account: "Expenses:Digital"
+      credit_account: "Assets:Wallet:JD:Balance"
+    priority: 30
+
+  # 基础规则4：收入统一归收入账户。
+  - name: "income-default"
+    conditions:
+      - field: "type"
+        equals: "收入"
+    action:
+      debit_account: "Assets:Wallet:JD:Balance"
+      credit_account: "Income:Misc"
+    priority: 40
+
+  # 基础规则5：其余支出兜底。
+  - name: "expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Wallet:JD:Balance"
+    priority: 50

@@ -14,7 +14,7 @@ use super::{
 };
 
 impl CsvRecordReader {
-    /// 读取 CSV 并转换为统一表格结构。
+    /// Read CSV file and normalize to `TabularData`.
     pub(super) fn read_csv_table(&self, path: &Path) -> ImporterResult<TabularData> {
         info!("Opening file: {}", path.display());
         let file = File::open(path)?;
@@ -89,7 +89,7 @@ impl CsvRecordReader {
                     pre_parse_errors += 1;
                     warn!("Line {}: CSV parse error - {}", actual_line, error);
 
-                    if !self.csv_options.flexible {
+                    if self.strict_mode || !self.csv_options.flexible {
                         return Err(ImporterError::Parse {
                             line: actual_line,
                             message: error.to_string(),

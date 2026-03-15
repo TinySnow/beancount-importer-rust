@@ -1,11 +1,5 @@
-//! 【模块文档】
-//!
-//! 模块名称：源码模块
-//! 文件路径：
-//! 核心职责：承担当前文件对应的功能实现
-//! 主要输入：上游模块传入的数据
-//! 主要输出：下游模块消费的数据或行为
-//! 维护说明：变更前应确认其在导入链路中的位置与影响
+//! 运行时主流程与配置装配。
+
 mod config_loader;
 
 use std::{
@@ -13,7 +7,7 @@ use std::{
     io::{self, Write},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use log::{debug, info, warn};
 
 use crate::{
@@ -49,7 +43,7 @@ pub fn run(cli: Cli) -> Result<()> {
     );
 
     let raw_records = provider
-        .parse(&cli.source, &loaded.mapping, &loaded.provider)
+        .parse(&cli.source, &loaded.mapping, &loaded.provider, cli.strict)
         .with_context(|| format!("Failed to parse source file: {}", cli.source.display()))?;
 
     info!("Parsed {} records", raw_records.len());
@@ -60,7 +54,8 @@ pub fn run(cli: Cli) -> Result<()> {
         raw_records,
         &rule_engine,
         &loaded.provider,
-    );
+        cli.strict,
+    )?;
 
     let writer = BeancountWriter::new(loaded.provider.output.clone());
     let mut output: Box<dyn Write> = match cli.output {
@@ -88,41 +83,46 @@ fn transform_records(
     raw_records: Vec<crate::model::data::raw_record::RawRecord>,
     rule_engine: &RuleEngine,
     provider_config: &crate::model::config::provider::ProviderConfig,
-) -> Vec<Transaction> {
+    strict_mode: bool,
+) -> Result<Vec<Transaction>> {
     let mut success_count = 0usize;
     let mut ignored_count = 0usize;
     let mut error_count = 0usize;
+    let mut transactions = Vec::new();
 
-    let mut transactions: Vec<_> = raw_records
-        .into_iter()
-        .enumerate()
-        .filter_map(|(index, raw_record)| {
-            match provider.transform(raw_record, rule_engine, provider_config) {
-                Ok(Some(transaction)) => {
-                    success_count += 1;
-                    debug!(
-                        "Record {} transformed: {} {}",
-                        index + 1,
-                        transaction.date,
-                        transaction.narration
-                    );
-                    Some(transaction)
-                }
-                Ok(None) => {
-                    ignored_count += 1;
-                    debug!("Record {} ignored by rule", index + 1);
-                    None
-                }
-                Err(error) => {
-                    error_count += 1;
-                    warn!("Record {} skipped with error: {}", index + 1, error);
-                    None
-                }
+    for (index, raw_record) in raw_records.into_iter().enumerate() {
+        match provider.transform(raw_record, rule_engine, provider_config) {
+            Ok(Some(transaction)) => {
+                success_count += 1;
+                debug!(
+                    "Record {} transformed: {} {}",
+                    index + 1,
+                    transaction.date,
+                    transaction.narration
+                );
+                transactions.push(transaction);
             }
-        })
-        .collect();
+            Ok(None) => {
+                ignored_count += 1;
+                debug!("Record {} ignored by rule", index + 1);
+            }
+            Err(error) => {
+                error_count += 1;
 
-    // 保持输出稳定，便于审阅与比对。
+                if strict_mode {
+                    return Err(anyhow!(
+                        "Record {} transformation failed in strict mode: {}",
+                        index + 1,
+                        error
+                    ));
+                }
+
+                warn!("Record {} skipped with error: {}", index + 1, error);
+            }
+        }
+    }
+
+    // 保持输出稳定，便于审阅与对比。
     transactions.sort_by_key(|tx| tx.date);
 
     info!(
@@ -130,5 +130,79 @@ fn transform_records(
         success_count, ignored_count, error_count
     );
 
-    transactions
+    Ok(transactions)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        error::{ImporterError, ImporterResult},
+        interface::provider::Provider,
+        model::{
+            config::{global::GlobalConfig, provider::ProviderConfig},
+            data::raw_record::RawRecord,
+            mapping::field_mapping::FieldMapping,
+            rule::{Rule, rule_engine::RuleEngine},
+            transaction::Transaction,
+        },
+    };
+
+    use super::transform_records;
+
+    struct AlwaysFailProvider;
+
+    impl Provider for AlwaysFailProvider {
+        fn name(&self) -> &'static str {
+            "always-fail"
+        }
+
+        fn parse(
+            &self,
+            _path: &std::path::Path,
+            _mapping: &FieldMapping,
+            _config: &ProviderConfig,
+            _strict_mode: bool,
+        ) -> ImporterResult<Vec<RawRecord>> {
+            Ok(vec![])
+        }
+
+        fn transform(
+            &self,
+            _record: RawRecord,
+            _rule_engine: &RuleEngine,
+            _config: &ProviderConfig,
+        ) -> ImporterResult<Option<Transaction>> {
+            Err(ImporterError::Conversion("mock failure".to_string()))
+        }
+    }
+
+    fn build_rule_engine() -> RuleEngine<'static> {
+        let provider_rules: &'static [Rule] = Box::leak(Vec::<Rule>::new().into_boxed_slice());
+        let global: &'static GlobalConfig = Box::leak(Box::new(GlobalConfig::default()));
+        RuleEngine::new(provider_rules, global)
+    }
+
+    #[test]
+    fn strict_mode_returns_error_on_transform_failure() {
+        let provider = AlwaysFailProvider;
+        let records = vec![RawRecord::new()];
+        let rule_engine = build_rule_engine();
+        let provider_config = ProviderConfig::default();
+
+        let result = transform_records(&provider, records, &rule_engine, &provider_config, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn non_strict_mode_skips_transform_failure() {
+        let provider = AlwaysFailProvider;
+        let records = vec![RawRecord::new()];
+        let rule_engine = build_rule_engine();
+        let provider_config = ProviderConfig::default();
+
+        let result = transform_records(&provider, records, &rule_engine, &provider_config, false)
+            .expect("non-strict mode should not fail");
+
+        assert!(result.is_empty());
+    }
 }

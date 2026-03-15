@@ -1,0 +1,128 @@
+﻿name: "美团（高级示例）"
+mapping_file: "src/mapping/mt.yml"
+
+default_asset_account: "Assets:Wallet:Meituan:Balance"
+default_expense_account: "Expenses:Unknown"
+default_income_account: "Income:Unknown"
+default_currency: "CNY"
+
+csv_options:
+  delimiter: ","
+  flexible: true
+  encoding: "auto"
+
+skip_header_lines: 0
+has_csv_header: true
+
+output:
+  date_format: "%Y-%m-%d"
+  decimal_places: 2
+
+rules:
+  # 规则01：关闭/退款状态忽略。
+  - name: "01-ignore-close-refund"
+    conditions:
+      - field: "status"
+        in:
+          - "交易关闭"
+          - "退款成功"
+    action:
+      ignore: true
+      metadata:
+        reason: "status_filtered"
+    priority: 10
+    terminal: true
+
+  # 规则02：状态缺失打审阅标记。
+  - name: "02-missing-status"
+    conditions:
+      - field: "status"
+        is_empty:
+    action:
+      tags: ["needs_review"]
+    priority: 20
+
+  # 规则03：大额流水风险标记。
+  - name: "03-high-amount"
+    conditions:
+      - field: "amount"
+        greater_than: 300
+      - field: "orderId"
+        not_empty:
+    action:
+      tags: ["risk_high_amount"]
+      flag: "!"
+    priority: 30
+
+  # 规则04：金额区间标记。
+  - name: "04-mid-amount"
+    conditions:
+      - field: "amount"
+        between:
+          min: 30
+          max: 150
+    action:
+      metadata:
+        amount_bucket: "30_150"
+    priority: 40
+
+  # 规则05：餐饮类目优先路由。
+  - name: "05-food-category"
+    conditions:
+      - field: "category"
+        equals: "餐饮美食"
+    action:
+      debit_account: "Expenses:Food"
+    priority: 50
+
+  # 规则06：商品关键词匹配交通。
+  - name: "06-transport-item-regex"
+    conditions:
+      - field: "item"
+        regex: "(骑行|打车|出行|地铁|公交)"
+    action:
+      debit_account: "Expenses:Transport"
+    priority: 60
+
+  # 规则07：微信支付前缀识别资金来源。
+  - name: "07-method-starts-with-wechat"
+    conditions:
+      - field: "method"
+        starts_with: "微信"
+    action:
+      credit_account: "Assets:Wallet:WeChat:Balance"
+      metadata:
+        funding_source: "wechat"
+    priority: 70
+
+  # 规则08：测试订单后缀标记。
+  - name: "08-order-suffix-test"
+    conditions:
+      - field: "orderId"
+        ends_with: "-TEST"
+    action:
+      tags: ["sandbox"]
+    priority: 80
+
+  # 规则09：收入或转入统一收入分录。
+  - name: "09-income-or-transfer-in"
+    match_mode: or
+    conditions:
+      - field: "type"
+        equals: "收入"
+      - field: "type"
+        equals: "转入"
+    action:
+      debit_account: "Assets:Wallet:Meituan:Balance"
+      credit_account: "Income:Misc"
+    priority: 90
+
+  # 规则10：兜底支出。
+  - name: "10-expense-fallback"
+    conditions:
+      - field: "type"
+        contains: "支出"
+    action:
+      debit_account: "Expenses:Unknown"
+      credit_account: "Assets:Wallet:Meituan:Balance"
+    priority: 100
