@@ -1,11 +1,11 @@
-//! 【模块文档】
+﻿//! 銆愭ā鍧楁枃妗ｃ€?
 //!
-//! 模块名称：源码模块
-//! 文件路径：
-//! 核心职责：承担当前文件对应的功能实现
-//! 主要输入：上游模块传入的数据
-//! 主要输出：下游模块消费的数据或行为
-//! 维护说明：变更前应确认其在导入链路中的位置与影响
+//! 妯″潡鍚嶇О锛氭簮鐮佹ā鍧?
+//! 鏂囦欢璺緞锛?
+//! 鏍稿績鑱岃矗锛氭壙鎷呭綋鍓嶆枃浠跺搴旂殑鍔熻兘瀹炵幇
+//! 涓昏杈撳叆锛氫笂娓告ā鍧椾紶鍏ョ殑鏁版嵁
+//! 涓昏杈撳嚭锛氫笅娓告ā鍧楁秷璐圭殑鏁版嵁鎴栬涓?
+//! 缁存姢璇存槑锛氬彉鏇村墠搴旂‘璁ゅ叾鍦ㄥ鍏ラ摼璺腑鐨勪綅缃笌褰卞搷
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     io::Write,
@@ -28,32 +28,32 @@ struct OpenAccountInfo {
     has_non_fiat: bool,
 }
 
-/// Beancount 格式写出器。
+/// Beancount 鏍煎紡鍐欏嚭鍣ㄣ€?
 pub struct BeancountWriter {
     config: OutputConfig,
 }
 
 impl BeancountWriter {
-    /// 创建写出器。
+    /// 鍒涘缓鍐欏嚭鍣ㄣ€?
     pub fn new(config: OutputConfig) -> Self {
         Self { config }
     }
 
-    /// 将交易写出为 Beancount 格式。
+    /// 灏嗕氦鏄撳啓鍑轰负 Beancount 鏍煎紡銆?
     pub fn write(
         &self,
         transactions: &[Transaction],
         writer: &mut dyn Write,
     ) -> std::io::Result<()> {
-        // 可选写入 `open` 指令，确保独立 Beancount 文件可直接校验。
+        // 鍙€夊啓鍏?`open` 鎸囦护锛岀‘淇濈嫭绔?Beancount 鏂囦欢鍙洿鎺ユ牎楠屻€?
         if self.config.emit_open_directives {
             self.write_open_directives(transactions, writer)?;
         }
 
-        // 在交易前先声明 `commodity`，避免未声明商品导致解析告警。
+        // 鍦ㄤ氦鏄撳墠鍏堝０鏄?`commodity`锛岄伩鍏嶆湭澹版槑鍟嗗搧瀵艰嚧瑙ｆ瀽鍛婅銆?
         self.write_commodity_directives(transactions, writer)?;
 
-        // 最后按顺序写出每笔交易。
+        // 鏈€鍚庢寜椤哄簭鍐欏嚭姣忕瑪浜ゆ槗銆?
         for (index, tx) in transactions.iter().enumerate() {
             if index > 0 {
                 writeln!(writer)?;
@@ -64,10 +64,10 @@ impl BeancountWriter {
         Ok(())
     }
 
-    /// 写出 `open` 指令。
+    /// 鍐欏嚭 `open` 鎸囦护銆?
     ///
-    /// 若账户仅出现法币金额，则追加可用币种列表；
-    /// 若含证券/商品持仓，则仅写账户名。
+    /// 鑻ヨ处鎴蜂粎鍑虹幇娉曞竵閲戦锛屽垯杩藉姞鍙敤甯佺鍒楄〃锛?
+    /// 鑻ュ惈璇佸埜/鍟嗗搧鎸佷粨锛屽垯浠呭啓璐︽埛鍚嶃€?
     fn write_open_directives(
         &self,
         transactions: &[Transaction],
@@ -120,9 +120,9 @@ impl BeancountWriter {
         Ok(())
     }
 
-    /// 解析 `open` 指令日期。
+    /// 瑙ｆ瀽 `open` 鎸囦护鏃ユ湡銆?
     ///
-    /// 优先使用配置项 `open_date`，否则取最早交易日期。
+    /// 浼樺厛浣跨敤閰嶇疆椤?`open_date`锛屽惁鍒欏彇鏈€鏃╀氦鏄撴棩鏈熴€?
     fn resolve_open_date(&self, transactions: &[Transaction]) -> Option<NaiveDate> {
         if let Some(raw) = self.config.open_date.as_deref() {
             if let Ok(date) = NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d") {
@@ -133,7 +133,7 @@ impl BeancountWriter {
         transactions.iter().map(|tx| tx.date).min()
     }
 
-    /// 扫描交易，收集需要 `open` 的账户及其币种信息。
+    /// 鎵弿浜ゆ槗锛屾敹闆嗛渶瑕?`open` 鐨勮处鎴峰強鍏跺竵绉嶄俊鎭€?
     fn collect_open_accounts(
         &self,
         transactions: &[Transaction],
@@ -158,7 +158,7 @@ impl BeancountWriter {
         accounts
     }
 
-    /// 写出 `commodity` 指令。
+    /// 鍐欏嚭 `commodity` 鎸囦护銆?
     fn write_commodity_directives(
         &self,
         transactions: &[Transaction],
@@ -174,7 +174,7 @@ impl BeancountWriter {
         }
 
         for symbol in symbols {
-            // 使用小写 `commodity` 指令，并携带日期，满足 Beancount 语法要求。
+            // Use lowercase `commodity` directive and include date for valid syntax.
             writeln!(
                 writer,
                 "{} commodity {}",
@@ -202,7 +202,7 @@ impl BeancountWriter {
         }
     }
 
-    /// 从过账中收集非法币商品代码。
+    /// 浠庤繃璐︿腑鏀堕泦闈炴硶甯佸晢鍝佷唬鐮併€?
     fn collect_commodity_symbols(&self, transactions: &[Transaction]) -> BTreeSet<String> {
         let mut symbols = BTreeSet::new();
 
@@ -227,7 +227,7 @@ impl BeancountWriter {
         )
     }
 
-    /// 写出一笔交易。
+    /// 鍐欏嚭涓€绗斾氦鏄撱€?
     fn write_transaction(&self, tx: &Transaction, writer: &mut dyn Write) -> std::io::Result<()> {
         trace!("Writing transaction: {:?}", tx);
 
@@ -264,7 +264,7 @@ impl BeancountWriter {
         Ok(())
     }
 
-    /// 写出一条过账。
+    /// 鍐欏嚭涓€鏉¤繃璐︺€?
     fn write_posting(&self, posting: &Posting, writer: &mut dyn Write) -> std::io::Result<()> {
         let account = self.render_account(&posting.account);
 
@@ -298,7 +298,7 @@ impl BeancountWriter {
         Ok(())
     }
 
-    /// 按输出配置渲染账户名（可自动补前缀）。
+    /// 鎸夎緭鍑洪厤缃覆鏌撹处鎴峰悕锛堝彲鑷姩琛ュ墠缂€锛夈€?
     fn render_account(&self, account: &str) -> String {
         if let Some(prefix) = &self.config.account_prefix {
             if account.starts_with(prefix) {
@@ -311,7 +311,7 @@ impl BeancountWriter {
         }
     }
 
-    /// 按键排序输出元数据，保证结果稳定。
+    /// 鎸夐敭鎺掑簭杈撳嚭鍏冩暟鎹紝淇濊瘉缁撴灉绋冲畾銆?
     fn write_sorted_metadata(
         &self,
         metadata: &HashMap<String, MetaValue>,
@@ -329,7 +329,7 @@ impl BeancountWriter {
         Ok(())
     }
 
-    /// 按配置精度格式化十进制数值。
+    /// 鎸夐厤缃簿搴︽牸寮忓寲鍗佽繘鍒舵暟鍊笺€?
     fn format_decimal(&self, value: rust_decimal::Decimal) -> String {
         format!(
             "{:.prec$}",
@@ -338,7 +338,7 @@ impl BeancountWriter {
         )
     }
 
-    /// 规范化日期格式字符串，去掉外层引号。
+    /// 瑙勮寖鍖栨棩鏈熸牸寮忓瓧绗︿覆锛屽幓鎺夊灞傚紩鍙枫€?
     fn sanitize_date_format(raw: &str) -> &str {
         let trimmed = raw.trim();
         if trimmed.len() >= 2 {
@@ -350,7 +350,7 @@ impl BeancountWriter {
         }
         trimmed
     }
-    /// 渲染交易头行的 tags/links。
+    /// Renders tags and links appended to the transaction header line.
     fn render_tags_links(tx: &Transaction) -> String {
         let mut parts = Vec::new();
 
@@ -374,7 +374,7 @@ impl BeancountWriter {
             format!(" {}", parts.join(" "))
         }
     }
-    /// 转义字符串中的反斜杠和双引号，避免 Beancount 语法错误。
+    /// 杞箟瀛楃涓蹭腑鐨勫弽鏂滄潬鍜屽弻寮曞彿锛岄伩鍏?Beancount 璇硶閿欒銆?
     fn escape_string(&self, raw: &str) -> String {
         raw.replace('\\', "\\\\").replace('"', "\\\"")
     }
@@ -450,7 +450,7 @@ mod tests {
         )
         .with_posting(
             Posting::new("Assets:Broker:Securities")
-                .with_amount(Amount::new(dec!(-10), "FUND_123456"))
+                .with_amount(Amount::new(dec!(-10), "SEC_123456"))
                 .with_inferred_cost()
                 .with_price(Price::new(dec!(1.23), "CNY")),
         )
@@ -469,7 +469,7 @@ mod tests {
         }
 
         let result = String::from_utf8(output).expect("utf8 output");
-        assert!(result.contains("-10.00 FUND_123456 {} @ 1.23 CNY"));
+        assert!(result.contains("-10.00 SEC_123456 {} @ 1.23 CNY"));
     }
 
     #[test]
@@ -480,7 +480,7 @@ mod tests {
         )
         .with_posting(
             Posting::new("Assets:Broker:Securities")
-                .with_amount(Amount::new(dec!(10), "FUND_123456"))
+                .with_amount(Amount::new(dec!(10), "SEC_123456"))
                 .with_cost(Cost::new(dec!(1.23), "CNY")),
         )
         .with_posting(
@@ -519,7 +519,7 @@ mod tests {
         )
         .with_posting(
             Posting::new("Assets:Broker:Securities")
-                .with_amount(Amount::new(dec!(10), "FUND_123456"))
+                .with_amount(Amount::new(dec!(10), "SEC_123456"))
                 .with_cost(Cost::new(dec!(1.23), "CNY")),
         )
         .with_posting(
@@ -555,7 +555,7 @@ mod tests {
         )
         .with_posting(
             Posting::new("Assets:Broker:Securities")
-                .with_amount(Amount::new(dec!(10), "FUND_123456"))
+                .with_amount(Amount::new(dec!(10), "SEC_123456"))
                 .with_cost(Cost::new(dec!(1.23), "CNY")),
         )
         .with_posting(
@@ -572,7 +572,7 @@ mod tests {
         }
 
         let result = String::from_utf8(output).expect("utf8 output");
-        assert!(result.contains("2024-05-01 commodity FUND_123456"));
+        assert!(result.contains("2024-05-01 commodity SEC_123456"));
         assert!(!result.contains("COMMODITY"));
     }
 
