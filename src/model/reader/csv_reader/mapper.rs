@@ -56,7 +56,7 @@ impl CsvRecordReader {
                 .headers
                 .iter()
                 .zip(row.cells.iter())
-                .map(|(header, value)| (header.clone(), value.trim().to_string()))
+                .map(|(header, value)| (header.clone(), normalize_cell_value(value)))
                 .collect::<HashMap<_, _>>();
 
             match self.map_to_raw_record(&field_map, mapping) {
@@ -279,8 +279,31 @@ impl CsvRecordReader {
     }
 }
 
+fn normalize_cell_value(value: &str) -> String {
+    let trimmed = value.trim();
+    strip_excel_quoted_literal(trimmed).unwrap_or_else(|| trimmed.to_string())
+}
+
+fn strip_excel_quoted_literal(value: &str) -> Option<String> {
+    // Excel exports text-looking numbers as: ="0.00" / ="240599141221"
+    // Keep behavior conservative: only unwrap `=` + quoted literal.
+    if !value.starts_with('=') {
+        return None;
+    }
+
+    let expression = value[1..].trim();
+    if expression.len() < 2 || !expression.starts_with('"') || !expression.ends_with('"') {
+        return None;
+    }
+
+    let inner = &expression[1..expression.len() - 1];
+    Some(inner.replace("\"\"", "\""))
+}
+
 #[cfg(test)]
 mod tests {
+    use rust_decimal::Decimal;
+
     use crate::model::{
         config::csv_options::CsvOptions,
         mapping::{
@@ -293,6 +316,7 @@ mod tests {
         CsvRecordReader,
         table::{RowData, TabularData},
     };
+    use super::normalize_cell_value;
 
     #[test]
     fn strict_mode_fails_on_field_count_mismatch() {
@@ -366,5 +390,47 @@ mod tests {
             .map_table_to_records(table, Some(&mapping))
             .expect("non-strict mode should keep going");
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn normalizes_excel_equals_quoted_literals() {
+        assert_eq!(normalize_cell_value("=\"0\""), "0");
+        assert_eq!(normalize_cell_value("=\"0.00\""), "0.00");
+        assert_eq!(normalize_cell_value("=\"240599141221\""), "240599141221");
+        assert_eq!(normalize_cell_value("  =\"abc\"  "), "abc");
+        assert_eq!(normalize_cell_value("=SUM(A1:A3)"), "=SUM(A1:A3)");
+    }
+
+    #[test]
+    fn maps_amount_and_extra_fields_after_excel_literal_normalization() {
+        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
+
+        let mut mapping = FieldMapping {
+            amount: Some(FieldSpec::Simple("amount".to_string())),
+            ..FieldMapping::default()
+        };
+        mapping
+            .extra_fields
+            .insert("productAccount".to_string(), "product".to_string());
+
+        let table = TabularData {
+            source_name: "CSV",
+            headers: vec!["amount".to_string(), "product".to_string()],
+            rows: vec![RowData {
+                line_no: 2,
+                cells: vec!["=\"0.00\"".to_string(), "=\"240599141221\"".to_string()],
+            }],
+            pre_parse_errors: 0,
+        };
+
+        let records = reader
+            .map_table_to_records(table, Some(&mapping))
+            .expect("mapping should succeed");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].amount, Some(Decimal::new(0, 2)));
+        assert_eq!(
+            records[0].extra.get("productAccount").map(String::as_str),
+            Some("240599141221")
+        );
     }
 }

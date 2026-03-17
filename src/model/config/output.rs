@@ -30,6 +30,13 @@ pub struct OutputConfig {
     /// 可选 `open` 日期，格式为 `%Y-%m-%d`。
     /// 若未配置且启用 `emit_open_directives`，则使用最早交易日期。
     pub open_date: Option<String>,
+
+    /// 可选库存账户 lot 匹配方法（用于 `open` 指令）。
+    ///
+    /// 示例值：`STRICT`、`FIFO`、`LIFO`、`AVERAGE`、`NONE`。
+    /// 若配置，writer 会为含非货币持仓的账户输出：
+    /// `YYYY-MM-DD open <Account> "<BookingMethod>"`。
+    pub booking_method: Option<String>,
 }
 
 fn default_date_format() -> String {
@@ -48,6 +55,7 @@ impl Default for OutputConfig {
             account_prefix: None,
             emit_open_directives: false,
             open_date: None,
+            booking_method: None,
         }
     }
 }
@@ -71,6 +79,9 @@ impl OutputConfig {
         }
         if self.open_date.is_none() {
             self.open_date = other.open_date.clone();
+        }
+        if self.booking_method.is_none() {
+            self.booking_method = other.booking_method.clone();
         }
 
         trace!("Merged output config: {:?}", self);

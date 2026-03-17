@@ -82,8 +82,22 @@ impl BeancountWriter {
             return Ok(());
         }
 
+        let booking_method = self.normalized_booking_method();
+
         for (account, info) in accounts {
-            if info.has_non_fiat || info.fiat_currencies.is_empty() {
+            if info.has_non_fiat {
+                if let Some(method) = booking_method.as_deref() {
+                    writeln!(
+                        writer,
+                        "{} open {} \"{}\"",
+                        open_date.format("%Y-%m-%d"),
+                        account,
+                        method
+                    )?;
+                } else {
+                    writeln!(writer, "{} open {}", open_date.format("%Y-%m-%d"), account)?;
+                }
+            } else if info.fiat_currencies.is_empty() {
                 writeln!(writer, "{} open {}", open_date.format("%Y-%m-%d"), account)?;
             } else {
                 let currencies = info
@@ -151,17 +165,41 @@ impl BeancountWriter {
         writer: &mut dyn Write,
     ) -> std::io::Result<()> {
         let symbols = self.collect_commodity_symbols(transactions);
+        let Some(commodity_date) = self.resolve_open_date(transactions) else {
+            return Ok(());
+        };
 
         if symbols.is_empty() {
             return Ok(());
         }
 
         for symbol in symbols {
-            writeln!(writer, "commodity {}", symbol)?;
+            // 使用小写 `commodity` 指令，并携带日期，满足 Beancount 语法要求。
+            writeln!(
+                writer,
+                "{} commodity {}",
+                commodity_date.format("%Y-%m-%d"),
+                symbol
+            )?;
         }
         writeln!(writer)?;
 
         Ok(())
+    }
+
+    fn normalized_booking_method(&self) -> Option<String> {
+        let raw = self.config.booking_method.as_deref()?.trim();
+        if raw.is_empty() {
+            return None;
+        }
+
+        let normalized = raw.to_ascii_uppercase();
+        let supported = ["STRICT", "FIFO", "LIFO", "AVERAGE", "NONE"];
+        if supported.contains(&normalized.as_str()) {
+            Some(normalized)
+        } else {
+            None
+        }
     }
 
     /// 从过账中收集非法币商品代码。
@@ -472,6 +510,72 @@ mod tests {
         assert!(result.contains("2024-01-01 open Assets:Broker:Securities"));
         assert!(result.contains("2024-01-01 open Expenses:Investing:Fees CNY"));
     }
+
+    #[test]
+    fn test_open_directives_include_booking_method_for_non_fiat_accounts() {
+        let tx = Transaction::new(
+            NaiveDate::from_ymd_opt(2024, 5, 1).expect("valid date"),
+            "Buy fund",
+        )
+        .with_posting(
+            Posting::new("Assets:Broker:Securities")
+                .with_amount(Amount::new(dec!(10), "FUND_123456"))
+                .with_cost(Cost::new(dec!(1.23), "CNY")),
+        )
+        .with_posting(
+            Posting::new("Assets:Broker:Cash").with_amount(Amount::new(dec!(-12.30), "CNY")),
+        );
+
+        let config = OutputConfig {
+            emit_open_directives: true,
+            open_date: Some("2024-01-01".to_string()),
+            booking_method: Some("fifo".to_string()),
+            ..OutputConfig::default()
+        };
+        let writer = BeancountWriter::new(config);
+
+        let mut output = Vec::new();
+        {
+            let mut cursor = std::io::Cursor::new(&mut output);
+            writer
+                .write(&[tx], &mut cursor)
+                .expect("writer should succeed");
+        }
+
+        let result = String::from_utf8(output).expect("utf8 output");
+        assert!(result.contains("2024-01-01 open Assets:Broker:Securities \"FIFO\""));
+        assert!(result.contains("2024-01-01 open Assets:Broker:Cash CNY"));
+    }
+
+    #[test]
+    fn test_commodity_directive_uses_date_and_lowercase_keyword() {
+        let tx = Transaction::new(
+            NaiveDate::from_ymd_opt(2024, 5, 1).expect("valid date"),
+            "Buy fund",
+        )
+        .with_posting(
+            Posting::new("Assets:Broker:Securities")
+                .with_amount(Amount::new(dec!(10), "FUND_123456"))
+                .with_cost(Cost::new(dec!(1.23), "CNY")),
+        )
+        .with_posting(
+            Posting::new("Assets:Broker:Cash").with_amount(Amount::new(dec!(-12.30), "CNY")),
+        );
+
+        let writer = BeancountWriter::new(OutputConfig::default());
+        let mut output = Vec::new();
+        {
+            let mut cursor = std::io::Cursor::new(&mut output);
+            writer
+                .write(&[tx], &mut cursor)
+                .expect("writer should succeed");
+        }
+
+        let result = String::from_utf8(output).expect("utf8 output");
+        assert!(result.contains("2024-05-01 commodity FUND_123456"));
+        assert!(!result.contains("COMMODITY"));
+    }
+
     #[test]
     fn test_tags_and_links_are_emitted_on_header_line() {
         let tx = Transaction::new(

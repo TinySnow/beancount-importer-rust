@@ -19,9 +19,8 @@ use super::{
     logic::{derive_cash_account, infer_transfer_in},
 };
 
-/// 构建银证转账类交易。
-///
-/// 适用场景：账单记录中不存在证券代码，仅表示资金在银行与券商现金账户之间划转。
+/// Builds a cash transfer transaction for broker <-> bank movements.
+/// Account direction can be overridden by rule action (`debit_account`/`credit_account`).
 pub(super) fn build_cash_transfer_transaction(
     options: SecurityTransformOptions,
     match_result: &MatchResult,
@@ -41,9 +40,15 @@ pub(super) fn build_cash_transfer_transaction(
         ImporterError::Conversion("Missing transfer amount for cash transfer".to_string())
     })?;
     let transfer_in = infer_transfer_in(transaction_type.as_deref(), transfer_amount);
-
-    // 券商现金账户优先从 default_asset_account 推导，避免配置重复。
-    let broker_cash_account = derive_cash_account(config.default_asset_account.as_deref());
+    // Resolve broker cash account from explicit config or derive from asset account.
+    let broker_cash_account = config
+        .default_cash_account
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| derive_cash_account(config.default_asset_account.as_deref()));
+    // Use rule-provided debit/credit accounts first, then provider defaults.
     let (debit_account, credit_account) = if transfer_in {
         (
             match_result
@@ -80,6 +85,7 @@ pub(super) fn build_cash_transfer_transaction(
             .unwrap_or(fallback_narration),
     );
 
+    // Keep posting signs canonical: debit positive, credit negative.
     tx = tx.with_posting(Posting::new(debit_account).with_amount(Amount::new(
         transfer_amount.abs(),
         cash_currency.to_string(),
@@ -88,8 +94,6 @@ pub(super) fn build_cash_transfer_transaction(
         -transfer_amount.abs(),
         cash_currency.to_string(),
     )));
-
-    // 供应商原始费税信息保留在 metadata，便于审计追溯。
     if let Some(fee) = fee {
         tx = tx.with_meta("fee", MetaValue::Number(fee));
     }
@@ -108,4 +112,52 @@ pub(super) fn build_cash_transfer_transaction(
     );
 
     Ok(tx)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use chrono::NaiveDate;
+    use rust_decimal_macros::dec;
+
+    use super::build_cash_transfer_transaction;
+    use crate::{
+        model::{config::provider::ProviderConfig, rule::match_result::MatchResult},
+        providers::shared::SecurityTransformOptions,
+    };
+
+    #[test]
+    fn uses_explicit_default_cash_account_for_cash_transfer() {
+        let options = SecurityTransformOptions {
+            provider_name: "yinhe",
+            default_payee: "Galaxy",
+        };
+        let mut config = ProviderConfig::default();
+        config.default_asset_account = Some("Assets:Broker:Galaxy:Securities".to_string());
+        config.default_cash_account = Some("Assets:Invest:Broker:Galaxy:Cash".to_string());
+
+        let tx = build_cash_transfer_transaction(
+            options,
+            &MatchResult::default(),
+            &config,
+            NaiveDate::from_ymd_opt(2026, 3, 1).expect("valid date"),
+            Some(dec!(1000)),
+            "CNY",
+            None,
+            None,
+            Some("in".to_string()),
+            None,
+            None,
+            None,
+            HashMap::new(),
+        )
+        .expect("cash transfer should build");
+
+        let has_custom_cash_account = tx
+            .postings
+            .iter()
+            .any(|posting| posting.account == "Assets:Invest:Broker:Galaxy:Cash");
+        assert!(has_custom_cash_account);
+    }
 }

@@ -15,7 +15,7 @@
 - 规则引擎支持 `equals/contains/regex/in/not_empty/is_empty/数值比较`。
 - 规则执行顺序稳定：`priority -> specificity -> 文件顺序`，后命中覆盖先命中。
 - 支持 `terminal`（命中后停止后续规则）和 `ignore`（忽略该条交易）。
-- 证券场景支持：普通买卖、逆回购、银证转账、`fee/pnl/rounding` 账户覆盖。
+- 证券场景支持：普通买卖、逆回购、银证转账、`default_cash_account` 覆盖，以及 `fee/pnl/rounding/repo_interest` 分层回退。
 - Writer 支持自动输出 `commodity`，可选自动输出 `open` 指令。
 - metadata key 自动归一化为 Beancount 合法键。
 
@@ -48,6 +48,31 @@ cargo run -- \
   --output tmp/output/out-yinhe.beancount \
   --log-level info
 ```
+
+### 3.4 证券账户最小配置（推荐）
+
+```yaml
+default_asset_account: "Assets:Broker:Galaxy:Securities"
+default_cash_account: "Assets:Broker:Galaxy:Cash"
+default_expense_account: "Expenses:Investing:Fees"
+default_income_account: "Income:Investing:Capital-Gains"
+
+# 可选：仅在需要细分时再加
+# default_fee_account: "Expenses:Broker:Galaxy:Fee"
+# default_pnl_account: "Income:Broker:Galaxy:PnL"
+# default_rounding_account: "Expenses:Broker:Galaxy:Rounding"
+# default_repo_interest_account: "Income:Broker:Galaxy:RepoInterest"
+# inventory_seed_files:
+#   - "C:/Users/<you>/Desktop/Beancount/transactions/2025/12/galaxy.bean"
+
+output:
+  emit_open_directives: true
+  booking_method: "FIFO"  # 建议：跨账期导入时可避免 `{}` lot 二义性
+```
+
+说明：
+- `default_fee_account/default_pnl_account/default_rounding_account` 不是必填；不配置时会自动回退。
+- `inventory_seed_files` 可选；用于跨账期导入时预加载历史 lot，减少早期卖出（本期无买入）的二义性。
 
 ## 4. CLI 参数
 
@@ -128,3 +153,5 @@ cargo test --quiet
 ## 10. License
 
 MIT
+
+

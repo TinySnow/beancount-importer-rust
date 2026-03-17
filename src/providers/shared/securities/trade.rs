@@ -21,7 +21,6 @@ use super::{
     trade_spot::{SpotPostingInput, apply_spot_postings},
 };
 
-/// 构建证券买卖/逆回购交易。
 pub(super) fn build_security_trade_transaction(
     options: SecurityTransformOptions,
     match_result: &MatchResult,
@@ -78,9 +77,13 @@ pub(super) fn build_security_trade_transaction(
             .or(config.default_asset_account.clone())
             .unwrap_or_else(|| "Assets:Investments".to_string())
     };
-
-    // 兜底现金账户从 default_asset_account 推导，避免落到通用 Assets:Cash。
-    let broker_cash_account = derive_cash_account(config.default_asset_account.as_deref());
+    let broker_cash_account = config
+        .default_cash_account
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| derive_cash_account(config.default_asset_account.as_deref()));
 
     let cash_account = if is_buy {
         match_result
@@ -112,7 +115,11 @@ pub(super) fn build_security_trade_transaction(
         .or(config.default_income_account.clone())
         .filter(|value| value != "Income:Unknown")
         .unwrap_or_else(|| "Income:Investing:Capital-Gains".to_string());
-    let interest_account = "Income:Investing:Interest".to_string();
+    let interest_account = config
+        .default_repo_interest_account
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "Income:Investing:Interest".to_string());
 
     let cash_amount = match amount {
         Some(value) => value.abs(),
@@ -234,11 +241,11 @@ mod tests {
             Some(dec!(1000)),
             "CNY",
             None,
-            Some("证券买入".to_string()),
-            Some("证券买入".to_string()),
+            Some("security buy".to_string()),
+            Some("security buy".to_string()),
             None,
             Some("159915".to_string()),
-            Some("某ETF".to_string()),
+            Some("ETF".to_string()),
             Some(dec!(100)),
             Some(dec!(10)),
             None,
@@ -252,5 +259,83 @@ mod tests {
             .iter()
             .any(|posting| posting.account == "Assets:Broker:Galaxy:Cash");
         assert!(has_expected_cash_account);
+    }
+
+    #[test]
+    fn uses_explicit_default_cash_account_when_configured() {
+        let options = SecurityTransformOptions {
+            provider_name: "yinhe",
+            default_payee: "Galaxy",
+        };
+        let mut config = ProviderConfig::default();
+        config.default_asset_account = Some("Assets:Broker:Galaxy:Securities".to_string());
+        config.default_cash_account = Some("Assets:Invest:Broker:Galaxy:Cash".to_string());
+
+        let tx = build_security_trade_transaction(
+            options,
+            &MatchResult::default(),
+            &config,
+            NaiveDate::from_ymd_opt(2026, 3, 1).expect("valid date"),
+            Some(dec!(1000)),
+            "CNY",
+            None,
+            Some("security buy".to_string()),
+            Some("security buy".to_string()),
+            None,
+            Some("159915".to_string()),
+            Some("ETF".to_string()),
+            Some(dec!(100)),
+            Some(dec!(10)),
+            None,
+            None,
+            HashMap::new(),
+        )
+        .expect("trade should build");
+
+        let has_expected_cash_account = tx
+            .postings
+            .iter()
+            .any(|posting| posting.account == "Assets:Invest:Broker:Galaxy:Cash");
+        assert!(has_expected_cash_account);
+    }
+
+    #[test]
+    fn uses_explicit_repo_interest_account_when_configured() {
+        let options = SecurityTransformOptions {
+            provider_name: "yinhe",
+            default_payee: "Galaxy",
+        };
+        let mut config = ProviderConfig::default();
+        config.default_asset_account = Some("Assets:Broker:Galaxy:Securities".to_string());
+        config.default_cash_account = Some("Assets:Broker:Galaxy:Cash".to_string());
+        config.default_repo_interest_account =
+            Some("Income:Broker:Galaxy:RepoInterest".to_string());
+
+        let tx = build_security_trade_transaction(
+            options,
+            &MatchResult::default(),
+            &config,
+            NaiveDate::from_ymd_opt(2026, 3, 1).expect("valid date"),
+            Some(dec!(1010)),
+            "CNY",
+            None,
+            Some("repo mature".to_string()),
+            Some("逆回购卖出".to_string()),
+            None,
+            Some("204001".to_string()),
+            Some("GC001".to_string()),
+            Some(dec!(10)),
+            None,
+            None,
+            None,
+            HashMap::new(),
+        )
+        .expect("repo trade should build");
+
+        let has_expected_interest_account = tx
+            .postings
+            .iter()
+            .any(|posting| posting.account == "Income:Broker:Galaxy:RepoInterest");
+        assert!(has_expected_interest_account);
     }
 }

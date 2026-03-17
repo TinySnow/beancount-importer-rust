@@ -103,8 +103,10 @@ providers:
     name: "富途"
     mapping_file: "src/mapping/futu.yml"
     default_asset_account: "Assets:Broker:Futu:Securities"
+    default_cash_account: "Assets:Broker:Futu:Cash"
     default_expense_account: "Expenses:Investing:Fees"
     default_income_account: "Income:Investing:Capital-Gains"
+    default_repo_interest_account: "Income:Investing:Interest"
     default_currency: "USD"
     default_fee_account: "Expenses:Broker:Futu:Fee"
     default_pnl_account: "Income:Broker:Futu:PnL"
@@ -119,13 +121,16 @@ providers:
     output:
       date_format: "%Y-%m-%d"
       decimal_places: 4
+      booking_method: "FIFO"
 
   yinhe:
     name: "银河证券"
     mapping_file: "src/mapping/yinhe.yml"
     default_asset_account: "Assets:Broker:Galaxy:Securities"
+    default_cash_account: "Assets:Broker:Galaxy:Cash"
     default_expense_account: "Expenses:Investing:Fees"
     default_income_account: "Income:Investing:Capital-Gains"
+    default_repo_interest_account: "Income:Investing:Interest"
     default_currency: "CNY"
     default_fee_account: "Expenses:Broker:Galaxy:Fee"
     default_pnl_account: "Income:Broker:Galaxy:PnL"
@@ -139,4 +144,11 @@ providers:
     output:
       date_format: "%Y-%m-%d"
       decimal_places: 4
+      booking_method: "FIFO"
       emit_open_directives: true
+
+
+
+
+
+

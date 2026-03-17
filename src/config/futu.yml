@@ -2,11 +2,13 @@
 mapping_file: "src/mapping/futu.yml"
 
 default_asset_account: "Assets:Broker:Futu:Securities"
+default_cash_account: "Assets:Broker:Futu:Cash"
 default_expense_account: "Expenses:Investing:Fees"
 default_income_account: "Income:Investing:Capital-Gains"
+default_repo_interest_account: "Income:Investing:Interest"
 default_currency: "USD"
 
-# 证券场景默认账户（可被规则逐条覆盖）
+# 证券场景扩展账户（可被规则逐条覆盖，非必填）
 default_fee_account: "Expenses:Broker:Futu:Fee"
 default_pnl_account: "Income:Broker:Futu:PnL"
 default_rounding_account: "Expenses:Broker:Futu:Rounding"
@@ -22,5 +24,10 @@ has_csv_header: true
 output:
   date_format: "%Y-%m-%d"
   decimal_places: 4
+  booking_method: "FIFO"
 
 rules: []
+
+
+
+

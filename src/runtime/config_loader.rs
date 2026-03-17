@@ -43,6 +43,14 @@ pub fn load(cli: &Cli) -> Result<LoadedConfig> {
     let (mut provider_config, provider_config_path) =
         load_provider_config(&cli.config, &normalized_provider, &global_config)?;
     provider_config.merge_with_global(&global_config);
+    resolve_inventory_seed_paths(
+        &mut provider_config,
+        provider_config_path
+            .as_deref()
+            .or(global_config_path.as_deref())
+            .or(Some(cli.config.as_path()))
+            .unwrap_or_else(|| Path::new(".")),
+    );
 
     // 映射文件相对路径按“供应商/全局/命令行”路径就近解析。
     let mapping_base_path = provider_config_path
@@ -232,6 +240,28 @@ fn deduplicate_paths(paths: &mut Vec<PathBuf>) {
     paths.retain(|path| seen.insert(path.to_string_lossy().to_ascii_lowercase()));
 }
 
+/// Resolves `inventory_seed_files` relative paths against the config file directory.
+fn resolve_inventory_seed_paths(provider_config: &mut ProviderConfig, config_base_path: &Path) {
+    if provider_config.inventory_seed_files.is_empty() {
+        return;
+    }
+
+    let base_dir = config_base_path.parent().unwrap_or_else(|| Path::new("."));
+    provider_config.inventory_seed_files = provider_config
+        .inventory_seed_files
+        .iter()
+        .map(|raw| {
+            let candidate = PathBuf::from(raw);
+            if candidate.is_absolute() {
+                candidate
+            } else {
+                base_dir.join(candidate)
+            }
+        })
+        .map(|path| path.to_string_lossy().to_string())
+        .collect();
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -241,7 +271,7 @@ mod tests {
         config::{global::GlobalConfig, provider::ProviderConfig},
     };
 
-    use super::{load, load_provider_config};
+    use super::{load, load_provider_config, resolve_inventory_seed_paths};
 
     #[test]
     fn load_provider_config_matches_global_key_case_insensitively() {
@@ -278,5 +308,23 @@ mod tests {
         let loaded =
             load(&cli).expect("uppercase provider name should still resolve config and mapping");
         assert!(loaded.mapping.date.is_some() || loaded.mapping.amount.is_some());
+    }
+
+    #[test]
+    fn resolves_relative_inventory_seed_paths_against_config_base() {
+        let mut provider = ProviderConfig::default();
+        provider.inventory_seed_files = vec![
+            "transactions/2025/12/galaxy.bean".to_string(),
+            "C:/already/absolute.bean".to_string(),
+        ];
+
+        resolve_inventory_seed_paths(&mut provider, Path::new("config-new/galaxy.yml"));
+
+        let normalized_first = provider.inventory_seed_files[0].replace('\\', "/");
+        assert!(normalized_first.ends_with("config-new/transactions/2025/12/galaxy.bean"));
+        assert_eq!(
+            provider.inventory_seed_files[1],
+            "C:/already/absolute.bean".to_string()
+        );
     }
 }

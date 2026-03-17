@@ -26,6 +26,12 @@ pub struct ProviderConfig {
     /// 供应商级默认资产账户。
     pub default_asset_account: Option<String>,
 
+    /// 供应商级默认券商现金账户（证券场景）。
+    ///
+    /// 向后兼容别名：`cash_account`。
+    #[serde(alias = "cash_account")]
+    pub default_cash_account: Option<String>,
+
     /// 供应商级默认支出账户。
     pub default_expense_account: Option<String>,
 
@@ -47,11 +53,24 @@ pub struct ProviderConfig {
     #[serde(alias = "pnl_account")]
     pub default_pnl_account: Option<String>,
 
+    /// 供应商级默认逆回购利息账户。
+    ///
+    /// 向后兼容别名：`repo_interest_account`。
+    #[serde(alias = "repo_interest_account")]
+    pub default_repo_interest_account: Option<String>,
+
     /// 供应商级默认舍入差异账户。
     ///
     /// 向后兼容别名：`rounding_account`。
     #[serde(alias = "rounding_account")]
     pub default_rounding_account: Option<String>,
+
+    /// 历史 lot 预加载文件列表（Beancount）。
+    ///
+    /// 用于跨账期导入时补充历史持仓，减少卖出分录的 lot 二义性。
+    /// 向后兼容别名：`lot_seed_files`、`history_beancount_files`。
+    #[serde(default, alias = "lot_seed_files", alias = "history_beancount_files")]
+    pub inventory_seed_files: Vec<String>,
 
     /// CSV 解析选项。
     #[serde(default)]
@@ -84,12 +103,15 @@ impl Default for ProviderConfig {
             name: None,
             mapping_file: None,
             default_asset_account: None,
+            default_cash_account: None,
             default_expense_account: None,
             default_income_account: None,
             default_currency: None,
             default_fee_account: None,
             default_pnl_account: None,
+            default_repo_interest_account: None,
             default_rounding_account: None,
+            inventory_seed_files: Vec::new(),
             csv_options: CsvOptions::default(),
             rules: Vec::new(),
             output: OutputConfig::default(),
@@ -118,5 +140,60 @@ impl ProviderConfig {
         self.output.merge_with(&global.output);
 
         trace!("Merged provider output config: {:?}", self.output);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProviderConfig;
+
+    #[test]
+    fn deserializes_cash_account_alias() {
+        let yaml = r#"
+cash_account: "Assets:Broker:Alias:Cash"
+"#;
+
+        let config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+
+        assert_eq!(
+            config.default_cash_account.as_deref(),
+            Some("Assets:Broker:Alias:Cash")
+        );
+    }
+
+    #[test]
+    fn deserializes_repo_interest_account_alias() {
+        let yaml = r#"
+repo_interest_account: "Income:Broker:Alias:RepoInterest"
+"#;
+
+        let config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+
+        assert_eq!(
+            config.default_repo_interest_account.as_deref(),
+            Some("Income:Broker:Alias:RepoInterest")
+        );
+    }
+
+    #[test]
+    fn deserializes_inventory_seed_files_alias() {
+        let yaml = r#"
+lot_seed_files:
+  - "transactions/2025/12/galaxy.bean"
+  - "transactions/2025/11/galaxy.bean"
+"#;
+
+        let config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+
+        assert_eq!(
+            config.inventory_seed_files,
+            vec![
+                "transactions/2025/12/galaxy.bean".to_string(),
+                "transactions/2025/11/galaxy.bean".to_string()
+            ]
+        );
     }
 }
