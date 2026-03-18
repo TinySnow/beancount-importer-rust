@@ -1,17 +1,18 @@
-﻿name: "富途"
-mapping_file: "src/mapping/futu.yml"
+name: "富途"
+mapping_file: "mapping/futu.yml"
 
 default_asset_account: "Assets:Broker:Futu:Securities"
-default_cash_account: "Assets:Broker:Futu:Cash"
 default_expense_account: "Expenses:Investing:Fees"
 default_income_account: "Income:Investing:Capital-Gains"
-default_repo_interest_account: "Income:Investing:Interest"
 default_currency: "USD"
 
 # 证券场景扩展账户（可被规则逐条覆盖，非必填）
-default_fee_account: "Expenses:Broker:Futu:Fee"
-default_pnl_account: "Income:Broker:Futu:PnL"
-default_rounding_account: "Expenses:Broker:Futu:Rounding"
+securities_accounts:
+  cash_account: "Assets:Broker:Futu:Cash"
+  fee_account: "Expenses:Broker:Futu:Fee"
+  pnl_account: "Income:Broker:Futu:PnL"
+  rounding_account: "Expenses:Broker:Futu:Rounding"
+  repo_interest_account: "Income:Investing:Interest"
 
 csv_options:
   delimiter: ","

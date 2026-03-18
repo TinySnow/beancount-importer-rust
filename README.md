@@ -15,7 +15,7 @@
 - 规则引擎支持 `equals/contains/regex/in/not_empty/is_empty/数值比较`。
 - 规则执行顺序稳定：`priority -> specificity -> 文件顺序`，后命中覆盖先命中。
 - 支持 `terminal`（命中后停止后续规则）和 `ignore`（忽略该条交易）。
-- 证券场景支持：普通买卖、逆回购、银证转账、`default_cash_account` 覆盖，以及 `fee/pnl/rounding/repo_interest` 分层回退。
+- 证券场景支持：普通买卖、逆回购、银证转账；支持 `securities_accounts` 子结构统一配置 `cash/fee/pnl/rounding/repo_interest`，并兼容旧版 `default_*` 字段。
 - Writer 支持自动输出 `commodity`，可选自动输出 `open` 指令。
 - metadata key 自动归一化为 Beancount 合法键。
 
@@ -33,7 +33,7 @@ cargo build --release
 cargo run -- \
   --provider alipay \
   --source testsets/支付宝交易明细测试数据集.csv \
-  --config src/config/alipay.yml \
+  --config config/alipay.yml \
   --output tmp/output/out-alipay.beancount \
   --log-level info
 ```
@@ -44,7 +44,7 @@ cargo run -- \
 cargo run -- \
   --provider yinhe \
   --source <your-yinhe-statement.xls> \
-  --config src/config/yinhe.yml \
+  --config config/yinhe.yml \
   --output tmp/output/out-yinhe.beancount \
   --log-level info
 ```
@@ -53,15 +53,16 @@ cargo run -- \
 
 ```yaml
 default_asset_account: "Assets:Broker:Galaxy:Securities"
-default_cash_account: "Assets:Broker:Galaxy:Cash"
 default_expense_account: "Expenses:Investing:Fees"
 default_income_account: "Income:Investing:Capital-Gains"
 
-# 可选：仅在需要细分时再加
-# default_fee_account: "Expenses:Broker:Galaxy:Fee"
-# default_pnl_account: "Income:Broker:Galaxy:PnL"
-# default_rounding_account: "Expenses:Broker:Galaxy:Rounding"
-# default_repo_interest_account: "Income:Broker:Galaxy:RepoInterest"
+securities_accounts:
+  cash_account: "Assets:Broker:Galaxy:Cash"
+  # 可选：仅在需要细分时再加
+  # fee_account: "Expenses:Broker:Galaxy:Fee"
+  # pnl_account: "Income:Broker:Galaxy:PnL"
+  # rounding_account: "Expenses:Broker:Galaxy:Rounding"
+  # repo_interest_account: "Income:Broker:Galaxy:RepoInterest"
 # inventory_seed_files:
 #   - "C:/Users/<you>/Desktop/Beancount/transactions/2025/12/galaxy.bean"
 
@@ -71,7 +72,8 @@ output:
 ```
 
 说明：
-- `default_fee_account/default_pnl_account/default_rounding_account` 不是必填；不配置时会自动回退。
+- `securities_accounts` 是推荐新写法；旧字段 `default_cash_account/default_fee_account/default_pnl_account/default_rounding_account/default_repo_interest_account` 仍兼容。
+- 当新旧字段同时存在时，优先使用 `securities_accounts`。
 - `inventory_seed_files` 可选；用于跨账期导入时预加载历史 lot，减少早期卖出（本期无买入）的二义性。
 
 ## 4. CLI 参数
@@ -89,10 +91,10 @@ output:
 ## 5. 配置加载顺序
 
 运行时按以下顺序加载：
-1. 全局配置 `--global-config`（未显式指定时尝试 `config/global.yml`、`src/config/global.yml`）。
-2. provider 配置 `--config`（不存在时尝试 `config/<provider>.yml`、`src/config/<provider>.yml`）。
+1. 全局配置 `--global-config`（未显式指定时尝试 `config/global.yml`；兼容回退 `src/config/global.yml`）。
+2. provider 配置 `--config`（不存在时尝试 `config/<provider>.yml`；兼容回退 `src/config/<provider>.yml`）。
 3. 字段映射 `mapping_file`（若是相对路径，优先相对 provider 配置文件所在目录解析）。
-4. 未指定 `mapping_file` 时，回退到 `mapping/<provider>.yml`、`mappings/<provider>.yml`、`src/mapping/<provider>.yml`。
+4. 未指定 `mapping_file` 时，回退到 `mapping/<provider>.yml`、`mappings/<provider>.yml`；兼容回退 `src/mapping/<provider>.yml`。
 
 补充：provider 默认值会覆盖 global；provider 未设置的字段回退到 global。
 
@@ -110,8 +112,10 @@ src/
     third_party/
     securities/
     shared/
-  config/
-  mapping/
+config/
+  *.yml
+mapping/
+  *.yml
 examples/
   <provider>/{basic.yml,advanced.yml}
 testsets/
@@ -126,7 +130,7 @@ docs/
 
 ## 7. 已验证的数据集
 
-已用 `src/config/*.yml + src/mapping/*.yml` 跑通以下 6 份白盒数据集：
+已用 `config/*.yml + mapping/*.yml` 跑通以下 6 份白盒数据集：
 - `testsets/支付宝交易明细测试数据集.csv`（23）
 - `testsets/微信支付账单测试数据集.csv`（23）
 - `testsets/京东交易流水测试数据集.csv`（22）

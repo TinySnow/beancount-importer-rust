@@ -1,4 +1,4 @@
-//! CSV/XLSX statement reader and field mapping entry.
+//! CSV/XLSX 对账单读取与字段映射入口。
 
 use std::path::Path;
 
@@ -18,7 +18,7 @@ mod xlsx_source;
 
 use table::build_positional_headers;
 
-/// Reader that loads CSV/XLSX rows and maps them to `RawRecord`.
+/// 读取 CSV/XLSX 并映射为 `RawRecord` 的读取器。
 pub struct CsvRecordReader {
     csv_options: CsvOptions,
     skip_lines: usize,
@@ -27,7 +27,7 @@ pub struct CsvRecordReader {
 }
 
 impl CsvRecordReader {
-    /// Build a new reader.
+    /// 创建读取器实例。
     pub fn new(
         csv_options: CsvOptions,
         skip_lines: usize,
@@ -42,7 +42,7 @@ impl CsvRecordReader {
         }
     }
 
-    /// Read a source file and map rows into `RawRecord`.
+    /// 读取源文件并映射为 `RawRecord` 列表。
     pub fn read_file(
         &self,
         path: &Path,
@@ -57,7 +57,7 @@ impl CsvRecordReader {
         self.map_table_to_records(table, mapping)
     }
 
-    /// Return true if the path has `.xlsx` extension.
+    /// 判断路径是否为 `.xlsx` 扩展名。
     fn is_xlsx_path(path: &Path) -> bool {
         path.extension()
             .and_then(|ext| ext.to_str())
@@ -65,13 +65,13 @@ impl CsvRecordReader {
             .unwrap_or(false)
     }
 
-    /// Build synthetic headers for no-header mode.
+    /// 在“无表头模式”下构建位置列名。
     fn build_positional_headers() -> Vec<String> {
         build_positional_headers()
     }
 
-    /// Return all standard mapping specs used for validation/scoring.
-    fn mapped_specs<'a>(mapping: &'a FieldMapping) -> [(&'static str, Option<&'a FieldSpec>); 14] {
+    /// 返回用于校验与打分的标准映射字段集合。
+    fn mapped_specs(mapping: &FieldMapping) -> [(&'static str, Option<&FieldSpec>); 14] {
         [
             ("date", mapping.date.as_ref()),
             ("amount", mapping.amount.as_ref()),
@@ -104,10 +104,12 @@ mod tests {
     fn xlsx_header_score_prefers_real_header_row() {
         let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
 
-        let mut mapping = FieldMapping::default();
-        mapping.date = Some(FieldSpec::Simple("date".to_string()));
-        mapping.amount = Some(FieldSpec::Simple("amount".to_string()));
-        mapping.payee = Some(FieldSpec::Simple("payee".to_string()));
+        let mapping = FieldMapping {
+            date: Some(FieldSpec::Simple("date".to_string())),
+            amount: Some(FieldSpec::Simple("amount".to_string())),
+            payee: Some(FieldSpec::Simple("payee".to_string())),
+            ..FieldMapping::default()
+        };
 
         let meta_row = vec!["meta title".to_string(), "".to_string()];
         let header_row = vec![

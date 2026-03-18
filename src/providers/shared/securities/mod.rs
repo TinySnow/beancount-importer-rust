@@ -5,10 +5,12 @@
 //! - 按职责拆分文件，避免单文件过长导致维护困难。
 //! - 通过场景分支模块化，为后续股票等更多证券业务扩展预留空间。
 
+mod context;
 mod logic;
 mod normalize;
 mod posting;
 mod trade;
+mod trade_accounts;
 mod trade_repo;
 mod trade_spot;
 mod transfer;

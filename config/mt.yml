@@ -1,7 +1,7 @@
-﻿name: "建设银行"
-mapping_file: "src/mapping/ccb.yml"
+name: "美团"
+mapping_file: "mapping/mt.yml"
 
-default_asset_account: "Assets:Bank:CCB:Checking"
+default_asset_account: "Assets:Wallet:Meituan:Balance"
 default_expense_account: "Expenses:Unknown"
 default_income_account: "Income:Unknown"
 default_currency: "CNY"

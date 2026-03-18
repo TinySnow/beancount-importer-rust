@@ -1,9 +1,4 @@
-use std::collections::HashMap;
-
-use chrono::NaiveDate;
-use rust_decimal::Decimal;
-
-use crate::{
+﻿use crate::{
     error::{ImporterError, ImporterResult},
     model::{
         config::{meta_value::MetaValue, provider::ProviderConfig},
@@ -15,31 +10,40 @@ use crate::{
 
 use super::{
     SecurityTransformOptions,
-    logic::{derive_cash_account, derive_rounding_account, infer_is_buy, is_repo_trade},
+    context::SecurityRecordContext,
+    logic::{TradeDirection, infer_trade_direction, is_repo_trade},
     normalize::normalize_security_commodity,
+    trade_accounts::build_trade_account_plan,
     trade_repo::{RepoPostingInput, apply_repo_postings},
     trade_spot::{SpotPostingInput, apply_spot_postings},
 };
 
+/// 构建证券交易分录。
+///
+/// 输入使用 `SecurityRecordContext` 承载，避免长参数链路。
 pub(super) fn build_security_trade_transaction(
     options: SecurityTransformOptions,
     match_result: &MatchResult,
     config: &ProviderConfig,
-    date: NaiveDate,
-    amount: Option<Decimal>,
-    cash_currency: &str,
-    payee: Option<String>,
-    narration: Option<String>,
-    transaction_type: Option<String>,
-    reference: Option<String>,
-    symbol: Option<String>,
-    security_name: Option<String>,
-    quantity: Option<Decimal>,
-    unit_price: Option<Decimal>,
-    fee: Option<Decimal>,
-    tax: Option<Decimal>,
-    extra: HashMap<String, String>,
+    context: SecurityRecordContext,
 ) -> ImporterResult<Transaction> {
+    let SecurityRecordContext {
+        date,
+        amount,
+        cash_currency,
+        payee,
+        narration,
+        transaction_type,
+        reference,
+        symbol,
+        security_name,
+        quantity,
+        unit_price,
+        fee,
+        tax,
+        extra,
+    } = context;
+
     let symbol = symbol
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| ImporterError::Conversion("Missing security symbol".to_string()))?;
@@ -61,65 +65,10 @@ pub(super) fn build_security_trade_transaction(
 
     let tx = Transaction::new(date, narration);
 
-    let is_buy = infer_is_buy(transaction_type.as_deref(), amount);
-    let is_repo_trade = is_repo_trade(&symbol, transaction_type.as_deref());
-
-    let holdings_account = if is_buy {
-        match_result
-            .debit_account
-            .clone()
-            .or(config.default_asset_account.clone())
-            .unwrap_or_else(|| "Assets:Investments".to_string())
-    } else {
-        match_result
-            .credit_account
-            .clone()
-            .or(config.default_asset_account.clone())
-            .unwrap_or_else(|| "Assets:Investments".to_string())
-    };
-    let broker_cash_account = config
-        .default_cash_account
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(|| derive_cash_account(config.default_asset_account.as_deref()));
-
-    let cash_account = if is_buy {
-        match_result
-            .credit_account
-            .clone()
-            .unwrap_or_else(|| broker_cash_account.clone())
-    } else {
-        match_result
-            .debit_account
-            .clone()
-            .unwrap_or_else(|| broker_cash_account.clone())
-    };
-
-    let fee_account = match_result
-        .fee_account
-        .clone()
-        .or(config.default_fee_account.clone())
-        .or(config.default_expense_account.clone())
-        .unwrap_or_else(|| "Expenses:Investing:Fees".to_string());
-    let rounding_account = match_result
-        .rounding_account
-        .clone()
-        .or(config.default_rounding_account.clone())
-        .unwrap_or_else(|| derive_rounding_account(&fee_account));
-    let pnl_account = match_result
-        .pnl_account
-        .clone()
-        .or(config.default_pnl_account.clone())
-        .or(config.default_income_account.clone())
-        .filter(|value| value != "Income:Unknown")
-        .unwrap_or_else(|| "Income:Investing:Capital-Gains".to_string());
-    let interest_account = config
-        .default_repo_interest_account
-        .clone()
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| "Income:Investing:Interest".to_string());
+    let trade_direction = infer_trade_direction(transaction_type.as_deref(), amount);
+    let is_buy = trade_direction == TradeDirection::Buy;
+    let repo_trade = is_repo_trade(&symbol, transaction_type.as_deref());
+    let account_plan = build_trade_account_plan(match_result, config, is_buy);
 
     let cash_amount = match amount {
         Some(value) => value.abs(),
@@ -140,21 +89,21 @@ pub(super) fn build_security_trade_transaction(
     };
     let signed_cash = if is_buy { -cash_amount } else { cash_amount };
 
-    let mut tx = if is_repo_trade {
+    let mut tx = if repo_trade {
         apply_repo_postings(RepoPostingInput {
             tx,
-            holdings_account: &holdings_account,
-            cash_account: &cash_account,
+            holdings_account: &account_plan.holdings_account,
+            cash_account: &account_plan.cash_account,
             commodity_symbol: &commodity_symbol,
-            cash_currency,
+            cash_currency: &cash_currency,
             signed_quantity,
             signed_cash,
             quantity,
             cash_amount,
             is_buy,
-            fee_account: &fee_account,
-            rounding_account: &rounding_account,
-            interest_account: &interest_account,
+            fee_account: &account_plan.fee_account,
+            rounding_account: &account_plan.rounding_account,
+            interest_account: &account_plan.interest_account,
         })
     } else {
         let effective_price = match unit_price {
@@ -171,19 +120,19 @@ pub(super) fn build_security_trade_transaction(
 
         apply_spot_postings(SpotPostingInput {
             tx,
-            holdings_account: &holdings_account,
-            cash_account: &cash_account,
+            holdings_account: &account_plan.holdings_account,
+            cash_account: &account_plan.cash_account,
             commodity_symbol: &commodity_symbol,
-            cash_currency,
+            cash_currency: &cash_currency,
             signed_quantity,
             signed_cash,
             quantity,
             cash_amount,
             is_buy,
             effective_price,
-            fee_account: &fee_account,
-            rounding_account: &rounding_account,
-            pnl_account: &pnl_account,
+            fee_account: &account_plan.fee_account,
+            rounding_account: &account_plan.rounding_account,
+            pnl_account: &account_plan.pnl_account,
         })
     };
 
@@ -212,130 +161,4 @@ pub(super) fn build_security_trade_transaction(
 }
 
 #[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-
-    use chrono::NaiveDate;
-    use rust_decimal_macros::dec;
-
-    use super::build_security_trade_transaction;
-    use crate::{
-        model::{config::provider::ProviderConfig, rule::match_result::MatchResult},
-        providers::shared::SecurityTransformOptions,
-    };
-
-    #[test]
-    fn uses_broker_cash_account_as_fallback_in_security_trade() {
-        let options = SecurityTransformOptions {
-            provider_name: "yinhe",
-            default_payee: "Galaxy",
-        };
-        let mut config = ProviderConfig::default();
-        config.default_asset_account = Some("Assets:Broker:Galaxy:Securities".to_string());
-
-        let tx = build_security_trade_transaction(
-            options,
-            &MatchResult::default(),
-            &config,
-            NaiveDate::from_ymd_opt(2026, 3, 1).expect("valid date"),
-            Some(dec!(1000)),
-            "CNY",
-            None,
-            Some("security buy".to_string()),
-            Some("security buy".to_string()),
-            None,
-            Some("159915".to_string()),
-            Some("ETF".to_string()),
-            Some(dec!(100)),
-            Some(dec!(10)),
-            None,
-            None,
-            HashMap::new(),
-        )
-        .expect("trade should build");
-
-        let has_expected_cash_account = tx
-            .postings
-            .iter()
-            .any(|posting| posting.account == "Assets:Broker:Galaxy:Cash");
-        assert!(has_expected_cash_account);
-    }
-
-    #[test]
-    fn uses_explicit_default_cash_account_when_configured() {
-        let options = SecurityTransformOptions {
-            provider_name: "yinhe",
-            default_payee: "Galaxy",
-        };
-        let mut config = ProviderConfig::default();
-        config.default_asset_account = Some("Assets:Broker:Galaxy:Securities".to_string());
-        config.default_cash_account = Some("Assets:Invest:Broker:Galaxy:Cash".to_string());
-
-        let tx = build_security_trade_transaction(
-            options,
-            &MatchResult::default(),
-            &config,
-            NaiveDate::from_ymd_opt(2026, 3, 1).expect("valid date"),
-            Some(dec!(1000)),
-            "CNY",
-            None,
-            Some("security buy".to_string()),
-            Some("security buy".to_string()),
-            None,
-            Some("159915".to_string()),
-            Some("ETF".to_string()),
-            Some(dec!(100)),
-            Some(dec!(10)),
-            None,
-            None,
-            HashMap::new(),
-        )
-        .expect("trade should build");
-
-        let has_expected_cash_account = tx
-            .postings
-            .iter()
-            .any(|posting| posting.account == "Assets:Invest:Broker:Galaxy:Cash");
-        assert!(has_expected_cash_account);
-    }
-
-    #[test]
-    fn uses_explicit_repo_interest_account_when_configured() {
-        let options = SecurityTransformOptions {
-            provider_name: "yinhe",
-            default_payee: "Galaxy",
-        };
-        let mut config = ProviderConfig::default();
-        config.default_asset_account = Some("Assets:Broker:Galaxy:Securities".to_string());
-        config.default_cash_account = Some("Assets:Broker:Galaxy:Cash".to_string());
-        config.default_repo_interest_account =
-            Some("Income:Broker:Galaxy:RepoInterest".to_string());
-
-        let tx = build_security_trade_transaction(
-            options,
-            &MatchResult::default(),
-            &config,
-            NaiveDate::from_ymd_opt(2026, 3, 1).expect("valid date"),
-            Some(dec!(1010)),
-            "CNY",
-            None,
-            Some("repo mature".to_string()),
-            Some("逆回购卖出".to_string()),
-            None,
-            Some("204001".to_string()),
-            Some("GC001".to_string()),
-            Some(dec!(10)),
-            None,
-            None,
-            None,
-            HashMap::new(),
-        )
-        .expect("repo trade should build");
-
-        let has_expected_interest_account = tx
-            .postings
-            .iter()
-            .any(|posting| posting.account == "Income:Broker:Galaxy:RepoInterest");
-        assert!(has_expected_interest_account);
-    }
-}
+mod tests;

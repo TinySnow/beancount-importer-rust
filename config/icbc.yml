@@ -1,7 +1,7 @@
-﻿name: "京东"
-mapping_file: "src/mapping/jd.yml"
+name: "工商银行"
+mapping_file: "mapping/icbc.yml"
 
-default_asset_account: "Assets:Wallet:JD:Balance"
+default_asset_account: "Assets:Bank:ICBC:Checking"
 default_expense_account: "Expenses:Unknown"
 default_income_account: "Income:Unknown"
 default_currency: "CNY"

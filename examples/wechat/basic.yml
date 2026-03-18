@@ -1,5 +1,5 @@
-﻿name: "微信（基础示例）"
-mapping_file: "src/mapping/wechat.yml"
+name: "微信（基础示例）"
+mapping_file: "mapping/wechat.yml"
 
 default_asset_account: "Assets:Wallet:WeChat:Balance"
 default_expense_account: "Expenses:Unknown"

@@ -17,7 +17,7 @@ use crate::{
 use super::{CsvRecordReader, table::TabularData};
 
 impl CsvRecordReader {
-    /// Map normalized table rows into `RawRecord`.
+    /// 将表格行映射为标准 `RawRecord` 列表。
     pub(super) fn map_table_to_records(
         &self,
         table: TabularData,
@@ -86,7 +86,7 @@ impl CsvRecordReader {
         Ok(records)
     }
 
-    /// Validate whether mapped columns exist in header row.
+    /// 校验 mapping 中引用的列名是否存在于表头。
     fn validate_mapping(&self, mapping: &FieldMapping, headers: &[String]) {
         for (name, spec) in Self::mapped_specs(mapping) {
             if let Some(spec) = spec {
@@ -139,7 +139,7 @@ impl CsvRecordReader {
         Ok(record)
     }
 
-    /// Map a date field using configured formats.
+    /// 映射日期字段，按配置格式逐个尝试解析。
     fn map_date(
         &self,
         fields: &HashMap<String, String>,
@@ -155,7 +155,7 @@ impl CsvRecordReader {
             .and_then(|value| self.parse_date(&value, formats)))
     }
 
-    /// Map a decimal field and apply optional transform.
+    /// 映射数值字段，并应用可选 transform。
     fn map_decimal(
         &self,
         fields: &HashMap<String, String>,
@@ -170,7 +170,7 @@ impl CsvRecordReader {
             .and_then(|value| parse_decimal_with_transform(&value, spec.transformer())))
     }
 
-    /// Map a text field.
+    /// 映射文本字段。
     fn map_text(
         &self,
         fields: &HashMap<String, String>,
@@ -189,8 +189,8 @@ impl CsvRecordReader {
         mapping: &FieldMapping,
         record: &mut RawRecord,
     ) {
-        // Preferred format: extra_key -> csv_column.
-        // Backward-compatible format: csv_column -> extra_key.
+        // 推荐写法：extra_key -> csv_column。
+        // 兼容旧写法：csv_column -> extra_key。
         for (left, right) in &mapping.extra_fields {
             if let Some(value) = self.non_empty_value(fields.get(right).map(String::as_str)) {
                 record.extra.insert(left.clone(), value.to_string());
@@ -200,7 +200,7 @@ impl CsvRecordReader {
         }
     }
 
-    /// Resolve a text field, supporting default value and regex extraction.
+    /// 解析一个文本字段，支持默认值和 regex_extract。
     fn resolve_text_field(
         &self,
         fields: &HashMap<String, String>,
@@ -221,7 +221,7 @@ impl CsvRecordReader {
         self.apply_regex_extract(spec, base_value)
     }
 
-    /// Apply `regex_extract` if present.
+    /// 若配置了 `regex_extract`，则按正则提取字段值。
     fn apply_regex_extract(&self, spec: &FieldSpec, value: &str) -> ImporterResult<Option<String>> {
         let Some(pattern) = spec.regex_extract_pattern() else {
             return Ok(Some(value.to_string()));
@@ -251,7 +251,7 @@ impl CsvRecordReader {
         Ok(matched)
     }
 
-    /// Convert empty/blank strings to `None`.
+    /// 把空字符串或全空白字符串转换为 `None`。
     fn non_empty_value<'a>(&self, value: Option<&'a str>) -> Option<&'a str> {
         value.and_then(|value| {
             let trimmed = value.trim();
@@ -263,7 +263,7 @@ impl CsvRecordReader {
         })
     }
 
-    /// Try to parse as datetime first, then date, with configured formats.
+    /// 先按日期时间解析，再按日期解析。
     fn parse_date(&self, value: &str, formats: &[String]) -> Option<NaiveDate> {
         for format in formats {
             if let Ok(date_time) = NaiveDateTime::parse_from_str(value, format) {
@@ -285,8 +285,8 @@ fn normalize_cell_value(value: &str) -> String {
 }
 
 fn strip_excel_quoted_literal(value: &str) -> Option<String> {
-    // Excel exports text-looking numbers as: ="0.00" / ="240599141221"
-    // Keep behavior conservative: only unwrap `=` + quoted literal.
+    // Excel 导出中常见格式：="0.00" / ="240599141221"。
+    // 这里仅做保守展开：必须是 `=` + 双引号字面量。
     if !value.starts_with('=') {
         return None;
     }
@@ -301,136 +301,4 @@ fn strip_excel_quoted_literal(value: &str) -> Option<String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use rust_decimal::Decimal;
-
-    use crate::model::{
-        config::csv_options::CsvOptions,
-        mapping::{
-            field_mapping::FieldMapping,
-            field_spec::{DetailedFieldSpec, FieldSpec},
-        },
-    };
-
-    use super::super::{
-        CsvRecordReader,
-        table::{RowData, TabularData},
-    };
-    use super::normalize_cell_value;
-
-    #[test]
-    fn strict_mode_fails_on_field_count_mismatch() {
-        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, true);
-        let table = TabularData {
-            source_name: "CSV",
-            headers: vec!["A".to_string(), "B".to_string()],
-            rows: vec![RowData {
-                line_no: 2,
-                cells: vec!["value".to_string()],
-            }],
-            pre_parse_errors: 0,
-        };
-
-        let result = reader.map_table_to_records(table, None);
-        assert!(
-            result.is_err(),
-            "strict mode should fail on field count mismatch"
-        );
-    }
-
-    #[test]
-    fn strict_mode_fails_on_mapping_error() {
-        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, true);
-
-        let mut mapping = FieldMapping::default();
-        mapping.payee = Some(FieldSpec::Detailed(DetailedFieldSpec {
-            column: "A".to_string(),
-            default: None,
-            transform: None,
-            regex_extract: Some("(".to_string()),
-        }));
-
-        let table = TabularData {
-            source_name: "CSV",
-            headers: vec!["A".to_string()],
-            rows: vec![RowData {
-                line_no: 2,
-                cells: vec!["value".to_string()],
-            }],
-            pre_parse_errors: 0,
-        };
-
-        let result = reader.map_table_to_records(table, Some(&mapping));
-        assert!(result.is_err(), "strict mode should fail on mapping error");
-    }
-
-    #[test]
-    fn non_strict_mode_skips_mapping_error() {
-        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
-
-        let mut mapping = FieldMapping::default();
-        mapping.payee = Some(FieldSpec::Detailed(DetailedFieldSpec {
-            column: "A".to_string(),
-            default: None,
-            transform: None,
-            regex_extract: Some("(".to_string()),
-        }));
-
-        let table = TabularData {
-            source_name: "CSV",
-            headers: vec!["A".to_string()],
-            rows: vec![RowData {
-                line_no: 2,
-                cells: vec!["value".to_string()],
-            }],
-            pre_parse_errors: 0,
-        };
-
-        let result = reader
-            .map_table_to_records(table, Some(&mapping))
-            .expect("non-strict mode should keep going");
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn normalizes_excel_equals_quoted_literals() {
-        assert_eq!(normalize_cell_value("=\"0\""), "0");
-        assert_eq!(normalize_cell_value("=\"0.00\""), "0.00");
-        assert_eq!(normalize_cell_value("=\"240599141221\""), "240599141221");
-        assert_eq!(normalize_cell_value("  =\"abc\"  "), "abc");
-        assert_eq!(normalize_cell_value("=SUM(A1:A3)"), "=SUM(A1:A3)");
-    }
-
-    #[test]
-    fn maps_amount_and_extra_fields_after_excel_literal_normalization() {
-        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
-
-        let mut mapping = FieldMapping {
-            amount: Some(FieldSpec::Simple("amount".to_string())),
-            ..FieldMapping::default()
-        };
-        mapping
-            .extra_fields
-            .insert("productAccount".to_string(), "product".to_string());
-
-        let table = TabularData {
-            source_name: "CSV",
-            headers: vec!["amount".to_string(), "product".to_string()],
-            rows: vec![RowData {
-                line_no: 2,
-                cells: vec!["=\"0.00\"".to_string(), "=\"240599141221\"".to_string()],
-            }],
-            pre_parse_errors: 0,
-        };
-
-        let records = reader
-            .map_table_to_records(table, Some(&mapping))
-            .expect("mapping should succeed");
-        assert_eq!(records.len(), 1);
-        assert_eq!(records[0].amount, Some(Decimal::new(0, 2)));
-        assert_eq!(
-            records[0].extra.get("productAccount").map(String::as_str),
-            Some("240599141221")
-        );
-    }
-}
+mod tests;

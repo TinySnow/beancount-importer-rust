@@ -1,7 +1,7 @@
-﻿name: "支付宝"
-mapping_file: "src/mapping/alipay.yml"
+name: "微信"
+mapping_file: "mapping/wechat.yml"
 
-default_asset_account: "Assets:Wallet:Alipay:Balance"
+default_asset_account: "Assets:Wallet:WeChat:Balance"
 default_expense_account: "Expenses:Unknown"
 default_income_account: "Income:Unknown"
 default_currency: "CNY"
@@ -11,8 +11,7 @@ csv_options:
   flexible: true
   encoding: "auto"
 
-# 支付宝常见导出前有说明区，默认跳过 24 行
-skip_header_lines: 24
+skip_header_lines: 0
 has_csv_header: true
 
 output:

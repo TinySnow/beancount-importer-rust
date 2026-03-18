@@ -1,17 +1,18 @@
 name: "银河证券"
-mapping_file: "src/mapping/yinhe.yml"
+mapping_file: "mapping/yinhe.yml"
 
 default_asset_account: "Assets:Broker:Galaxy:Securities"
-default_cash_account: "Assets:Broker:Galaxy:Cash"
 default_expense_account: "Expenses:Investing:Fees"
 default_income_account: "Income:Investing:Capital-Gains"
-default_repo_interest_account: "Income:Investing:Interest"
 default_currency: "CNY"
 
 # 证券场景扩展账户（可被规则逐条覆盖，非必填）
-default_fee_account: "Expenses:Broker:Galaxy:Fee"
-default_pnl_account: "Income:Broker:Galaxy:PnL"
-default_rounding_account: "Expenses:Broker:Galaxy:Rounding"
+securities_accounts:
+  cash_account: "Assets:Broker:Galaxy:Cash"
+  fee_account: "Expenses:Broker:Galaxy:Fee"
+  pnl_account: "Income:Broker:Galaxy:PnL"
+  rounding_account: "Expenses:Broker:Galaxy:Rounding"
+  repo_interest_account: "Income:Investing:Interest"
 # 可选：跨账期 lot 预加载（相对本配置文件路径）
 # inventory_seed_files:
 #   - "../../Beancount/transactions/2025/12/galaxy.bean"

@@ -1,5 +1,5 @@
-﻿name: "建设银行（基础示例）"
-mapping_file: "src/mapping/ccb.yml"
+name: "建设银行（基础示例）"
+mapping_file: "mapping/ccb.yml"
 
 default_asset_account: "Assets:Bank:CCB:Checking"
 default_expense_account: "Expenses:Unknown"

@@ -1,5 +1,5 @@
-﻿name: "美团（基础示例）"
-mapping_file: "src/mapping/mt.yml"
+name: "美团（基础示例）"
+mapping_file: "mapping/mt.yml"
 
 default_asset_account: "Assets:Wallet:Meituan:Balance"
 default_expense_account: "Expenses:Unknown"

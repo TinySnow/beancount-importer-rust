@@ -1,4 +1,4 @@
-//! 银河证券 Provider.
+//! 银河证券供应商实现。
 
 use crate::{
     error::{ImporterError, ImporterResult},
@@ -26,7 +26,7 @@ const YINHE_REPO_SETTLEMENT_KEYWORD: &str = "债券质押回购融券清算";
 const YINHE_REPO_MATURE_SETTLEMENT_KEYWORD: &str = "债券质押回购融券到期清算";
 const NORMALIZED_REPO_SELL_TYPE: &str = "融券购回";
 
-/// Returns true when `record.symbol` is present and not blank.
+/// 判断 `record.symbol` 是否存在且非空白。
 fn has_non_empty_symbol(record: &RawRecord) -> bool {
     record
         .symbol
@@ -36,8 +36,8 @@ fn has_non_empty_symbol(record: &RawRecord) -> bool {
         .is_some()
 }
 
-/// Detects Yinhe "利息归本" records that do not carry a security symbol.
-/// These records are handled as cash-interest movements.
+/// 识别银河“利息归本”且未携带证券代码的记录。
+/// 这类记录按现金利息流转处理，而不是证券交易。
 fn is_interest_rollover_without_symbol(record: &RawRecord) -> bool {
     let is_interest_rollover = record
         .transaction_type
@@ -48,7 +48,7 @@ fn is_interest_rollover_without_symbol(record: &RawRecord) -> bool {
     is_interest_rollover && !has_non_empty_symbol(record)
 }
 
-/// Normalizes Yinhe-specific transaction type variants to shared canonical values.
+/// 将银河特有交易类型归一化到共享语义值。
 fn normalize_yinhe_record(mut record: RawRecord) -> RawRecord {
     if record
         .transaction_type
@@ -65,7 +65,7 @@ fn normalize_yinhe_record(mut record: RawRecord) -> RawRecord {
     record
 }
 
-/// Normalizes Yinhe cash currency labels to ISO-style currency codes.
+/// 归一化银河现金币种标识（转为统一币种代码）。
 fn normalize_cash_currency_for_yinhe(raw: Option<&str>) -> String {
     let trimmed = raw.unwrap_or("CNY").trim();
     if trimmed.is_empty() {
@@ -83,7 +83,7 @@ fn normalize_cash_currency_for_yinhe(raw: Option<&str>) -> String {
     }
 }
 
-/// Derives a broker cash account from `default_asset_account` when not explicitly set.
+/// 未显式配置现金账户时，从 `default_asset_account` 推导券商现金账户。
 fn derive_cash_account_for_yinhe(default_asset_account: Option<&str>) -> String {
     if let Some(account) = default_asset_account.map(str::trim) {
         if account.ends_with(":Cash") || account.ends_with(":人民币资产") {
@@ -100,39 +100,36 @@ fn derive_cash_account_for_yinhe(default_asset_account: Option<&str>) -> String 
     "Assets:Broker:Cash".to_string()
 }
 
-/// Resolves broker cash account with `default_cash_account` taking highest priority.
+/// 解析券商现金账户：优先使用 `default_cash_account`。
 fn resolve_broker_cash_account(config: &ProviderConfig) -> String {
     config
-        .default_cash_account
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+        .securities_cash_account()
         .map(str::to_string)
         .unwrap_or_else(|| derive_cash_account_for_yinhe(config.default_asset_account.as_deref()))
 }
 
-/// Resolves account used for positive "利息归本" postings.
+/// 解析“利息归本”为正金额时使用的收益账户。
 fn resolve_interest_account(config: &ProviderConfig) -> String {
     config
-        .default_repo_interest_account
-        .clone()
+        .securities_repo_interest_account()
+        .map(str::to_string)
         .or(config.default_income_account.clone())
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| "Income:Investing:Interest".to_string())
 }
 
-/// Resolves account used for negative "利息归本" postings.
+/// 解析“利息归本”为负金额时使用的费用账户。
 fn resolve_fee_account(config: &ProviderConfig) -> String {
     config
-        .default_fee_account
-        .clone()
+        .securities_fee_account()
+        .map(str::to_string)
         .or(config.default_expense_account.clone())
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| "Expenses:Investing:Fees".to_string())
 }
 
-/// Builds a transaction for Yinhe "利息归本" rows without symbol.
-/// Positive amount credits interest; negative amount treats it as fee/adjustment.
+/// 为银河“利息归本（无证券代码）”记录构建交易。
+/// 金额为正记入收益，金额为负记入费用或冲正。
 fn build_yinhe_interest_rollover_transaction(
     mut record: RawRecord,
     rule_engine: &RuleEngine,
@@ -171,7 +168,7 @@ fn build_yinhe_interest_rollover_transaction(
         .unwrap_or(tx_type_text);
 
     let amount_abs = amount.abs();
-    // Keep direction explicit so one path handles both income and adjustments.
+    // 明确正负方向，让同一逻辑同时覆盖收益与冲减场景。
     let (debit_account, credit_account) = if amount.is_sign_positive() {
         (
             match_result
@@ -181,14 +178,11 @@ fn build_yinhe_interest_rollover_transaction(
             match_result
                 .credit_account
                 .clone()
-                .unwrap_or_else(|| interest_account),
+                .unwrap_or(interest_account),
         )
     } else {
         (
-            match_result
-                .debit_account
-                .clone()
-                .unwrap_or_else(|| fee_account),
+            match_result.debit_account.clone().unwrap_or(fee_account),
             match_result
                 .credit_account
                 .clone()
@@ -244,93 +238,4 @@ impl Provider for YinheProvider {
 }
 
 #[cfg(test)]
-mod tests {
-    use chrono::NaiveDate;
-    use rust_decimal::Decimal;
-
-    use crate::model::{
-        config::{global::GlobalConfig, provider::ProviderConfig},
-        data::raw_record::RawRecord,
-        rule::{Rule, rule_engine::RuleEngine},
-    };
-
-    use super::{
-        build_yinhe_interest_rollover_transaction, is_interest_rollover_without_symbol,
-        normalize_yinhe_record,
-    };
-
-    #[test]
-    fn recognizes_interest_rollover_without_symbol() {
-        let mut record = RawRecord::new();
-        record.transaction_type = Some("利息归本".to_string());
-        record.symbol = Some("   ".to_string());
-
-        assert!(is_interest_rollover_without_symbol(&record));
-    }
-
-    #[test]
-    fn keeps_interest_rollover_when_symbol_present() {
-        let mut record = RawRecord::new();
-        record.transaction_type = Some("利息归本".to_string());
-        record.symbol = Some("131810".to_string());
-
-        assert!(!is_interest_rollover_without_symbol(&record));
-    }
-
-    #[test]
-    fn normalizes_repo_settlement_transaction_type() {
-        let mut record = RawRecord::new();
-        record.transaction_type = Some("债券质押回购融券清算".to_string());
-
-        let normalized = normalize_yinhe_record(record);
-        assert_eq!(normalized.transaction_type.as_deref(), Some("融券购回"));
-    }
-
-    #[test]
-    fn normalizes_repo_mature_settlement_transaction_type() {
-        let mut record = RawRecord::new();
-        record.transaction_type = Some("债券质押回购融券到期清算".to_string());
-
-        let normalized = normalize_yinhe_record(record);
-        assert_eq!(normalized.transaction_type.as_deref(), Some("融券购回"));
-    }
-
-    #[test]
-    fn builds_interest_rollover_transaction_into_interest_account() {
-        let mut record = RawRecord::new();
-        record.date = NaiveDate::from_ymd_opt(2026, 2, 1);
-        record.amount = Some(Decimal::new(1234, 2));
-        record.currency = Some("CNY".to_string());
-        record.transaction_type = Some("利息归本".to_string());
-        record.reference = Some("order-1".to_string());
-        record.payee = Some("银河证券".to_string());
-        record
-            .extra
-            .insert("txType".to_string(), "利息归本".to_string());
-
-        let mut config = ProviderConfig::default();
-        config.default_cash_account = Some("Assets:Broker:Galaxy:Cash".to_string());
-        config.default_repo_interest_account =
-            Some("Income:Broker:Galaxy:RepoInterest".to_string());
-
-        let provider_rules: &'static [Rule] = Box::leak(Vec::<Rule>::new().into_boxed_slice());
-        let global: &'static GlobalConfig = Box::leak(Box::new(GlobalConfig::default()));
-        let rule_engine = RuleEngine::new(provider_rules, global);
-
-        let tx = build_yinhe_interest_rollover_transaction(record, &rule_engine, &config)
-            .expect("interest rollover should build")
-            .expect("interest rollover should not be ignored");
-
-        assert_eq!(tx.postings.len(), 2);
-        assert_eq!(tx.postings[0].account, "Assets:Broker:Galaxy:Cash");
-        assert_eq!(tx.postings[1].account, "Income:Broker:Galaxy:RepoInterest");
-        assert_eq!(
-            tx.postings[0].amount.as_ref().map(|value| value.number),
-            Some(Decimal::new(1234, 2))
-        );
-        assert_eq!(
-            tx.postings[1].amount.as_ref().map(|value| value.number),
-            Some(Decimal::new(-1234, 2))
-        );
-    }
-}
+mod tests;

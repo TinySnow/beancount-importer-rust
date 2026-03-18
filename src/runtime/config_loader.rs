@@ -89,6 +89,7 @@ where
 /// 加载全局配置。
 ///
 /// 当未显式指定路径时，按固定候选路径查找；都找不到则使用默认值。
+/// 当前优先 `config/`，并保留 `src/config/` 兼容回退。
 fn load_global_config(path: Option<&Path>) -> Result<(GlobalConfig, Option<PathBuf>)> {
     if let Some(path) = path {
         if !path.exists() {
@@ -121,7 +122,7 @@ fn load_global_config(path: Option<&Path>) -> Result<(GlobalConfig, Option<PathB
 ///
 /// 顺序：
 /// 1. 命令行 `--config` 指定路径；
-/// 2. 约定路径 `config/{provider}.yml` 与 `src/config/{provider}.yml`；
+/// 2. 约定路径 `config/{provider}.yml`（优先）与 `src/config/{provider}.yml`（兼容）；
 /// 3. 全局配置中的 `providers.{provider}` 子配置；
 /// 4. 最终回退到默认值。
 fn load_provider_config(
@@ -175,7 +176,7 @@ fn load_provider_config(
 ///
 /// 规则：
 /// - 若供应商显式配置 `mapping_file`，优先使用；
-/// - 否则按约定路径尝试；
+/// - 否则按约定路径尝试（优先根目录，保留 `src/mapping` 兼容回退）；
 /// - 支持以 `config_base_path` 为基准解析相对路径。
 fn load_field_mapping(
     provider_config: &ProviderConfig,
@@ -240,7 +241,7 @@ fn deduplicate_paths(paths: &mut Vec<PathBuf>) {
     paths.retain(|path| seen.insert(path.to_string_lossy().to_ascii_lowercase()));
 }
 
-/// Resolves `inventory_seed_files` relative paths against the config file directory.
+/// 将 `inventory_seed_files` 的相对路径解析为相对配置文件目录的绝对路径。
 fn resolve_inventory_seed_paths(provider_config: &mut ProviderConfig, config_base_path: &Path) {
     if provider_config.inventory_seed_files.is_empty() {
         return;
@@ -263,68 +264,4 @@ fn resolve_inventory_seed_paths(provider_config: &mut ProviderConfig, config_bas
 }
 
 #[cfg(test)]
-mod tests {
-    use std::path::{Path, PathBuf};
-
-    use crate::model::{
-        cli::{Cli, log_level::LogLevel},
-        config::{global::GlobalConfig, provider::ProviderConfig},
-    };
-
-    use super::{load, load_provider_config, resolve_inventory_seed_paths};
-
-    #[test]
-    fn load_provider_config_matches_global_key_case_insensitively() {
-        let mut global = GlobalConfig::default();
-        let mut provider = ProviderConfig::default();
-        provider.default_asset_account = Some("Assets:Broker:Case:Cash".to_string());
-
-        global
-            .providers
-            .insert("MyProvider".to_string(), provider.clone());
-
-        let (loaded, source_path) =
-            load_provider_config(Path::new("__missing__.yml"), "myprovider", &global)
-                .expect("global provider context lookup should work");
-
-        assert!(source_path.is_none());
-        assert_eq!(loaded.default_asset_account, provider.default_asset_account);
-    }
-
-    #[test]
-    fn load_normalizes_provider_name_before_resolving_paths() {
-        let cli = Cli {
-            provider: "WECHAT".to_string(),
-            source: PathBuf::from("dummy.csv"),
-            config: PathBuf::from("__missing__.yml"),
-            global_config: None,
-            output: None,
-            log_level: LogLevel::Warn,
-            quiet: false,
-            verbose: false,
-            strict: false,
-        };
-
-        let loaded =
-            load(&cli).expect("uppercase provider name should still resolve config and mapping");
-        assert!(loaded.mapping.date.is_some() || loaded.mapping.amount.is_some());
-    }
-
-    #[test]
-    fn resolves_relative_inventory_seed_paths_against_config_base() {
-        let mut provider = ProviderConfig::default();
-        provider.inventory_seed_files = vec![
-            "transactions/2025/12/galaxy.bean".to_string(),
-            "C:/already/absolute.bean".to_string(),
-        ];
-
-        resolve_inventory_seed_paths(&mut provider, Path::new("config-new/galaxy.yml"));
-
-        let normalized_first = provider.inventory_seed_files[0].replace('\\', "/");
-        assert!(normalized_first.ends_with("config-new/transactions/2025/12/galaxy.bean"));
-        assert_eq!(
-            provider.inventory_seed_files[1],
-            "C:/already/absolute.bean".to_string()
-        );
-    }
-}
+mod tests;

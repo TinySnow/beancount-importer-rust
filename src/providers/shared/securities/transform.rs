@@ -1,5 +1,5 @@
-use crate::{
-    error::{ImporterError, ImporterResult},
+﻿use crate::{
+    error::ImporterResult,
     model::{
         config::provider::ProviderConfig, data::raw_record::RawRecord,
         rule::rule_engine::RuleEngine, transaction::Transaction,
@@ -7,18 +7,20 @@ use crate::{
 };
 
 use super::{
-    SecurityTransformOptions, logic::is_cash_transfer_record, normalize::normalize_cash_currency,
-    trade::build_security_trade_transaction, transfer::build_cash_transfer_transaction,
+    SecurityTransformOptions,
+    context::SecurityRecordContext,
+    logic::{TransactionKind, classify_transaction_kind},
+    normalize::normalize_cash_currency,
+    trade::build_security_trade_transaction,
+    transfer::build_cash_transfer_transaction,
 };
 
 /// 证券类供应商通用转换入口。
 ///
-/// 该入口仅负责：
-/// - 规则匹配与忽略判断。
-/// - 通用字段解包与基础校验。
-/// - 在“银证转账”与“证券交易”之间路由。
-///
-/// 具体分录构建逻辑已下沉到子模块，便于后续扩展股票、期权等场景。
+/// 职责仅包含：
+/// 1. 规则匹配与忽略判断；
+/// 2. 构建标准证券上下文；
+/// 3. 在“银证转账”和“证券交易”之间路由。
 pub(crate) fn transform_security_record(
     options: SecurityTransformOptions,
     record: RawRecord,
@@ -30,71 +32,25 @@ pub(crate) fn transform_security_record(
         return Ok(None);
     }
 
-    let RawRecord {
-        date,
-        amount,
-        currency,
-        payee,
-        narration,
-        transaction_type,
-        reference,
-        symbol,
-        security_name,
-        quantity,
-        unit_price,
-        fee,
-        tax,
-        extra,
-        ..
-    } = record;
-
-    let date = date.ok_or_else(|| ImporterError::Conversion("Missing trade date".to_string()))?;
-
     let cash_currency = normalize_cash_currency(
-        currency
+        record
+            .currency
             .as_deref()
             .or(config.default_currency.as_deref())
             .unwrap_or("CNY"),
     );
 
-    if is_cash_transfer_record(transaction_type.as_deref(), symbol.as_deref()) {
-        let tx = build_cash_transfer_transaction(
-            options,
-            &match_result,
-            config,
-            date,
-            amount,
-            &cash_currency,
-            payee,
-            narration,
-            transaction_type,
-            reference,
-            fee,
-            tax,
-            extra,
-        )?;
+    let context = SecurityRecordContext::from_record(record, cash_currency)?;
+
+    if classify_transaction_kind(
+        context.transaction_type.as_deref(),
+        context.symbol.as_deref(),
+    ) == TransactionKind::CashTransfer
+    {
+        let tx = build_cash_transfer_transaction(options, &match_result, config, context)?;
         return Ok(Some(tx));
     }
 
-    let tx = build_security_trade_transaction(
-        options,
-        &match_result,
-        config,
-        date,
-        amount,
-        &cash_currency,
-        payee,
-        narration,
-        transaction_type,
-        reference,
-        symbol,
-        security_name,
-        quantity,
-        unit_price,
-        fee,
-        tax,
-        extra,
-    )?;
-
+    let tx = build_security_trade_transaction(options, &match_result, config, context)?;
     Ok(Some(tx))
 }

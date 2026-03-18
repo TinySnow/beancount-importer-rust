@@ -163,7 +163,7 @@ impl CsvRecordReader {
         }
 
         for column in mapping.extra_fields.values() {
-            if normalized.iter().any(|header| *header == column.as_str()) {
+            if normalized.contains(&column.as_str()) {
                 score += 1;
             }
         }

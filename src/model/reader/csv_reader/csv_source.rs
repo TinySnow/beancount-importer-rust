@@ -14,7 +14,7 @@ use super::{
 };
 
 impl CsvRecordReader {
-    /// Read CSV file and normalize to `TabularData`.
+    /// 读取 CSV 文件并归一化为 `TabularData`。
     pub(super) fn read_csv_table(&self, path: &Path) -> ImporterResult<TabularData> {
         info!("Opening file: {}", path.display());
         let file = File::open(path)?;
