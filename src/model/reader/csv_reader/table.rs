@@ -1,4 +1,10 @@
-﻿pub(super) const POSITIONAL_HEADER_COUNT: usize = 256;
+//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//!
+//! 文件路径：src/model/reader/csv_reader/table.rs。
+//! 该文件围绕 'table' 的职责提供实现。
+//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+
+pub(super) const POSITIONAL_HEADER_COUNT: usize = 256;
 
 /// 单行表格数据（附带源文件中的可读行号）。
 #[derive(Debug)]

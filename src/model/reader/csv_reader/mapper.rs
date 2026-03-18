@@ -1,3 +1,9 @@
+//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//!
+//! 文件路径：src/model/reader/csv_reader/mapper.rs。
+//! 该文件围绕 'mapper' 的职责提供实现。
+//! 关键符号：validate_mapping、map_to_raw_record、map_date、map_decimal。
+
 use std::collections::HashMap;
 
 use chrono::{NaiveDate, NaiveDateTime};

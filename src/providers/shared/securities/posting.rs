@@ -1,3 +1,9 @@
+//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//!
+//! 文件路径：src/providers/shared/securities/posting.rs。
+//! 该文件围绕 'posting' 的职责提供实现。
+//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+
 use rust_decimal::Decimal;
 
 use crate::model::{

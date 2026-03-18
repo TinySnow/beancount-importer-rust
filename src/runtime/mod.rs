@@ -1,4 +1,9 @@
-//! 运行时导入流程入口与编排层。
+//! 模块说明：运行时总入口，串联读取、转换、写出。
+//!
+//! 文件路径：src/runtime/mod.rs。
+//! 该文件主要承担子模块声明与导出职责。
+//! 关键符号：run。
+
 mod config_loader;
 mod currency;
 mod inventory;

@@ -1,9 +1,8 @@
-﻿//! 供应商专属配置模型。
+//! 模块说明：配置模型定义与序列化反序列化规则。
 //!
-//! 设计要点：
-//! - 保留历史顶层字段，保证旧配置不破坏；
-//! - 提供 `securities_accounts` 子结构收敛证券相关账户；
-//! - 通过 `securities_*_account()` 统一读取“有效值”，减少调用层分支。
+//! 文件路径：src/model/config/provider.rs。
+//! 该文件聚焦 Provider 接口约定。
+//! 关键符号：SecuritiesAccountsConfig、ProviderConfig、default_true、first_non_empty。
 
 use log::trace;
 use serde::{Deserialize, Serialize};

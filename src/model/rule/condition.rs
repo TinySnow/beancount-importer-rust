@@ -1,11 +1,9 @@
-//! 【模块文档】
+//! 模块说明：规则匹配、条件运算与动作执行引擎。
 //!
-//! 模块名称：源码模块
-//! 文件路径：
-//! 核心职责：承担当前文件对应的功能实现
-//! 主要输入：上游模块传入的数据
-//! 主要输出：下游模块消费的数据或行为
-//! 维护说明：变更前应确认其在导入链路中的位置与影响
+//! 文件路径：src/model/rule/condition.rs。
+//! 该文件围绕 'condition' 的职责提供实现。
+//! 关键符号：Condition。
+
 use serde::{Deserialize, Serialize};
 
 use crate::model::rule::condition_operator::ConditionOperator;

@@ -1,3 +1,9 @@
+//! 模块说明：跨 Provider 的现金流分类与分录构建能力。
+//!
+//! 文件路径：src/providers/shared/cashflow/transform.rs。
+//! 该文件聚焦原始记录到交易的转换编排。
+//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+
 use crate::{
     error::{ImporterError, ImporterResult},
     model::{

@@ -1,3 +1,9 @@
+//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//!
+//! 文件路径：src/model/reader/csv_reader/xlsx_source.rs。
+//! 该文件围绕 'xlsx_source' 的职责提供实现。
+//! 关键符号：select_xlsx_header_row。
+
 use std::path::Path;
 
 use calamine::{Reader, open_workbook_auto};

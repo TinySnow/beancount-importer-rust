@@ -1,3 +1,9 @@
+//! 模块说明：证券库存 lot 匹配、种子加载与成本补全能力。
+//!
+//! 文件路径：src/runtime/inventory/seed_parser.rs。
+//! 该文件围绕 'seed_parser' 的职责提供实现。
+//! 关键符号：parse_seed_cost。
+
 use std::str::FromStr;
 
 use once_cell::sync::Lazy;

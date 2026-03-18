@@ -1,12 +1,8 @@
-//! 【模块文档】
+//! 模块说明：字段映射模型定义，用于源数据列到标准字段的映射。
 //!
-//! 模块名称：源码模块
-//! 文件路径：
-//! 核心职责：承担当前文件对应的功能实现
-//! 主要输入：上游模块传入的数据
-//! 主要输出：下游模块消费的数据或行为
-//! 维护说明：变更前应确认其在导入链路中的位置与影响
-//! 源表头到标准原始记录字段的映射配置。
+//! 文件路径：src/model/mapping/field_mapping.rs。
+//! 该文件围绕 'field_mapping' 的职责提供实现。
+//! 关键符号：FieldMapping、default_date_formats、get_standard_mapping、supports_shorthand_string_syntax。
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

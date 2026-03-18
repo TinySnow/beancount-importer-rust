@@ -1,3 +1,9 @@
+//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//!
+//! 文件路径：src/providers/shared/securities/normalize.rs。
+//! 该文件围绕 'normalize' 的职责提供实现。
+//! 关键符号：sanitize_token、starts_with_ascii_letter、normalizes_chinese_currency_to_iso_code、prefixes_numeric_code_with_uppercase_sec_prefix。
+
 /// Normalizes cash currency labels to ISO uppercase codes.
 ///
 /// Falls back to `CNY` when value is missing or invalid, so Beancount

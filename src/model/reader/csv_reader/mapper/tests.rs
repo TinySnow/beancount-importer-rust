@@ -1,4 +1,10 @@
-﻿use rust_decimal::Decimal;
+//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//!
+//! 文件路径：src/model/reader/csv_reader/mapper/tests.rs。
+//! 该文件主要包含单元测试与回归测试。
+//! 关键符号：strict_mode_fails_on_field_count_mismatch、strict_mode_fails_on_mapping_error、non_strict_mode_skips_mapping_error、normalizes_excel_equals_quoted_literals。
+
+use rust_decimal::Decimal;
 
 use crate::model::{
     config::csv_options::CsvOptions,

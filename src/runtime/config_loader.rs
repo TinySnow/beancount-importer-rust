@@ -1,9 +1,8 @@
-//! 运行时配置加载。
+//! 模块说明：运行时配置加载、路径解析与兼容回退。
 //!
-//! 负责按优先级加载并聚合三类配置：
-//! 1. 全局配置 `GlobalConfig`；
-//! 2. 供应商配置 `ProviderConfig`；
-//! 3. 字段映射配置 `FieldMapping`。
+//! 文件路径：src/runtime/config_loader.rs。
+//! 该文件聚焦配置解析顺序、默认值与路径解析。
+//! 关键符号：LoadedConfig、load、load_yaml_file、load_global_config。
 
 use std::{
     fs,

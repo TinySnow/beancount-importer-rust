@@ -1,3 +1,9 @@
+//! 模块说明：证券库存 lot 匹配、种子加载与成本补全能力。
+//!
+//! 文件路径：src/runtime/inventory/lot_matcher.rs。
+//! 该文件围绕 'lot_matcher' 的职责提供实现。
+//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+
 use rust_decimal::Decimal;
 
 use crate::model::account::cost::Cost;

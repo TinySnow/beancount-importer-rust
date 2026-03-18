@@ -1,3 +1,9 @@
+//! 模块说明：银行对账单 Provider 适配实现。
+//!
+//! 文件路径：src/providers/banks/ccb.rs。
+//! 该文件围绕 'ccb' 的职责提供实现。
+//! 关键符号：CCB_OPTIONS、CcbProvider、name、description。
+
 use crate::{
     error::ImporterResult,
     interface::provider::Provider,

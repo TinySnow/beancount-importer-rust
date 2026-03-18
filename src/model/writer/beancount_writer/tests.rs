@@ -1,4 +1,10 @@
-﻿use chrono::NaiveDate;
+//! 模块说明：Beancount 渲染输出实现。
+//!
+//! 文件路径：src/model/writer/beancount_writer/tests.rs。
+//! 该文件主要包含单元测试与回归测试。
+//! 关键符号：test_simple_transaction、test_quoted_date_format_is_sanitized、test_inferred_cost_posting_is_rendered_as_empty_braces、test_open_directives_are_emitted_when_enabled。
+
+use chrono::NaiveDate;
 use rust_decimal_macros::dec;
 
 use super::*;

@@ -1,4 +1,8 @@
-//! CSV/XLSX 对账单读取与字段映射入口。
+//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//!
+//! 文件路径：src/model/reader/csv_reader/mod.rs。
+//! 该文件主要承担子模块声明与导出职责。
+//! 关键符号：CsvRecordReader、new、read_file、is_xlsx_path。
 
 use std::path::Path;
 

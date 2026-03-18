@@ -1,3 +1,9 @@
+//! 模块说明：交易盈亏元数据计算与写入。
+//!
+//! 文件路径：src/runtime/pnl.rs。
+//! 该文件聚焦盈亏元数据计算。
+//! 关键符号：TradeProfitMetadata、calculate_trade_profit_metadata、infer_fee_total_from_postings、read_numeric_metadata。
+
 use std::{collections::HashMap, str::FromStr};
 
 use rust_decimal::Decimal;

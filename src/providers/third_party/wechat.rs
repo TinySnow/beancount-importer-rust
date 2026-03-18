@@ -1,3 +1,9 @@
+//! 模块说明：第三方支付平台 Provider 适配实现。
+//!
+//! 文件路径：src/providers/third_party/wechat.rs。
+//! 该文件围绕 'wechat' 的职责提供实现。
+//! 关键符号：WECHAT_OPTIONS、WechatProvider、name、description。
+
 use crate::{
     error::ImporterResult,
     interface::provider::Provider,

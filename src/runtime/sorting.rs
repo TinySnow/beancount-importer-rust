@@ -1,3 +1,9 @@
+//! 模块说明：交易排序规则实现。
+//!
+//! 文件路径：src/runtime/sorting.rs。
+//! 该文件聚焦交易排序键构建与排序执行。
+//! 关键符号：transaction_commission_date、COMMISSION_DATE_KEYS、transaction_order_id、ORDER_ID_KEYS。
+
 use crate::model::{config::meta_value::MetaValue, transaction::Transaction};
 
 /// 按交易日期、委托/成交日期、订单号排序交易。

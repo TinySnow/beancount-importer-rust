@@ -1,3 +1,9 @@
+//! 模块说明：银行对账单 Provider 适配实现。
+//!
+//! 文件路径：src/providers/banks/icbc.rs。
+//! 该文件围绕 'icbc' 的职责提供实现。
+//! 关键符号：ICBC_OPTIONS、IcbcProvider、name、description。
+
 use crate::{
     error::ImporterResult,
     interface::provider::Provider,

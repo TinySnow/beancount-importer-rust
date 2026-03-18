@@ -1,4 +1,8 @@
-//! 记账导入器库入口。
+//! 模块说明：库入口，负责导出可复用的核心模块。
+//!
+//! 文件路径：src/lib.rs。
+//! 该文件提供库级入口与公共导出。
+//! 关键符号：error、interface、model、providers。
 
 pub mod error;
 pub mod interface;

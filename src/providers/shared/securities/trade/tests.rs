@@ -1,4 +1,10 @@
-﻿use std::collections::HashMap;
+//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//!
+//! 文件路径：src/providers/shared/securities/trade/tests.rs。
+//! 该文件主要包含单元测试与回归测试。
+//! 关键符号：make_context、uses_broker_cash_account_as_fallback_in_security_trade、uses_explicit_default_cash_account_when_configured、uses_nested_securities_cash_account_when_configured。
+
+use std::collections::HashMap;
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;

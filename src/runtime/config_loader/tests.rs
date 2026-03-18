@@ -1,3 +1,9 @@
+//! 模块说明：配置加载模块测试实现。
+//!
+//! 文件路径：src/runtime/config_loader/tests.rs。
+//! 该文件主要包含单元测试与回归测试。
+//! 关键符号：load_provider_config_matches_global_key_case_insensitively、load_normalizes_provider_name_before_resolving_paths、resolves_relative_inventory_seed_paths_against_config_base、load_field_mapping_supports_legacy_src_mapping_prefix。
+
 use std::{
     fs,
     path::{Path, PathBuf},

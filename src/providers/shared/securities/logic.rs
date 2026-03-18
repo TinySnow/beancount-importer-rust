@@ -1,3 +1,9 @@
+//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//!
+//! 文件路径：src/providers/shared/securities/logic.rs。
+//! 该文件围绕 'logic' 的职责提供实现。
+//! 关键符号：is_cash_transfer_keyword、derives_rounding_account_from_fee_account_prefix、detects_cash_transfer_without_symbol、infers_transfer_direction_from_type_or_amount。
+
 use rust_decimal::Decimal;
 
 /// 交易种类语义。

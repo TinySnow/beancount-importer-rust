@@ -1,3 +1,9 @@
+//! 模块说明：Beancount 渲染输出实现。
+//!
+//! 文件路径：src/model/writer/beancount_writer/render.rs。
+//! 该文件聚焦 Beancount 文本渲染细节。
+//! 关键符号：write_posting、write_sorted_metadata、format_decimal、sanitize_date_format。
+
 use std::collections::HashMap;
 
 use log::trace;

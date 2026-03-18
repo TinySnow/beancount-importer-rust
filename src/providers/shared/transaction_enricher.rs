@@ -1,4 +1,8 @@
-//! Provider 层交易补充与元数据处理工具。
+//! 模块说明：Provider 共享逻辑模块。
+//!
+//! 文件路径：src/providers/shared/transaction_enricher.rs。
+//! 该文件围绕 'transaction_enricher' 的职责提供实现。
+//! 关键符号：resolve_provider_source、map_provider_source、resolves_known_provider_source_label、falls_back_to_display_name_for_unknown_provider。
 
 use crate::model::{
     config::meta_value::MetaValue, rule::match_result::MatchResult, transaction::Transaction,

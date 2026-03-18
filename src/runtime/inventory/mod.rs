@@ -1,4 +1,10 @@
-﻿use std::collections::HashMap;
+//! 模块说明：证券库存 lot 匹配、种子加载与成本补全能力。
+//!
+//! 文件路径：src/runtime/inventory/mod.rs。
+//! 该文件主要承担子模块声明与导出职责。
+//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+
+use std::collections::HashMap;
 
 use rust_decimal::Decimal;
 

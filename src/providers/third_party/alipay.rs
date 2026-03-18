@@ -1,4 +1,8 @@
-//! 支付宝 Provider。
+//! 模块说明：第三方支付平台 Provider 适配实现。
+//!
+//! 文件路径：src/providers/third_party/alipay.rs。
+//! 该文件围绕 'alipay' 的职责提供实现。
+//! 关键符号：ALIPAY_OPTIONS、AlipayProvider、name、description。
 
 use crate::{
     error::ImporterResult,

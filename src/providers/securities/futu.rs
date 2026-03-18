@@ -1,4 +1,8 @@
-//! 富途证券 Provider。
+//! 模块说明：证券对账单 Provider 适配实现。
+//!
+//! 文件路径：src/providers/securities/futu.rs。
+//! 该文件围绕 'futu' 的职责提供实现。
+//! 关键符号：FUTU_OPTIONS、FutuProvider、name、description。
 
 use crate::{
     error::ImporterResult,

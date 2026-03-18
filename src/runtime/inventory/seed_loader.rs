@@ -1,3 +1,9 @@
+//! 模块说明：证券库存 lot 匹配、种子加载与成本补全能力。
+//!
+//! 文件路径：src/runtime/inventory/seed_loader.rs。
+//! 该文件围绕 'seed_loader' 的职责提供实现。
+//! 关键符号：ingest_seed_inventory_file。
+
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};

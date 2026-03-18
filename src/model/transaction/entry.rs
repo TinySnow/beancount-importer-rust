@@ -1,12 +1,8 @@
-//! 【模块文档】
+//! 模块说明：标准交易与分录模型定义。
 //!
-//! 模块名称：源码模块
-//! 文件路径：
-//! 核心职责：承担当前文件对应的功能实现
-//! 主要输入：上游模块传入的数据
-//! 主要输出：下游模块消费的数据或行为
-//! 维护说明：变更前应确认其在导入链路中的位置与影响
-//! Beancount 交易模型定义
+//! 文件路径：src/model/transaction/entry.rs。
+//! 该文件围绕 'entry' 的职责提供实现。
+//! 关键符号：Transaction、default_flag、new、with_payee。
 
 use crate::model::account::posting::Posting;
 use crate::model::config::meta_value::MetaValue;

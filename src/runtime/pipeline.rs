@@ -1,3 +1,9 @@
+//! 模块说明：导入流水线阶段编排与执行。
+//!
+//! 文件路径：src/runtime/pipeline.rs。
+//! 该文件聚焦流水线阶段执行与统计。
+//! 关键符号：AlwaysFailProvider、name、parse、transform。
+
 use anyhow::{Result, anyhow};
 use log::{debug, info, warn};
 

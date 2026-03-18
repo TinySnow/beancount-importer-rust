@@ -1,4 +1,10 @@
-﻿use std::collections::{BTreeMap, BTreeSet};
+//! 模块说明：Beancount 渲染输出实现。
+//!
+//! 文件路径：src/model/writer/beancount_writer/directives.rs。
+//! 该文件聚焦 open、commodity 等指令渲染。
+//! 关键符号：resolve_open_date、collect_open_accounts、normalized_booking_method、collect_commodity_symbols。
+
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::NaiveDate;
 

@@ -1,4 +1,10 @@
-﻿use chrono::NaiveDate;
+//! 模块说明：证券对账单 Provider 适配实现。
+//!
+//! 文件路径：src/providers/securities/yinhe/tests.rs。
+//! 该文件主要包含单元测试与回归测试。
+//! 关键符号：recognizes_interest_rollover_without_symbol、keeps_interest_rollover_when_symbol_present、normalizes_repo_settlement_transaction_type、normalizes_repo_mature_settlement_transaction_type。
+
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use crate::model::{

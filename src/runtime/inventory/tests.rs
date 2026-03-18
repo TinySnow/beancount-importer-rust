@@ -1,3 +1,9 @@
+//! 模块说明：证券库存 lot 匹配、种子加载与成本补全能力。
+//!
+//! 文件路径：src/runtime/inventory/tests.rs。
+//! 该文件主要包含单元测试与回归测试。
+//! 关键符号：resolves_inferred_sell_into_explicit_fifo_lots、keeps_residual_inferred_posting_when_lots_are_insufficient、resolves_explicit_cost_sell_without_date_into_dated_fifo_lots、keeps_residual_explicit_cost_sell_when_lots_are_insufficient。
+
 use std::fs;
 
 use chrono::NaiveDate;

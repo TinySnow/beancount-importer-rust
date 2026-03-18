@@ -1,4 +1,10 @@
-﻿use crate::{
+//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//!
+//! 文件路径：src/providers/shared/securities/trade.rs。
+//! 该文件聚焦证券交易分录构建主流程。
+//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+
+use crate::{
     error::{ImporterError, ImporterResult},
     model::{
         config::{meta_value::MetaValue, provider::ProviderConfig},

@@ -1,3 +1,9 @@
+//! 模块说明：第三方支付平台 Provider 适配实现。
+//!
+//! 文件路径：src/providers/third_party/jd.rs。
+//! 该文件围绕 'jd' 的职责提供实现。
+//! 关键符号：JD_OPTIONS、JdProvider、name、description。
+
 use crate::{
     error::ImporterResult,
     interface::provider::Provider,

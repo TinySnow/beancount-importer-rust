@@ -1,4 +1,8 @@
-//! 银河证券供应商实现。
+//! 模块说明：证券对账单 Provider 适配实现。
+//!
+//! 文件路径：src/providers/securities/yinhe.rs。
+//! 该文件围绕 'yinhe' 的职责提供实现。
+//! 关键符号：YINHE_OPTIONS、YINHE_INTEREST_ROLLOVER_KEYWORD、YINHE_REPO_SETTLEMENT_KEYWORD、YINHE_REPO_MATURE_SETTLEMENT_KEYWORD。
 
 use crate::{
     error::{ImporterError, ImporterResult},

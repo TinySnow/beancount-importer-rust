@@ -1,4 +1,8 @@
-//! Beancount 写入器：负责把标准交易渲染为 Beancount 文本。
+//! 模块说明：写出器模块组织与导出。
+//!
+//! 文件路径：src/model/writer/beancount_writer.rs。
+//! 该文件围绕 'beancount_writer' 的职责提供实现。
+//! 关键符号：OpenAccountInfo、BeancountWriter、new、write。
 
 mod directives;
 mod render;

@@ -1,3 +1,9 @@
+//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//!
+//! 文件路径：src/providers/shared/securities/transfer.rs。
+//! 该文件聚焦证券资金划转分录构建。
+//! 关键符号：uses_explicit_default_cash_account_for_cash_transfer。
+
 use crate::{
     error::{ImporterError, ImporterResult},
     model::{

@@ -1,3 +1,9 @@
+//! 模块说明：证券库存 lot 匹配、种子加载与成本补全能力。
+//!
+//! 文件路径：src/runtime/inventory/lot_apply.rs。
+//! 该文件围绕 'lot_apply' 的职责提供实现。
+//! 关键符号：register_buy_lot、should_split_sell_posting、build_sell_split_posting、build_sell_residual_posting。
+
 use rust_decimal::Decimal;
 
 use crate::model::{

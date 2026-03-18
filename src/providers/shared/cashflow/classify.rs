@@ -1,4 +1,10 @@
-﻿use rust_decimal::Decimal;
+//! 模块说明：跨 Provider 的现金流分类与分录构建能力。
+//!
+//! 文件路径：src/providers/shared/cashflow/classify.rs。
+//! 该文件围绕 'classify' 的职责提供实现。
+//! 关键符号：infers_expense_from_direction_keywords、infers_expense_from_english_keywords、falls_back_to_amount_sign_when_direction_missing。
+
+use rust_decimal::Decimal;
 
 /// 根据方向字段与金额符号推断是否为支出。
 ///
