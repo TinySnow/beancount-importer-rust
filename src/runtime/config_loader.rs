@@ -7,7 +7,7 @@
 
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use anyhow::{Context, Result, anyhow};
@@ -186,10 +186,12 @@ fn load_field_mapping(
     let mut candidate_paths = Vec::new();
 
     if let Some(mapping_file) = &provider_config.mapping_file {
-        candidate_paths.extend(resolve_candidate_paths(
-            &PathBuf::from(mapping_file),
-            config_base_path,
-        ));
+        let configured_path = PathBuf::from(mapping_file);
+        candidate_paths.extend(resolve_candidate_paths(&configured_path, config_base_path));
+        // 兼容历史配置：仓库迁移后仍允许旧前缀 `src/mapping/` 自动回退到 `mapping/`。
+        for compatibility_path in resolve_mapping_path_compatibility_aliases(&configured_path) {
+            candidate_paths.extend(resolve_candidate_paths(&compatibility_path, config_base_path));
+        }
     } else {
         let defaults = [
             PathBuf::from(format!("mapping/{}.yml", provider_name)),
@@ -233,6 +235,81 @@ fn resolve_candidate_paths(path: &Path, base_path: &Path) -> Vec<PathBuf> {
 
     let base_dir = base_path.parent().unwrap_or_else(|| Path::new("."));
     vec![base_dir.join(path), path.to_path_buf()]
+}
+
+/// 为 `mapping_file` 生成兼容路径候选。
+///
+/// 仅处理相对路径，且仅处理“前缀目录迁移”场景：
+/// - `src/mapping/*` <-> `mapping/*`
+/// - `mappings/*` -> `mapping/*`
+fn resolve_mapping_path_compatibility_aliases(path: &Path) -> Vec<PathBuf> {
+    let mut aliases = Vec::new();
+
+    if let Some(candidate) = replace_relative_prefix(path, &["src", "mapping"], &["mapping"]) {
+        aliases.push(candidate.clone());
+        if let Some(mappings_candidate) =
+            replace_relative_prefix(&candidate, &["mapping"], &["mappings"])
+        {
+            aliases.push(mappings_candidate);
+        }
+    }
+
+    if let Some(candidate) = replace_relative_prefix(path, &["mapping"], &["src", "mapping"]) {
+        aliases.push(candidate);
+    }
+
+    if let Some(candidate) = replace_relative_prefix(path, &["mappings"], &["mapping"]) {
+        aliases.push(candidate.clone());
+        if let Some(legacy_candidate) =
+            replace_relative_prefix(&candidate, &["mapping"], &["src", "mapping"])
+        {
+            aliases.push(legacy_candidate);
+        }
+    }
+
+    aliases
+}
+
+/// 将相对路径前缀替换为新前缀；若不匹配则返回 `None`。
+fn replace_relative_prefix(path: &Path, from_prefix: &[&str], to_prefix: &[&str]) -> Option<PathBuf> {
+    if path.is_absolute() {
+        return None;
+    }
+
+    let mut components = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => continue,
+            Component::Normal(value) => components.push(value.to_string_lossy().to_string()),
+            // 带 `..` 的复杂相对路径不做目录迁移猜测，避免误判。
+            Component::ParentDir => return None,
+            Component::Prefix(_) | Component::RootDir => return None,
+        }
+    }
+
+    if components.len() < from_prefix.len() {
+        return None;
+    }
+
+    let starts_with_prefix = components
+        .iter()
+        .take(from_prefix.len())
+        .zip(from_prefix.iter())
+        .all(|(left, right)| left.eq_ignore_ascii_case(right));
+
+    if !starts_with_prefix {
+        return None;
+    }
+
+    let mut replaced = PathBuf::new();
+    for segment in to_prefix {
+        replaced.push(segment);
+    }
+    for segment in components.iter().skip(from_prefix.len()) {
+        replaced.push(segment);
+    }
+
+    Some(replaced)
 }
 
 /// 按字符串（小写）对路径去重，避免重复 I/O。

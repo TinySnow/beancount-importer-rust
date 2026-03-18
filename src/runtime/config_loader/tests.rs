@@ -1,11 +1,14 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::model::{
     cli::{Cli, log_level::LogLevel},
     config::{global::GlobalConfig, provider::ProviderConfig},
 };
 
-use super::{load, load_provider_config, resolve_inventory_seed_paths};
+use super::{load, load_field_mapping, load_provider_config, resolve_inventory_seed_paths};
 
 #[test]
 fn load_provider_config_matches_global_key_case_insensitively() {
@@ -64,4 +67,44 @@ fn resolves_relative_inventory_seed_paths_against_config_base() {
         provider.inventory_seed_files[1],
         "C:/already/absolute.bean".to_string()
     );
+}
+
+#[test]
+fn load_field_mapping_supports_legacy_src_mapping_prefix() {
+    let mut temp_root = std::env::temp_dir();
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock should be monotonic")
+        .as_nanos();
+    temp_root.push(format!(
+        "beancount-mapping-compat-{}-{}",
+        std::process::id(),
+        unique
+    ));
+
+    let config_dir = temp_root.join("config-new");
+    let mapping_dir = config_dir.join("mapping");
+    fs::create_dir_all(&mapping_dir).expect("mapping test directory should be created");
+
+    let mapping_file = mapping_dir.join("yinhe.yml");
+    fs::write(
+        &mapping_file,
+        r#"
+date: "成交日期"
+amount: "成交金额"
+"#,
+    )
+    .expect("mapping test file should be writable");
+
+    let provider = ProviderConfig {
+        mapping_file: Some("src/mapping/yinhe.yml".to_string()),
+        ..ProviderConfig::default()
+    };
+
+    let mapping = load_field_mapping(&provider, "yinhe", &config_dir.join("galaxy.yml"))
+        .expect("legacy src/mapping prefix should fallback to mapping/");
+    assert!(mapping.date.is_some());
+    assert!(mapping.amount.is_some());
+
+    let _ = fs::remove_dir_all(temp_root);
 }
