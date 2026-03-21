@@ -76,6 +76,26 @@ fn resolves_relative_inventory_seed_paths_against_config_base() {
 }
 
 #[test]
+fn keeps_windows_unc_inventory_seed_paths_unchanged() {
+    let mut provider = ProviderConfig {
+        inventory_seed_files: vec![
+            r"\\nas\beancount\inventory\seed.bean".to_string(),
+            "transactions/2026/01/current.bean".to_string(),
+        ],
+        ..ProviderConfig::default()
+    };
+
+    resolve_inventory_seed_paths(&mut provider, Path::new("config-new/galaxy.yml"));
+
+    assert_eq!(
+        provider.inventory_seed_files[0],
+        r"\\nas\beancount\inventory\seed.bean".to_string()
+    );
+    let normalized_second = provider.inventory_seed_files[1].replace('\\', "/");
+    assert!(normalized_second.ends_with("config-new/transactions/2026/01/current.bean"));
+}
+
+#[test]
 fn load_field_mapping_supports_legacy_src_mapping_prefix() {
     let mut temp_root = std::env::temp_dir();
     let unique = std::time::SystemTime::now()

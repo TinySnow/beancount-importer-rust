@@ -317,6 +317,29 @@ fn deduplicate_paths(paths: &mut Vec<PathBuf>) {
     paths.retain(|path| seen.insert(path.to_string_lossy().to_ascii_lowercase()));
 }
 
+/// 判断字符串路径是否应视为“已绝对化路径”（跨平台）。
+///
+/// 除了 `Path::is_absolute()`，还兼容：
+/// - Windows 盘符路径：`C:/...`、`C:\...`
+/// - Windows UNC 路径：`\\server\share\...`
+fn is_effectively_absolute_path(raw: &str) -> bool {
+    let candidate = Path::new(raw);
+    if candidate.is_absolute() {
+        return true;
+    }
+
+    let bytes = raw.as_bytes();
+    if bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'/' || bytes[2] == b'\\')
+    {
+        return true;
+    }
+
+    raw.starts_with("\\\\")
+}
+
 /// 将 `inventory_seed_files` 的相对路径解析为相对配置文件目录的绝对路径。
 fn resolve_inventory_seed_paths(provider_config: &mut ProviderConfig, config_base_path: &Path) {
     if provider_config.inventory_seed_files.is_empty() {
@@ -329,7 +352,7 @@ fn resolve_inventory_seed_paths(provider_config: &mut ProviderConfig, config_bas
         .iter()
         .map(|raw| {
             let candidate = PathBuf::from(raw);
-            if candidate.is_absolute() {
+            if is_effectively_absolute_path(raw) {
                 candidate
             } else {
                 base_dir.join(candidate)
