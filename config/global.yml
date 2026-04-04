@@ -22,12 +22,12 @@ providers:
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
     default_currency: "CNY"
-    csv_options:
+    tabular_options:
       delimiter: ","
       flexible: true
       encoding: "auto"
     skip_header_lines: 24
-    has_csv_header: true
+    has_header_row: true
 
   wechat:
     name: "微信"
@@ -36,12 +36,12 @@ providers:
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
     default_currency: "CNY"
-    csv_options:
+    tabular_options:
       delimiter: ","
       flexible: true
       encoding: "auto"
     skip_header_lines: 0
-    has_csv_header: true
+    has_header_row: true
 
   jd:
     name: "京东"
@@ -50,12 +50,12 @@ providers:
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
     default_currency: "CNY"
-    csv_options:
+    tabular_options:
       delimiter: ","
       flexible: true
       encoding: "auto"
     skip_header_lines: 0
-    has_csv_header: true
+    has_header_row: true
 
   mt:
     name: "美团"
@@ -64,12 +64,12 @@ providers:
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
     default_currency: "CNY"
-    csv_options:
+    tabular_options:
       delimiter: ","
       flexible: true
       encoding: "auto"
     skip_header_lines: 0
-    has_csv_header: true
+    has_header_row: true
 
   icbc:
     name: "工商银行"
@@ -78,12 +78,12 @@ providers:
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
     default_currency: "CNY"
-    csv_options:
+    tabular_options:
       delimiter: ","
       flexible: true
       encoding: "auto"
     skip_header_lines: 0
-    has_csv_header: true
+    has_header_row: true
 
   ccb:
     name: "建设银行"
@@ -92,12 +92,12 @@ providers:
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
     default_currency: "CNY"
-    csv_options:
+    tabular_options:
       delimiter: ","
       flexible: true
       encoding: "auto"
     skip_header_lines: 0
-    has_csv_header: true
+    has_header_row: true
 
   futu:
     name: "富途"
@@ -112,13 +112,13 @@ providers:
       pnl_account: "Income:Broker:Futu:PnL"
       rounding_account: "Expenses:Broker:Futu:Rounding"
       repo_interest_account: "Income:Investing:Interest"
-    csv_options:
+    tabular_options:
       delimiter: ","
       quote: "\""
       flexible: true
       encoding: "auto"
     skip_header_lines: 0
-    has_csv_header: true
+    has_header_row: true
     output:
       date_format: "%Y-%m-%d"
       decimal_places: 4
@@ -137,12 +137,12 @@ providers:
       pnl_account: "Income:Broker:Galaxy:PnL"
       rounding_account: "Expenses:Broker:Galaxy:Rounding"
       repo_interest_account: "Income:Investing:Interest"
-    csv_options:
+    tabular_options:
       delimiter: "\t"
       flexible: true
       encoding: "GBK"
     skip_header_lines: 0
-    has_csv_header: true
+    has_header_row: true
     output:
       date_format: "%Y-%m-%d"
       decimal_places: 4

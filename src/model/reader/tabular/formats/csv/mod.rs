@@ -1,7 +1,7 @@
 //! 模块说明：CSV/XLS 源读取与字段映射解析能力。
 //!
-//! 文件路径：src/model/reader/csv_reader/csv_source.rs。
-//! 该文件围绕 'csv_source' 的职责提供实现。
+//! 文件路径：src/model/reader/tabular/formats/csv/mod.rs。
+//! 该文件围绕 CSV 格式读取的职责提供实现。
 //! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
 
 use std::{fs::File, path::Path};
@@ -14,20 +14,23 @@ use crate::{
     utils::encoding::decode_file,
 };
 
-use super::{
-    CsvRecordReader,
+use crate::model::reader::tabular::{
+    TabularRecordReader,
     table::{RowData, TabularData},
 };
 
-impl CsvRecordReader {
+impl TabularRecordReader {
     /// 读取 CSV 文件并归一化为 `TabularData`。
-    pub(super) fn read_csv_table(&self, path: &Path) -> ImporterResult<TabularData> {
+    pub(in crate::model::reader::tabular) fn read_csv_table(
+        &self,
+        path: &Path,
+    ) -> ImporterResult<TabularData> {
         info!("Opening file: {}", path.display());
         let file = File::open(path)?;
         let file_size = file.metadata().map(|meta| meta.len()).unwrap_or(0);
         debug!("File size: {} bytes", file_size);
 
-        let content = decode_file(file, &self.csv_options.encoding)?;
+        let content = decode_file(file, &self.tabular_options.encoding)?;
         debug!("Decoded content length: {} chars", content.len());
 
         let lines: Vec<&str> = content.lines().skip(self.skip_lines).collect();
@@ -48,12 +51,12 @@ impl CsvRecordReader {
 
         let mut builder = ReaderBuilder::new();
         builder
-            .delimiter(self.csv_options.delimiter as u8)
-            .quote(self.csv_options.quote as u8)
-            .flexible(self.csv_options.flexible)
+            .delimiter(self.tabular_options.delimiter as u8)
+            .quote(self.tabular_options.quote as u8)
+            .flexible(self.tabular_options.flexible)
             .has_headers(self.has_header);
 
-        if let Some(comment) = self.csv_options.comment {
+        if let Some(comment) = self.tabular_options.comment {
             builder.comment(Some(comment as u8));
         }
 
@@ -95,7 +98,7 @@ impl CsvRecordReader {
                     pre_parse_errors += 1;
                     warn!("Line {}: CSV parse error - {}", actual_line, error);
 
-                    if self.strict_mode || !self.csv_options.flexible {
+                    if self.strict_mode || !self.tabular_options.flexible {
                         return Err(ImporterError::Parse {
                             line: actual_line,
                             message: error.to_string(),

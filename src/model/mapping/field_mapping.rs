@@ -31,7 +31,7 @@ pub struct FieldMapping {
 
     /// 额外元数据键 -> CSV 列名。
     ///
-    /// `csv_reader` 同时支持旧版反向格式（`csv_column -> extra_key`）
+    /// 表格读取器同时支持旧版反向格式（`csv_column -> extra_key`）
     /// 以保持向后兼容。
     #[serde(default)]
     pub extra_fields: HashMap<String, String>,

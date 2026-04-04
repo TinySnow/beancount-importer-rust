@@ -8,7 +8,7 @@ use log::trace;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    config::{csv_options::CsvOptions, global::GlobalConfig, output::OutputConfig},
+    config::{global::GlobalConfig, output::OutputConfig, tabular_options::TabularOptions},
     rule::Rule,
 };
 
@@ -109,9 +109,9 @@ pub struct ProviderConfig {
     #[serde(default, alias = "lot_seed_files", alias = "history_beancount_files")]
     pub inventory_seed_files: Vec<String>,
 
-    /// CSV 解析选项。
-    #[serde(default)]
-    pub csv_options: CsvOptions,
+    /// 表格解析选项（CSV/电子表格共用）。
+    #[serde(default, alias = "csv_options")]
+    pub tabular_options: TabularOptions,
 
     /// 供应商规则列表。
     #[serde(default)]
@@ -125,9 +125,9 @@ pub struct ProviderConfig {
     #[serde(default)]
     pub skip_header_lines: usize,
 
-    /// 数据是否包含 CSV 表头行。
-    #[serde(default = "default_true")]
-    pub has_csv_header: bool,
+    /// 数据是否包含表头行。
+    #[serde(default = "default_true", alias = "has_csv_header")]
+    pub has_header_row: bool,
 }
 
 fn default_true() -> bool {
@@ -157,11 +157,11 @@ impl Default for ProviderConfig {
             default_repo_interest_account: None,
             default_rounding_account: None,
             inventory_seed_files: Vec::new(),
-            csv_options: CsvOptions::default(),
+            tabular_options: TabularOptions::default(),
             rules: Vec::new(),
             output: OutputConfig::default(),
             skip_header_lines: 0,
-            has_csv_header: true,
+            has_header_row: true,
         }
     }
 }
@@ -304,5 +304,47 @@ securities_accounts:
 
         assert_eq!(config.securities_cash_account(), Some("Assets:Nested:Cash"));
         assert_eq!(config.securities_fee_account(), Some("Expenses:Nested:Fee"));
+    }
+
+    #[test]
+    fn deserializes_legacy_tabular_option_aliases() {
+        let yaml = r#"
+csv_options:
+  delimiter: ";"
+  quote: "'"
+  flexible: true
+  encoding: "GBK"
+has_csv_header: false
+"#;
+
+        let config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+
+        assert_eq!(config.tabular_options.delimiter, ';');
+        assert_eq!(config.tabular_options.quote, '\'');
+        assert!(config.tabular_options.flexible);
+        assert_eq!(config.tabular_options.encoding, "GBK");
+        assert!(!config.has_header_row);
+    }
+
+    #[test]
+    fn deserializes_tabular_option_new_keys() {
+        let yaml = r#"
+tabular_options:
+  delimiter: ","
+  quote: "\""
+  flexible: false
+  encoding: "UTF-8"
+has_header_row: true
+"#;
+
+        let config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+
+        assert_eq!(config.tabular_options.delimiter, ',');
+        assert_eq!(config.tabular_options.quote, '"');
+        assert!(!config.tabular_options.flexible);
+        assert_eq!(config.tabular_options.encoding, "UTF-8");
+        assert!(config.has_header_row);
     }
 }

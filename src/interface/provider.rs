@@ -10,7 +10,7 @@ use crate::{
     error::ImporterResult,
     model::{
         config::provider::ProviderConfig, data::raw_record::RawRecord,
-        mapping::field_mapping::FieldMapping, reader::csv_reader::CsvRecordReader,
+        mapping::field_mapping::FieldMapping, reader::tabular::TabularRecordReader,
         rule::rule_engine::RuleEngine, transaction::Transaction,
     },
 };
@@ -35,10 +35,10 @@ pub trait Provider: Send + Sync {
         config: &ProviderConfig,
         strict_mode: bool,
     ) -> ImporterResult<Vec<RawRecord>> {
-        let reader = CsvRecordReader::new(
-            config.csv_options.clone(),
+        let reader = TabularRecordReader::new(
+            config.tabular_options.clone(),
             config.skip_header_lines,
-            config.has_csv_header,
+            config.has_header_row,
             strict_mode,
         );
 

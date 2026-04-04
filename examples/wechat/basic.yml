@@ -6,13 +6,13 @@ default_expense_account: "Expenses:Unknown"
 default_income_account: "Income:Unknown"
 default_currency: "CNY"
 
-csv_options:
+tabular_options:
   delimiter: ","
   flexible: true
   encoding: "auto"
 
 skip_header_lines: 17
-has_csv_header: true
+has_header_row: true
 
 output:
   date_format: "%Y-%m-%d"

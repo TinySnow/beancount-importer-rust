@@ -18,13 +18,13 @@ securities_accounts:
 #   - "../../Beancount/transactions/2025/12/galaxy.bean"
 inventory_seed_files: []
 
-csv_options:
+tabular_options:
   delimiter: "\t"
   flexible: true
   encoding: "GBK"
 
 skip_header_lines: 0
-has_csv_header: true
+has_header_row: true
 
 output:
   date_format: "%Y-%m-%d"

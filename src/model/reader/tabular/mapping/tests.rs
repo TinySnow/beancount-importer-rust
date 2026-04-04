@@ -1,29 +1,30 @@
 //! 模块说明：CSV/XLS 源读取与字段映射解析能力。
 //!
-//! 文件路径：src/model/reader/csv_reader/mapper/tests.rs。
+//! 文件路径：src/model/reader/tabular/mapping/tests.rs。
 //! 该文件主要包含单元测试与回归测试。
 //! 关键符号：strict_mode_fails_on_field_count_mismatch、strict_mode_fails_on_mapping_error、non_strict_mode_skips_mapping_error、normalizes_excel_equals_quoted_literals。
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 use crate::model::{
-    config::csv_options::CsvOptions,
+    config::tabular_options::TabularOptions,
     mapping::{
         field_mapping::FieldMapping,
         field_spec::{DetailedFieldSpec, FieldSpec},
     },
 };
 
-use super::super::{
-    CsvRecordReader,
+use super::mapper::normalize_cell_value;
+use crate::model::reader::tabular::{
+    TabularRecordReader,
     table::{RowData, TabularData},
 };
-use super::normalize_cell_value;
 
 #[test]
 fn strict_mode_fails_on_field_count_mismatch() {
-    let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, true);
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, true);
     let table = TabularData {
         source_name: "CSV",
         headers: vec!["A".to_string(), "B".to_string()],
@@ -43,7 +44,7 @@ fn strict_mode_fails_on_field_count_mismatch() {
 
 #[test]
 fn strict_mode_fails_on_mapping_error() {
-    let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, true);
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, true);
 
     let mapping = FieldMapping {
         payee: Some(FieldSpec::Detailed(DetailedFieldSpec {
@@ -71,7 +72,7 @@ fn strict_mode_fails_on_mapping_error() {
 
 #[test]
 fn non_strict_mode_skips_mapping_error() {
-    let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
 
     let mapping = FieldMapping {
         payee: Some(FieldSpec::Detailed(DetailedFieldSpec {
@@ -110,7 +111,7 @@ fn normalizes_excel_equals_quoted_literals() {
 
 #[test]
 fn maps_amount_and_extra_fields_after_excel_literal_normalization() {
-    let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
 
     let mut mapping = FieldMapping {
         amount: Some(FieldSpec::Simple("amount".to_string())),
@@ -143,7 +144,7 @@ fn maps_amount_and_extra_fields_after_excel_literal_normalization() {
 
 #[test]
 fn parses_excel_serial_date_for_date_field() {
-    let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
 
     let mapping = FieldMapping {
         date: Some(FieldSpec::Simple("交易时间".to_string())),
@@ -170,4 +171,79 @@ fn parses_excel_serial_date_for_date_field() {
         NaiveDate::from_ymd_opt(2026, 3, 29),
         "excel serial date should map to expected calendar date"
     );
+}
+
+#[test]
+fn infers_date_amount_direction_and_payee_from_ccb_split_columns() {
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
+
+    // 模拟旧映射列名与新网银导出列名不一致的场景。
+    let mapping = FieldMapping {
+        date: Some(FieldSpec::Simple("交易时间".to_string())),
+        amount: Some(FieldSpec::Simple("交易金额".to_string())),
+        payee: Some(FieldSpec::Simple("交易对方".to_string())),
+        transaction_type: Some(FieldSpec::Simple("收/支".to_string())),
+        narration: Some(FieldSpec::Simple("摘要".to_string())),
+        date_formats: vec!["%Y-%m-%d".to_string()],
+        ..FieldMapping::default()
+    };
+
+    let table = TabularData {
+        source_name: "XLSX",
+        headers: vec![
+            "记账日".to_string(),
+            "交易日期".to_string(),
+            "交易时间".to_string(),
+            "支出".to_string(),
+            "收入".to_string(),
+            "币种".to_string(),
+            "摘要".to_string(),
+            "对方户名".to_string(),
+        ],
+        rows: vec![
+            RowData {
+                line_no: 10,
+                cells: vec![
+                    "2026-03-29".to_string(),
+                    "2026-03-29".to_string(),
+                    "10:21:03".to_string(),
+                    "35.20".to_string(),
+                    "".to_string(),
+                    "CNY".to_string(),
+                    "餐饮消费".to_string(),
+                    "某商户".to_string(),
+                ],
+            },
+            RowData {
+                line_no: 11,
+                cells: vec![
+                    "2026-03-30".to_string(),
+                    "2026-03-30".to_string(),
+                    "08:00:00".to_string(),
+                    "".to_string(),
+                    "100.00".to_string(),
+                    "CNY".to_string(),
+                    "工资入账".to_string(),
+                    "公司账户".to_string(),
+                ],
+            },
+        ],
+        pre_parse_errors: 0,
+    };
+
+    let records = reader
+        .map_table_to_records(table, Some(&mapping))
+        .expect("mapping should succeed");
+    assert_eq!(records.len(), 2);
+
+    assert_eq!(records[0].date, NaiveDate::from_ymd_opt(2026, 3, 29));
+    assert_eq!(records[0].amount, Some(dec!(35.20)));
+    assert_eq!(records[0].transaction_type.as_deref(), Some("支出"));
+    assert_eq!(records[0].payee.as_deref(), Some("某商户"));
+    assert_eq!(records[0].currency.as_deref(), Some("CNY"));
+
+    assert_eq!(records[1].date, NaiveDate::from_ymd_opt(2026, 3, 30));
+    assert_eq!(records[1].amount, Some(dec!(100.00)));
+    assert_eq!(records[1].transaction_type.as_deref(), Some("收入"));
+    assert_eq!(records[1].payee.as_deref(), Some("公司账户"));
 }

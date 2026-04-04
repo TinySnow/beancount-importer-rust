@@ -2,6 +2,6 @@
 //!
 //! 文件路径：src/model/reader/mod.rs。
 //! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：csv_reader。
+//! 关键符号：tabular。
 
-pub mod csv_reader;
+pub mod tabular;

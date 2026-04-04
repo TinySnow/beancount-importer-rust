@@ -1,45 +1,44 @@
-//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//! 模块说明：统一表格读取入口（CSV/XLS/XLSX）。
 //!
-//! 文件路径：src/model/reader/csv_reader/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：CsvRecordReader、new、read_file、is_xlsx_path。
+//! 文件路径：src/model/reader/tabular/mod.rs。
+//! 该文件主要承担入口结构定义与子模块编排职责。
+//! 关键符号：TabularRecordReader、new、read_file、is_spreadsheet_path。
 
 use std::path::Path;
 
 use crate::{
     error::ImporterResult,
     model::{
-        config::csv_options::CsvOptions,
+        config::tabular_options::TabularOptions,
         data::raw_record::RawRecord,
         mapping::{field_mapping::FieldMapping, field_spec::FieldSpec},
     },
 };
 
-mod csv_source;
-mod mapper;
+mod formats;
+mod mapping;
 mod table;
-mod xlsx_source;
 
 use table::build_positional_headers;
 
-/// 读取 CSV/XLSX 并映射为 `RawRecord` 的读取器。
-pub struct CsvRecordReader {
-    csv_options: CsvOptions,
+/// 读取 CSV/电子表格并映射为 `RawRecord` 的统一读取器。
+pub struct TabularRecordReader {
+    tabular_options: TabularOptions,
     skip_lines: usize,
     has_header: bool,
     strict_mode: bool,
 }
 
-impl CsvRecordReader {
+impl TabularRecordReader {
     /// 创建读取器实例。
     pub fn new(
-        csv_options: CsvOptions,
+        tabular_options: TabularOptions,
         skip_lines: usize,
         has_header: bool,
         strict_mode: bool,
     ) -> Self {
         Self {
-            csv_options,
+            tabular_options,
             skip_lines,
             has_header,
             strict_mode,
@@ -52,8 +51,8 @@ impl CsvRecordReader {
         path: &Path,
         mapping: Option<&FieldMapping>,
     ) -> ImporterResult<Vec<RawRecord>> {
-        let table = if Self::is_xlsx_path(path) {
-            self.read_xlsx_table(path, mapping)?
+        let table = if Self::is_spreadsheet_path(path) {
+            self.read_spreadsheet_table(path, mapping)?
         } else {
             self.read_csv_table(path)?
         };
@@ -61,11 +60,16 @@ impl CsvRecordReader {
         self.map_table_to_records(table, mapping)
     }
 
-    /// 判断路径是否为 `.xlsx` 扩展名。
-    fn is_xlsx_path(path: &Path) -> bool {
+    /// 判断路径是否为电子表格文件扩展名。
+    fn is_spreadsheet_path(path: &Path) -> bool {
         path.extension()
             .and_then(|ext| ext.to_str())
-            .map(|ext| ext.eq_ignore_ascii_case("xlsx"))
+            .map(|ext| {
+                ext.eq_ignore_ascii_case("xlsx")
+                    || ext.eq_ignore_ascii_case("xls")
+                    || ext.eq_ignore_ascii_case("xlsm")
+                    || ext.eq_ignore_ascii_case("xlsb")
+            })
             .unwrap_or(false)
     }
 
@@ -97,16 +101,18 @@ impl CsvRecordReader {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use crate::model::{
-        config::csv_options::CsvOptions,
+        config::tabular_options::TabularOptions,
         mapping::{field_mapping::FieldMapping, field_spec::FieldSpec},
     };
 
-    use super::CsvRecordReader;
+    use super::TabularRecordReader;
 
     #[test]
     fn xlsx_header_score_prefers_real_header_row() {
-        let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
+        let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
 
         let mapping = FieldMapping {
             date: Some(FieldSpec::Simple("date".to_string())),
@@ -130,9 +136,25 @@ mod tests {
 
     #[test]
     fn positional_headers_have_fixed_size() {
-        let headers = CsvRecordReader::build_positional_headers();
+        let headers = TabularRecordReader::build_positional_headers();
         assert_eq!(headers.len(), 256);
         assert_eq!(headers[0], "col_0");
         assert_eq!(headers[255], "col_255");
+    }
+
+    #[test]
+    fn spreadsheet_path_detection_supports_xls_and_xlsx() {
+        assert!(TabularRecordReader::is_spreadsheet_path(Path::new(
+            "statement.xlsx"
+        )));
+        assert!(TabularRecordReader::is_spreadsheet_path(Path::new(
+            "statement.xls"
+        )));
+        assert!(TabularRecordReader::is_spreadsheet_path(Path::new(
+            "statement.xlsm"
+        )));
+        assert!(!TabularRecordReader::is_spreadsheet_path(Path::new(
+            "statement.csv"
+        )));
     }
 }

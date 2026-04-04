@@ -1,14 +1,14 @@
 //! 模块说明：配置模型定义与序列化反序列化规则。
 //!
-//! 文件路径：src/model/config/csv_options.rs。
-//! 该文件围绕 'csv_options' 的职责提供实现。
-//! 关键符号：CsvOptions、default、default_delimiter、default_quote。
+//! 文件路径：src/model/config/tabular_options.rs。
+//! 该文件围绕 'tabular_options' 的职责提供实现。
+//! 关键符号：TabularOptions、default、default_delimiter、default_quote。
 
 use serde::{Deserialize, Serialize};
 
-/// CSV 解析选项
+/// 表格解析选项（CSV/电子表格共用）
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CsvOptions {
+pub struct TabularOptions {
     /// 分隔符（默认为逗号）
     #[serde(default = "default_delimiter")]
     pub delimiter: char,
@@ -29,7 +29,7 @@ pub struct CsvOptions {
     pub comment: Option<char>,
 }
 
-impl Default for CsvOptions {
+impl Default for TabularOptions {
     fn default() -> Self {
         Self {
             delimiter: ',',

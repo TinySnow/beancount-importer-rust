@@ -1,7 +1,7 @@
 //! 模块说明：CSV/XLS 源读取与字段映射解析能力。
 //!
-//! 文件路径：src/model/reader/csv_reader/xlsx_source.rs。
-//! 该文件围绕 'xlsx_source' 的职责提供实现。
+//! 文件路径：src/model/reader/tabular/formats/spreadsheet/mod.rs。
+//! 该文件围绕电子表格（XLS/XLSX）读取职责提供实现。
 //! 关键符号：select_xlsx_header_row。
 
 use std::path::Path;
@@ -14,30 +14,30 @@ use crate::{
     model::mapping::field_mapping::FieldMapping,
 };
 
-use super::{
-    CsvRecordReader,
+use crate::model::reader::tabular::{
+    TabularRecordReader,
     table::{RowData, TabularData},
 };
 
-impl CsvRecordReader {
-    /// 读取 XLSX 并转换为统一表格结构。
-    pub(super) fn read_xlsx_table(
+impl TabularRecordReader {
+    /// 读取电子表格（XLS/XLSX）并转换为统一表格结构。
+    pub(in crate::model::reader::tabular) fn read_spreadsheet_table(
         &self,
         path: &Path,
         mapping: Option<&FieldMapping>,
     ) -> ImporterResult<TabularData> {
-        info!("Detected XLSX input, using spreadsheet reader");
+        info!("Detected spreadsheet input, using workbook reader");
 
         let mut workbook = open_workbook_auto(path).map_err(|error| {
             ImporterError::Config(format!(
-                "Failed to open XLSX file '{}': {}",
+                "Failed to open spreadsheet file '{}': {}",
                 path.display(),
                 error
             ))
         })?;
 
         let Some(sheet_name) = workbook.sheet_names().first().cloned() else {
-            warn!("No worksheet found in XLSX file: {}", path.display());
+            warn!("No worksheet found in spreadsheet file: {}", path.display());
             return Ok(TabularData {
                 source_name: "XLSX",
                 headers: Vec::new(),
@@ -153,7 +153,11 @@ impl CsvRecordReader {
     }
 
     /// 计算某一行作为 XLSX 表头时与映射配置的匹配分数。
-    pub(super) fn xlsx_header_match_score(&self, mapping: &FieldMapping, row: &[String]) -> usize {
+    pub(in crate::model::reader::tabular) fn xlsx_header_match_score(
+        &self,
+        mapping: &FieldMapping,
+        row: &[String],
+    ) -> usize {
         let normalized = row.iter().map(|value| value.trim()).collect::<Vec<_>>();
 
         let mut score = 0usize;

@@ -1,7 +1,7 @@
 //! 模块说明：CSV/XLS 源读取与字段映射解析能力。
 //!
-//! 文件路径：src/model/reader/csv_reader/mapper.rs。
-//! 该文件围绕 'mapper' 的职责提供实现。
+//! 文件路径：src/model/reader/tabular/mapping/mapper.rs。
+//! 该文件围绕字段映射职责提供实现。
 //! 关键符号：validate_mapping、map_to_raw_record、map_date、map_decimal。
 
 use std::collections::HashMap;
@@ -20,11 +20,11 @@ use crate::{
     utils::decimal::parse_decimal_with_transform,
 };
 
-use super::{CsvRecordReader, table::TabularData};
+use crate::model::reader::tabular::{TabularRecordReader, table::TabularData};
 
-impl CsvRecordReader {
+impl TabularRecordReader {
     /// 将表格行映射为标准 `RawRecord` 列表。
-    pub(super) fn map_table_to_records(
+    pub(in crate::model::reader::tabular) fn map_table_to_records(
         &self,
         table: TabularData,
         mapping: Option<&FieldMapping>,
@@ -101,7 +101,7 @@ impl CsvRecordReader {
                     trace!("Mapping '{}' -> '{}'", name, column);
                 } else {
                     warn!(
-                        "Mapping field '{}' references column '{}' that is not in CSV headers",
+                        "Mapping field '{}' references column '{}' that is not in source headers",
                         name, column
                     );
                 }
@@ -141,8 +141,145 @@ impl CsvRecordReader {
         record.tax = self.map_decimal(fields, mapping.tax.as_ref())?;
 
         self.map_extra_fields(fields, mapping, &mut record);
+        self.apply_common_fallbacks(fields, mapping, &mut record);
 
         Ok(record)
+    }
+
+    /// 对常见银行导出列做兜底推断，提升不同表头变体的兼容性。
+    fn apply_common_fallbacks(
+        &self,
+        fields: &HashMap<String, String>,
+        mapping: &FieldMapping,
+        record: &mut RawRecord,
+    ) {
+        if record.date.is_none() {
+            record.date = self.infer_date_from_common_columns(fields, &mapping.date_formats);
+        }
+
+        if record.payee.is_none() {
+            record.payee = self.first_non_empty_text(
+                fields,
+                &["交易对方", "对方户名", "对手户名", "payee", "counterparty"],
+            );
+        }
+
+        if record.reference.is_none() {
+            record.reference = self.first_non_empty_text(
+                fields,
+                &["交易流水号", "流水号", "reference", "orderId", "交易单号"],
+            );
+        }
+
+        if record.currency.is_none() {
+            record.currency = self.first_non_empty_text(fields, &["币种", "currency", "Currency"]);
+        }
+
+        if record.amount.is_none() || record.transaction_type.is_none() {
+            let (amount, direction) = self.infer_split_amount_and_direction(fields);
+            if record.amount.is_none() {
+                record.amount = amount;
+            }
+            if record.transaction_type.is_none() {
+                record.transaction_type = direction;
+            }
+        }
+    }
+
+    /// 从常见日期列兜底提取交易日期。
+    fn infer_date_from_common_columns(
+        &self,
+        fields: &HashMap<String, String>,
+        formats: &[String],
+    ) -> Option<NaiveDate> {
+        const DATE_KEYS: [&str; 6] = [
+            "交易日期",
+            "记账日",
+            "入账日期",
+            "date",
+            "transaction_date",
+            "booking_date",
+        ];
+
+        for key in DATE_KEYS {
+            let Some(value) = self.non_empty_value(fields.get(key).map(String::as_str)) else {
+                continue;
+            };
+            if let Some(parsed) = self.parse_date(value, formats) {
+                return Some(parsed);
+            }
+        }
+
+        None
+    }
+
+    /// 读取“支出/收入”分列结构并推断金额与方向。
+    fn infer_split_amount_and_direction(
+        &self,
+        fields: &HashMap<String, String>,
+    ) -> (Option<Decimal>, Option<String>) {
+        const EXPENSE_KEYS: [&str; 6] = [
+            "支出",
+            "借方金额",
+            "借方发生额",
+            "debit",
+            "debit_amount",
+            "withdrawal",
+        ];
+        const INCOME_KEYS: [&str; 6] = [
+            "收入",
+            "贷方金额",
+            "贷方发生额",
+            "credit",
+            "credit_amount",
+            "deposit",
+        ];
+
+        let expense = self.first_non_empty_decimal(fields, &EXPENSE_KEYS);
+        let income = self.first_non_empty_decimal(fields, &INCOME_KEYS);
+
+        let expense = expense.filter(|value| !value.is_zero());
+        let income = income.filter(|value| !value.is_zero());
+
+        match (expense, income) {
+            (Some(value), None) => (Some(value), Some("支出".to_string())),
+            (None, Some(value)) => (Some(value), Some("收入".to_string())),
+            (Some(exp), Some(inc)) => {
+                let net = inc - exp;
+                if net.is_zero() {
+                    (Some(exp), Some("支出".to_string()))
+                } else if net.is_sign_positive() {
+                    (Some(net), Some("收入".to_string()))
+                } else {
+                    (Some(net.abs()), Some("支出".to_string()))
+                }
+            }
+            (None, None) => (None, None),
+        }
+    }
+
+    /// 从候选键中取第一个非空文本值。
+    fn first_non_empty_text(
+        &self,
+        fields: &HashMap<String, String>,
+        keys: &[&str],
+    ) -> Option<String> {
+        keys.iter().find_map(|key| {
+            self.non_empty_value(fields.get(*key).map(String::as_str))
+                .map(str::to_string)
+        })
+    }
+
+    /// 从候选键中取第一个可解析的非空金额值（绝对值）。
+    fn first_non_empty_decimal(
+        &self,
+        fields: &HashMap<String, String>,
+        keys: &[&str],
+    ) -> Option<Decimal> {
+        keys.iter().find_map(|key| {
+            let value = self.non_empty_value(fields.get(*key).map(String::as_str))?;
+            parse_decimal_with_transform(value, Some("abs"))
+        })
     }
 
     /// 映射日期字段，按配置格式逐个尝试解析。
@@ -283,6 +420,25 @@ impl CsvRecordReader {
             }
         }
 
+        const COMMON_DATE_FORMATS: [&str; 7] = [
+            "%Y%m%d",
+            "%Y-%m-%d",
+            "%Y/%m/%d",
+            "%Y.%m.%d",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y/%m/%d %H:%M:%S",
+            "%Y-%m-%d %H:%M",
+        ];
+        for format in COMMON_DATE_FORMATS {
+            if let Ok(date_time) = NaiveDateTime::parse_from_str(trimmed, format) {
+                return Some(date_time.date());
+            }
+
+            if let Ok(date) = NaiveDate::parse_from_str(trimmed, format) {
+                return Some(date);
+            }
+        }
+
         Self::parse_excel_serial_date(trimmed)
     }
 
@@ -312,7 +468,7 @@ impl CsvRecordReader {
     }
 }
 
-fn normalize_cell_value(value: &str) -> String {
+pub(super) fn normalize_cell_value(value: &str) -> String {
     let trimmed = value.trim();
     strip_excel_quoted_literal(trimmed).unwrap_or_else(|| trimmed.to_string())
 }
@@ -332,6 +488,3 @@ fn strip_excel_quoted_literal(value: &str) -> Option<String> {
     let inner = &expression[1..expression.len() - 1];
     Some(inner.replace("\"\"", "\""))
 }
-
-#[cfg(test)]
-mod tests;
