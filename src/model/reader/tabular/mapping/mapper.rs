@@ -318,16 +318,20 @@ impl TabularRecordReader {
         &self,
         fields: &HashMap<String, String>,
     ) -> (Option<Decimal>, Option<String>) {
-        const EXPENSE_KEYS: [&str; 6] = [
+        const EXPENSE_KEYS: [&str; 8] = [
             "支出",
+            "出账金额",
+            "出账",
             "借方金额",
             "借方发生额",
             "debit",
             "debit_amount",
             "withdrawal",
         ];
-        const INCOME_KEYS: [&str; 6] = [
+        const INCOME_KEYS: [&str; 8] = [
             "收入",
+            "入账金额",
+            "入账",
             "贷方金额",
             "贷方发生额",
             "credit",

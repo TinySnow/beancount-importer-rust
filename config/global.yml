@@ -99,6 +99,20 @@ providers:
     skip_header_lines: 0
     has_header_row: true
 
+  dzccb:
+    name: "达州银行"
+    mapping_file: "mapping/dzccb.yml"
+    default_asset_account: "Assets:Bank:DZCCB:Checking"
+    default_expense_account: "Expenses:Unknown"
+    default_income_account: "Income:Unknown"
+    default_currency: "CNY"
+    tabular_options:
+      delimiter: ","
+      flexible: true
+      encoding: "auto"
+    skip_header_lines: 0
+    has_header_row: true
+
   futu:
     name: "富途"
     mapping_file: "mapping/futu.yml"
@@ -148,7 +162,6 @@ providers:
       decimal_places: 4
       booking_method: "FIFO"
       emit_open_directives: true
-
 
 
 

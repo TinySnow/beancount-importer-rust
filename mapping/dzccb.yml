@@ -1,0 +1,24 @@
+# 达州银行字段映射（网银导出）
+# 当前样本表头：
+# 交易日期、出账金额、入账金额、余额、交易摘要、对方账号、对方户名、对方开户行、转账用途
+
+date: "交易日期"
+payee: "对方户名"
+narration: "交易摘要"
+reference: "对方账号"
+
+date_formats:
+  - "%Y-%m-%d"
+  - "%Y/%m/%d"
+  - "%Y-%m-%d %H:%M:%S"
+  - "%Y/%m/%d %H:%M:%S"
+
+extra_fields:
+  txType: "交易摘要"
+  note: "转账用途"
+  peer: "对方户名"
+  peerAccount: "对方账号"
+  peerBank: "对方开户行"
+  balance: "余额"
+  incomeAmount: "入账金额"
+  expenseAmount: "出账金额"

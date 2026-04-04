@@ -5,7 +5,7 @@
 ## 1. 当前支持的供应商
 
 - 第三方支付：`alipay`、`wechat`、`jd`、`mt`
-- 银行：`icbc`、`ccb`
+- 银行：`icbc`、`ccb`、`dzccb`
 - 证券：`futu`、`yinhe`
 
 ## 2. 核心能力
@@ -49,7 +49,18 @@ cargo run -- \
   --log-level info
 ```
 
-### 3.4 证券账户最小配置（推荐）
+### 3.4 运行（达州银行示例）
+
+```bash
+cargo run -- \
+  --provider dzccb \
+  --source <your-dzccb-statement.xls> \
+  --config config/dzccb.yml \
+  --output tmp/output/out-dzccb.beancount \
+  --log-level info
+```
+
+### 3.5 证券账户最小配置（推荐）
 
 ```yaml
 default_asset_account: "Assets:Broker:Galaxy:Securities"
@@ -157,5 +168,4 @@ cargo test --quiet
 ## 10. License
 
 MIT
-
 

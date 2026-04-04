@@ -318,6 +318,71 @@ fn infers_amount_and_direction_from_icbc_ledger_split_columns() {
 }
 
 #[test]
+fn infers_amount_and_direction_from_dzccb_inout_columns() {
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
+
+    let mapping = FieldMapping {
+        date: Some(FieldSpec::Simple("交易日期".to_string())),
+        narration: Some(FieldSpec::Simple("交易摘要".to_string())),
+        date_formats: vec!["%Y-%m-%d".to_string()],
+        ..FieldMapping::default()
+    };
+
+    let table = TabularData {
+        source_name: "XLSX",
+        headers: vec![
+            "交易日期".to_string(),
+            "出账金额".to_string(),
+            "入账金额".to_string(),
+            "交易摘要".to_string(),
+            "对方户名".to_string(),
+        ],
+        rows: vec![
+            RowData {
+                line_no: 2,
+                cells: vec![
+                    "2026-03-06".to_string(),
+                    "2000.00".to_string(),
+                    "".to_string(),
+                    "跨行转出".to_string(),
+                    "某对手A".to_string(),
+                ],
+            },
+            RowData {
+                line_no: 3,
+                cells: vec![
+                    "2026-03-19".to_string(),
+                    "".to_string(),
+                    "8000.00".to_string(),
+                    "跨行转入".to_string(),
+                    "某对手B".to_string(),
+                ],
+            },
+        ],
+        pre_parse_errors: 0,
+    };
+
+    let records = reader
+        .map_table_to_records(table, Some(&mapping))
+        .expect("mapping should succeed");
+    assert_eq!(records.len(), 2);
+
+    assert_eq!(records[0].amount, Some(dec!(2000.00)));
+    assert_eq!(records[0].transaction_type.as_deref(), Some("支出"));
+    assert_eq!(
+        records[0].extra.get("type").map(String::as_str),
+        Some("支出")
+    );
+
+    assert_eq!(records[1].amount, Some(dec!(8000.00)));
+    assert_eq!(records[1].transaction_type.as_deref(), Some("收入"));
+    assert_eq!(
+        records[1].extra.get("type").map(String::as_str),
+        Some("收入")
+    );
+}
+
+#[test]
 fn keeps_explicit_type_extra_without_overwrite() {
     let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
 

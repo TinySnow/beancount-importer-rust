@@ -25,6 +25,7 @@ pub static GLOBAL_REGISTRY: Lazy<ProviderRegistry> = Lazy::new(|| {
     registry.register(Arc::new(third_party::mt::MtProvider));
     registry.register(Arc::new(banks::icbc::IcbcProvider));
     registry.register(Arc::new(banks::ccb::CcbProvider));
+    registry.register(Arc::new(banks::dzccb::DzccbProvider));
     registry.register(Arc::new(securities::futu::FutuProvider));
     registry.register(Arc::new(securities::yinhe::YinheProvider));
 
