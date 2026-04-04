@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use log::{info, trace, warn};
 use regex::Regex;
 use rust_decimal::Decimal;
@@ -271,17 +271,44 @@ impl CsvRecordReader {
 
     /// 先按日期时间解析，再按日期解析。
     fn parse_date(&self, value: &str, formats: &[String]) -> Option<NaiveDate> {
+        let trimmed = value.trim();
+
         for format in formats {
-            if let Ok(date_time) = NaiveDateTime::parse_from_str(value, format) {
+            if let Ok(date_time) = NaiveDateTime::parse_from_str(trimmed, format) {
                 return Some(date_time.date());
             }
 
-            if let Ok(date) = NaiveDate::parse_from_str(value, format) {
+            if let Ok(date) = NaiveDate::parse_from_str(trimmed, format) {
                 return Some(date);
             }
         }
 
-        None
+        Self::parse_excel_serial_date(trimmed)
+    }
+
+    /// 解析 Excel 数值序列日期（1900 日期系统）。
+    ///
+    /// 例如：`46110.56767361111` -> `2026-03-29`。
+    fn parse_excel_serial_date(value: &str) -> Option<NaiveDate> {
+        if value.is_empty() {
+            return None;
+        }
+
+        let serial: f64 = value.parse().ok()?;
+        if !serial.is_finite() || serial < 1.0 {
+            return None;
+        }
+
+        let excel_epoch = NaiveDate::from_ymd_opt(1899, 12, 30)?;
+        let day_count = serial.trunc() as i64;
+        let date = excel_epoch.checked_add_signed(Duration::days(day_count))?;
+
+        // 仅接受常见账单年份，避免把普通数字误判为日期。
+        if !(1970..=2200).contains(&date.year()) {
+            return None;
+        }
+
+        Some(date)
     }
 }
 

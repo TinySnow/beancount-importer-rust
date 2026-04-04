@@ -189,7 +189,10 @@ fn load_field_mapping(
         candidate_paths.extend(resolve_candidate_paths(&configured_path, config_base_path));
         // 兼容历史配置：仓库迁移后仍允许旧前缀 `src/mapping/` 自动回退到 `mapping/`。
         for compatibility_path in resolve_mapping_path_compatibility_aliases(&configured_path) {
-            candidate_paths.extend(resolve_candidate_paths(&compatibility_path, config_base_path));
+            candidate_paths.extend(resolve_candidate_paths(
+                &compatibility_path,
+                config_base_path,
+            ));
         }
     } else {
         let defaults = [
@@ -270,7 +273,11 @@ fn resolve_mapping_path_compatibility_aliases(path: &Path) -> Vec<PathBuf> {
 }
 
 /// 将相对路径前缀替换为新前缀；若不匹配则返回 `None`。
-fn replace_relative_prefix(path: &Path, from_prefix: &[&str], to_prefix: &[&str]) -> Option<PathBuf> {
+fn replace_relative_prefix(
+    path: &Path,
+    from_prefix: &[&str],
+    to_prefix: &[&str],
+) -> Option<PathBuf> {
     if path.is_absolute() {
         return None;
     }

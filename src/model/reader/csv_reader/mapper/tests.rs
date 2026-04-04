@@ -4,6 +4,7 @@
 //! 该文件主要包含单元测试与回归测试。
 //! 关键符号：strict_mode_fails_on_field_count_mismatch、strict_mode_fails_on_mapping_error、non_strict_mode_skips_mapping_error、normalizes_excel_equals_quoted_literals。
 
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use crate::model::{
@@ -137,5 +138,36 @@ fn maps_amount_and_extra_fields_after_excel_literal_normalization() {
     assert_eq!(
         records[0].extra.get("productAccount").map(String::as_str),
         Some("240599141221")
+    );
+}
+
+#[test]
+fn parses_excel_serial_date_for_date_field() {
+    let reader = CsvRecordReader::new(CsvOptions::default(), 0, true, false);
+
+    let mapping = FieldMapping {
+        date: Some(FieldSpec::Simple("交易时间".to_string())),
+        amount: Some(FieldSpec::Simple("金额(元)".to_string())),
+        ..FieldMapping::default()
+    };
+
+    let table = TabularData {
+        source_name: "XLSX",
+        headers: vec!["交易时间".to_string(), "金额(元)".to_string()],
+        rows: vec![RowData {
+            line_no: 19,
+            cells: vec!["46110.56767361111".to_string(), "0.03".to_string()],
+        }],
+        pre_parse_errors: 0,
+    };
+
+    let records = reader
+        .map_table_to_records(table, Some(&mapping))
+        .expect("mapping should succeed");
+    assert_eq!(records.len(), 1);
+    assert_eq!(
+        records[0].date,
+        NaiveDate::from_ymd_opt(2026, 3, 29),
+        "excel serial date should map to expected calendar date"
     );
 }

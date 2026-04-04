@@ -21,4 +21,10 @@ log = "0.4.29"
 env_logger = "0.11.8"
 calamine = "0.26"
 
-
+# Cargo.toml 中自定义 release profile
+[profile.release]
+opt-level = 3        # 优化级别 0-3，"s"（体积）或 "z"（极致压缩）
+lto = true           # 开启链接时优化，进一步减小体积、提升性能
+codegen-units = 1    # 单个代码生成单元，优化更彻底（编译变慢）
+panic = "abort"      # panic 直接退出，不展开堆栈（减小体积）
+strip = true         # 去除符号表，进一步缩小体积（Rust 1.59+）

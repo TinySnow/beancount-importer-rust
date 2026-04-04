@@ -11,7 +11,7 @@ csv_options:
   flexible: true
   encoding: "auto"
 
-skip_header_lines: 0
+skip_header_lines: 17
 has_csv_header: true
 
 output:
