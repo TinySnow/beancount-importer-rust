@@ -45,6 +45,13 @@ impl RawRecord {
             "payee" => self.payee.as_deref(),
             "narration" => self.narration.as_deref(),
             "transaction_type" => self.transaction_type.as_deref(),
+            // 兼容规则里常用的 `type` 字段：
+            // 优先使用 extra.type；若未显式映射，则回退到标准 transaction_type。
+            "type" => self
+                .extra
+                .get("type")
+                .map(String::as_str)
+                .or(self.transaction_type.as_deref()),
             "status" => self.status.as_deref(),
             "reference" => self.reference.as_deref(),
             "symbol" => self.symbol.as_deref(),

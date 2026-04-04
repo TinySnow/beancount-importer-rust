@@ -18,6 +18,7 @@ use crate::{
         SecurityTransformOptions, append_extra_metadata, append_order_id, apply_match_result,
         transform_security_record,
     },
+    utils::currency::normalize_cash_currency,
 };
 
 const YINHE_OPTIONS: SecurityTransformOptions = SecurityTransformOptions {
@@ -67,24 +68,6 @@ fn normalize_yinhe_record(mut record: RawRecord) -> RawRecord {
     }
 
     record
-}
-
-/// 归一化银河现金币种标识（转为统一币种代码）。
-fn normalize_cash_currency_for_yinhe(raw: Option<&str>) -> String {
-    let trimmed = raw.unwrap_or("CNY").trim();
-    if trimmed.is_empty() {
-        return "CNY".to_string();
-    }
-
-    match trimmed {
-        "人民币" | "人民币元" | "RMB" | "CNY" => "CNY".to_string(),
-        "美元" | "USD" => "USD".to_string(),
-        "港币" | "港元" | "HKD" => "HKD".to_string(),
-        "欧元" | "EUR" => "EUR".to_string(),
-        "英镑" | "GBP" => "GBP".to_string(),
-        "日元" | "JPY" => "JPY".to_string(),
-        _ => trimmed.to_ascii_uppercase(),
-    }
 }
 
 /// 未显式配置现金账户时，从 `default_asset_account` 推导券商现金账户。
@@ -151,7 +134,7 @@ fn build_yinhe_interest_rollover_transaction(
         ImporterError::Conversion("Missing amount for interest rollover".to_string())
     })?;
 
-    let currency = normalize_cash_currency_for_yinhe(
+    let currency = normalize_cash_currency(
         record
             .currency
             .as_deref()

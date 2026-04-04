@@ -1,29 +1,25 @@
-# 建设银行字段映射（请按你的导出列名核对）
+# 建设银行字段映射（网银导出）
+# 当前样本表头：
+# 记账日、交易日期、交易时间、支出、收入、账户余额、币种、摘要、对方账号、对方户名、交易地点
 
-date: "交易时间"
-payee: "交易对方"
-narration: "摘要"
-transaction_type: "收/支"
-
-amount:
-  column: "交易金额"
-  transform: abs
-
-status: "交易状态"
-reference: "交易流水号"
+date: "交易日期"
+payee: "对方户名"
+narration: "交易地点"
+currency: "币种"
+reference: "对方账号"
 
 date_formats:
   - "%Y-%m-%d %H:%M:%S"
   - "%Y-%m-%d"
   - "%Y/%m/%d %H:%M:%S"
   - "%Y/%m/%d"
+  - "%H:%M:%S"
 
 extra_fields:
+  recordDate: "记账日"
+  balance: "账户余额"
+  item: "交易地点"
   txType: "摘要"
-  method: "交易渠道"
-  item: "摘要"
-  peer: "交易对方"
-  type: "收/支"
-  status: "交易状态"
-  orderId: "交易流水号"
+  peer: "对方户名"
+  peerAccount: "对方账号"
   payTime: "交易时间"

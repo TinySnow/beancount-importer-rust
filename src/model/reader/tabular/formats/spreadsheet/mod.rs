@@ -6,12 +6,13 @@
 
 use std::path::Path;
 
-use calamine::{Reader, open_workbook_auto};
+use calamine::{Data, Reader, open_workbook_auto};
 use log::{debug, info, warn};
 
 use crate::{
     error::{ImporterError, ImporterResult},
     model::mapping::field_mapping::FieldMapping,
+    utils::time::format_excel_datetime_serial,
 };
 
 use crate::model::reader::tabular::{
@@ -59,7 +60,7 @@ impl TabularRecordReader {
             .rows()
             .map(|row| {
                 row.iter()
-                    .map(|cell| cell.to_string())
+                    .map(Self::normalize_spreadsheet_cell)
                     .collect::<Vec<String>>()
             })
             .skip(self.skip_lines)
@@ -179,5 +180,15 @@ impl TabularRecordReader {
         }
 
         score
+    }
+
+    fn normalize_spreadsheet_cell(cell: &Data) -> String {
+        match cell {
+            Data::DateTime(datetime) => format_excel_datetime_serial(datetime.as_f64()),
+            Data::DateTimeIso(value) | Data::DurationIso(value) | Data::String(value) => {
+                value.trim().to_string()
+            }
+            _ => cell.to_string().trim().to_string(),
+        }
     }
 }

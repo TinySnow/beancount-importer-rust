@@ -247,3 +247,186 @@ fn infers_date_amount_direction_and_payee_from_ccb_split_columns() {
     assert_eq!(records[1].transaction_type.as_deref(), Some("收入"));
     assert_eq!(records[1].payee.as_deref(), Some("公司账户"));
 }
+
+#[test]
+fn infers_amount_and_direction_from_icbc_ledger_split_columns() {
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
+
+    // 模拟工行“记账金额(收入/支出)”拆列，无独立收支标识列。
+    let mapping = FieldMapping {
+        date: Some(FieldSpec::Simple("交易日期".to_string())),
+        narration: Some(FieldSpec::Simple("摘要".to_string())),
+        date_formats: vec!["%Y-%m-%d".to_string()],
+        ..FieldMapping::default()
+    };
+
+    let table = TabularData {
+        source_name: "CSV",
+        headers: vec![
+            "交易日期".to_string(),
+            "摘要".to_string(),
+            "记账金额(收入)".to_string(),
+            "记账金额(支出)".to_string(),
+            "记账币种".to_string(),
+            "对方户名".to_string(),
+        ],
+        rows: vec![
+            RowData {
+                line_no: 2,
+                cells: vec![
+                    "2026-03-29".to_string(),
+                    "财付通转账".to_string(),
+                    "2.77".to_string(),
+                    "".to_string(),
+                    "人民币".to_string(),
+                    "财付通支付科技有限公司".to_string(),
+                ],
+            },
+            RowData {
+                line_no: 3,
+                cells: vec![
+                    "2026-03-29".to_string(),
+                    "消费".to_string(),
+                    "".to_string(),
+                    "2,010.00".to_string(),
+                    "人民币".to_string(),
+                    "支付宝（中国）网络技术有限公司".to_string(),
+                ],
+            },
+        ],
+        pre_parse_errors: 0,
+    };
+
+    let records = reader
+        .map_table_to_records(table, Some(&mapping))
+        .expect("mapping should succeed");
+    assert_eq!(records.len(), 2);
+
+    assert_eq!(records[0].amount, Some(dec!(2.77)));
+    assert_eq!(records[0].transaction_type.as_deref(), Some("收入"));
+    assert_eq!(
+        records[0].extra.get("type").map(String::as_str),
+        Some("收入")
+    );
+
+    assert_eq!(records[1].amount, Some(dec!(2010.00)));
+    assert_eq!(records[1].transaction_type.as_deref(), Some("支出"));
+    assert_eq!(
+        records[1].extra.get("type").map(String::as_str),
+        Some("支出")
+    );
+}
+
+#[test]
+fn keeps_explicit_type_extra_without_overwrite() {
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
+
+    let mut mapping = FieldMapping {
+        date: Some(FieldSpec::Simple("交易日期".to_string())),
+        narration: Some(FieldSpec::Simple("摘要".to_string())),
+        date_formats: vec!["%Y-%m-%d".to_string()],
+        ..FieldMapping::default()
+    };
+    mapping
+        .extra_fields
+        .insert("type".to_string(), "业务方向".to_string());
+
+    let table = TabularData {
+        source_name: "CSV",
+        headers: vec![
+            "交易日期".to_string(),
+            "摘要".to_string(),
+            "业务方向".to_string(),
+            "记账金额(收入)".to_string(),
+            "记账金额(支出)".to_string(),
+        ],
+        rows: vec![RowData {
+            line_no: 2,
+            cells: vec![
+                "2026-03-29".to_string(),
+                "财付通转账".to_string(),
+                "手工方向".to_string(),
+                "2.77".to_string(),
+                "".to_string(),
+            ],
+        }],
+        pre_parse_errors: 0,
+    };
+
+    let records = reader
+        .map_table_to_records(table, Some(&mapping))
+        .expect("mapping should succeed");
+    assert_eq!(records.len(), 1);
+    assert_eq!(
+        records[0].extra.get("type").map(String::as_str),
+        Some("手工方向")
+    );
+}
+
+#[test]
+fn normalizes_pay_time_from_excel_serial_extra_field() {
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
+
+    let mut mapping = FieldMapping {
+        date: Some(FieldSpec::Simple("交易时间".to_string())),
+        amount: Some(FieldSpec::Simple("金额".to_string())),
+        date_formats: vec!["%Y-%m-%d %H:%M:%S".to_string()],
+        ..FieldMapping::default()
+    };
+    mapping
+        .extra_fields
+        .insert("payTime".to_string(), "交易时间".to_string());
+
+    let table = TabularData {
+        source_name: "XLSX",
+        headers: vec!["交易时间".to_string(), "金额".to_string()],
+        rows: vec![RowData {
+            line_no: 2,
+            cells: vec!["46110.5".to_string(), "10".to_string()],
+        }],
+        pre_parse_errors: 0,
+    };
+
+    let records = reader
+        .map_table_to_records(table, Some(&mapping))
+        .expect("mapping should succeed");
+    assert_eq!(records.len(), 1);
+    assert_eq!(
+        records[0].extra.get("payTime").map(String::as_str),
+        Some("12:00:00")
+    );
+}
+
+#[test]
+fn normalizes_pay_time_from_datetime_text_extra_field() {
+    let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
+
+    let mut mapping = FieldMapping {
+        date: Some(FieldSpec::Simple("交易时间".to_string())),
+        amount: Some(FieldSpec::Simple("金额".to_string())),
+        date_formats: vec!["%Y-%m-%d %H:%M:%S".to_string()],
+        ..FieldMapping::default()
+    };
+    mapping
+        .extra_fields
+        .insert("payTime".to_string(), "交易时间".to_string());
+
+    let table = TabularData {
+        source_name: "CSV",
+        headers: vec!["交易时间".to_string(), "金额".to_string()],
+        rows: vec![RowData {
+            line_no: 2,
+            cells: vec!["2026-03-06 14:37:15".to_string(), "10".to_string()],
+        }],
+        pre_parse_errors: 0,
+    };
+
+    let records = reader
+        .map_table_to_records(table, Some(&mapping))
+        .expect("mapping should succeed");
+    assert_eq!(records.len(), 1);
+    assert_eq!(
+        records[0].extra.get("payTime").map(String::as_str),
+        Some("14:37:15")
+    );
+}

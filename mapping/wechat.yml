@@ -26,3 +26,5 @@ extra_fields:
   status: "当前状态"
   orderId: "交易单号"
   payTime: "交易时间"
+  merchantId: "商户单号"
+  note: "备注"

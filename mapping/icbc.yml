@@ -1,29 +1,26 @@
-# 工商银行字段映射（请按你的导出列名核对）
+# 工商银行字段映射（网银明细下载）
+# 典型表头：
+# 交易日期, 摘要, 交易详情, 交易场所, ...,
+# 交易金额(收入), 交易金额(支出), 交易币种,
+# 记账金额(收入), 记账金额(支出), 记账币种, 余额, 对方户名, 对方账户
 
-date: "交易时间"
-payee: "交易对方"
-narration: "摘要"
-transaction_type: "收/支"
-
-amount:
-  column: "交易金额"
-  transform: abs
-
-status: "交易状态"
-reference: "交易流水号"
+date: "交易日期"
+payee: "对方户名"
+narration: "交易场所"
+currency: "记账币种"
+reference: "对方账户"
 
 date_formats:
-  - "%Y-%m-%d %H:%M:%S"
   - "%Y-%m-%d"
-  - "%Y/%m/%d %H:%M:%S"
   - "%Y/%m/%d"
 
 extra_fields:
   txType: "摘要"
-  method: "交易渠道"
-  item: "摘要"
-  peer: "交易对方"
-  type: "收/支"
-  status: "交易状态"
-  orderId: "交易流水号"
-  payTime: "交易时间"
+  note: "交易详情"
+  peer: "对方户名"
+  peerAccount: "对方账户"
+  country: "交易国家或地区简称"
+  incomeAmount: "记账金额(收入)"
+  expenseAmount: "记账金额(支出)"
+  balance: "余额"
+  payTime: "交易日期"

@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use log::{info, trace, warn};
 use regex::Regex;
 use rust_decimal::Decimal;
@@ -17,7 +17,10 @@ use crate::{
         data::raw_record::RawRecord,
         mapping::{field_mapping::FieldMapping, field_spec::FieldSpec},
     },
-    utils::decimal::parse_decimal_with_transform,
+    utils::{
+        decimal::parse_decimal_with_transform,
+        time::{normalize_time_text, parse_excel_serial_date},
+    },
 };
 
 use crate::model::reader::tabular::{TabularRecordReader, table::TabularData};
@@ -37,7 +40,23 @@ impl TabularRecordReader {
         let mut records = Vec::new();
         let mut mapping_errors = 0usize;
 
-        for row in table.rows {
+        for mut row in table.rows {
+            if Self::is_blank_row(&row.cells) || Self::is_summary_row(&row.cells) {
+                continue;
+            }
+
+            // 某些银行 CSV 数据行会在末尾追加一个分隔符，导致“多 1 个空列”。
+            // 这里裁掉超出的尾部空列，避免把格式噪音当成结构错误。
+            while row.cells.len() > expected_columns
+                && row
+                    .cells
+                    .last()
+                    .map(|value| value.trim().is_empty())
+                    .unwrap_or(false)
+            {
+                row.cells.pop();
+            }
+
             if row.cells.len() != expected_columns {
                 warn!(
                     "Line {}: field count mismatch (expected {}, got {})",
@@ -92,6 +111,29 @@ impl TabularRecordReader {
         Ok(records)
     }
 
+    /// 是否为空白行。
+    fn is_blank_row(cells: &[String]) -> bool {
+        cells.iter().all(|value| value.trim().is_empty())
+    }
+
+    /// 是否为汇总/合计尾行。
+    fn is_summary_row(cells: &[String]) -> bool {
+        let Some(first_non_empty) = cells.iter().find_map(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        }) else {
+            return false;
+        };
+
+        first_non_empty.contains("合计")
+            || first_non_empty.eq_ignore_ascii_case("total")
+            || first_non_empty.eq_ignore_ascii_case("subtotal")
+    }
+
     /// 校验 mapping 中引用的列名是否存在于表头。
     fn validate_mapping(&self, mapping: &FieldMapping, headers: &[String]) {
         for (name, spec) in Self::mapped_specs(mapping) {
@@ -142,8 +184,66 @@ impl TabularRecordReader {
 
         self.map_extra_fields(fields, mapping, &mut record);
         self.apply_common_fallbacks(fields, mapping, &mut record);
+        self.normalize_pay_time_extra(&mut record);
+        self.fill_direction_type_extra(&mut record);
 
         Ok(record)
+    }
+
+    /// 把标准方向字段同步到 `extra.type`，便于规则按 `field: type` 匹配。
+    ///
+    /// 仅在 `extra.type` 缺失时回填，不覆盖显式映射值。
+    fn fill_direction_type_extra(&self, record: &mut RawRecord) {
+        if record.extra.contains_key("type") {
+            return;
+        }
+
+        let Some(direction) = record
+            .transaction_type
+            .as_deref()
+            .and_then(Self::normalize_direction_text)
+        else {
+            return;
+        };
+
+        record
+            .extra
+            .insert("type".to_string(), direction.to_string());
+    }
+
+    fn normalize_direction_text(raw: &str) -> Option<&'static str> {
+        if raw.contains("支出") || raw.contains("转出") {
+            return Some("支出");
+        }
+        if raw.contains("收入") || raw.contains("转入") {
+            return Some("收入");
+        }
+
+        let normalized = raw.trim().to_ascii_lowercase();
+        if normalized.contains("expense") {
+            return Some("支出");
+        }
+        if normalized.contains("income") {
+            return Some("收入");
+        }
+
+        None
+    }
+
+    /// 规范化 `payTime` 元数据，统一输出 `HH:MM:SS`。
+    ///
+    /// 支持输入：
+    /// - Excel 序列时间（如 `46110.56767361111`）
+    /// - 日期时间字符串（如 `2026-03-06 14:37:15`）
+    /// - 时间字符串（如 `14:37` / `14:37:15`）
+    fn normalize_pay_time_extra(&self, record: &mut RawRecord) {
+        let Some(raw) = record.extra.get("payTime").cloned() else {
+            return;
+        };
+
+        if let Some(normalized) = normalize_time_text(&raw) {
+            record.extra.insert("payTime".to_string(), normalized);
+        }
     }
 
     /// 对常见银行导出列做兜底推断，提升不同表头变体的兼容性。
@@ -234,9 +334,25 @@ impl TabularRecordReader {
             "credit_amount",
             "deposit",
         ];
+        const EXPENSE_VARIANTS: [&str; 4] = [
+            "交易金额(支出)",
+            "交易金额（支出）",
+            "记账金额(支出)",
+            "记账金额（支出）",
+        ];
+        const INCOME_VARIANTS: [&str; 4] = [
+            "交易金额(收入)",
+            "交易金额（收入）",
+            "记账金额(收入)",
+            "记账金额（收入）",
+        ];
 
-        let expense = self.first_non_empty_decimal(fields, &EXPENSE_KEYS);
-        let income = self.first_non_empty_decimal(fields, &INCOME_KEYS);
+        let expense = self
+            .first_non_empty_decimal(fields, &EXPENSE_KEYS)
+            .or_else(|| self.first_non_empty_decimal(fields, &EXPENSE_VARIANTS));
+        let income = self
+            .first_non_empty_decimal(fields, &INCOME_KEYS)
+            .or_else(|| self.first_non_empty_decimal(fields, &INCOME_VARIANTS));
 
         let expense = expense.filter(|value| !value.is_zero());
         let income = income.filter(|value| !value.is_zero());
@@ -439,32 +555,7 @@ impl TabularRecordReader {
             }
         }
 
-        Self::parse_excel_serial_date(trimmed)
-    }
-
-    /// 解析 Excel 数值序列日期（1900 日期系统）。
-    ///
-    /// 例如：`46110.56767361111` -> `2026-03-29`。
-    fn parse_excel_serial_date(value: &str) -> Option<NaiveDate> {
-        if value.is_empty() {
-            return None;
-        }
-
-        let serial: f64 = value.parse().ok()?;
-        if !serial.is_finite() || serial < 1.0 {
-            return None;
-        }
-
-        let excel_epoch = NaiveDate::from_ymd_opt(1899, 12, 30)?;
-        let day_count = serial.trunc() as i64;
-        let date = excel_epoch.checked_add_signed(Duration::days(day_count))?;
-
-        // 仅接受常见账单年份，避免把普通数字误判为日期。
-        if !(1970..=2200).contains(&date.year()) {
-            return None;
-        }
-
-        Some(date)
+        parse_excel_serial_date(trimmed)
     }
 }
 

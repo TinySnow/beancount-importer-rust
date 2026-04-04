@@ -4,36 +4,17 @@
 //! 该文件围绕 'normalize' 的职责提供实现。
 //! 关键符号：sanitize_token、starts_with_ascii_letter、normalizes_chinese_currency_to_iso_code、prefixes_numeric_code_with_uppercase_sec_prefix。
 
+use crate::utils::{
+    currency::normalize_cash_currency as normalize_common_cash_currency,
+    text::starts_with_ascii_letter,
+};
+
 /// Normalizes cash currency labels to ISO uppercase codes.
 ///
 /// Falls back to `CNY` when value is missing or invalid, so Beancount
 /// output remains parseable.
 pub(super) fn normalize_cash_currency(raw: &str) -> String {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return "CNY".to_string();
-    }
-
-    match trimmed {
-        "人民币" | "人民币元" | "RMB" | "CNY" => return "CNY".to_string(),
-        "美元" | "USD" => return "USD".to_string(),
-        "港币" | "港元" | "HKD" => return "HKD".to_string(),
-        "欧元" | "EUR" => return "EUR".to_string(),
-        "英镑" | "GBP" => return "GBP".to_string(),
-        "日元" | "JPY" => return "JPY".to_string(),
-        _ => {}
-    }
-
-    let upper = trimmed.to_ascii_uppercase();
-    if starts_with_ascii_letter(&upper)
-        && upper
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' || ch == '.')
-    {
-        return upper;
-    }
-
-    "CNY".to_string()
+    normalize_common_cash_currency(Some(raw))
 }
 
 /// Normalizes security symbol to a valid Beancount commodity.
@@ -71,15 +52,6 @@ fn sanitize_token(raw: &str) -> String {
     } else {
         out
     }
-}
-
-/// Returns true if the string starts with an ASCII letter.
-fn starts_with_ascii_letter(value: &str) -> bool {
-    value
-        .chars()
-        .next()
-        .map(|ch| ch.is_ascii_alphabetic())
-        .unwrap_or(false)
 }
 
 #[cfg(test)]
