@@ -5,6 +5,7 @@
 //! - 逐笔盈亏（PnL）阶段识别可作为现金计量基础的法币分录。
 //!
 //! 该模块仅负责业务分类，不涉及汇率换算与金额精度处理。
+use crate::utils::currency_kind;
 
 /// 判断给定代码是否应视为“法币现金”。
 ///
@@ -18,8 +19,5 @@
 /// - `true`：属于法币现金白名单；
 /// - `false`：不在白名单内。
 pub(crate) fn is_fiat_currency(currency: &str) -> bool {
-    matches!(
-        currency,
-        "CNY" | "USD" | "HKD" | "EUR" | "JPY" | "GBP" | "SGD" | "CHF" | "AUD" | "CAD"
-    )
+    currency_kind::is_fiat_currency(currency)
 }

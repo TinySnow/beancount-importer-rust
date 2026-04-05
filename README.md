@@ -147,6 +147,8 @@ docs/
   配置详解.md
   供应商扩展指南.md
   开发与调试手册.md
+scripts/
+  autopush.sh
 ```
 
 ## 7. 已验证的数据集

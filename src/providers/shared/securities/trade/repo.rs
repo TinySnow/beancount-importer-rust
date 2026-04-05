@@ -10,7 +10,7 @@ use crate::model::{
     transaction::Transaction,
 };
 
-use super::{
+use super::super::{
     REPO_FACE_VALUE,
     posting::{append_buy_fee_or_rounding, append_repo_interest_or_loss},
 };

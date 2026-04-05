@@ -3,6 +3,10 @@
 //! 该模块负责把证券交易上下文转换为最终 `Transaction`，并根据交易语义
 //! 选择现货或逆回购构建路径。
 
+mod accounts;
+mod repo;
+mod spot;
+
 use crate::{
     error::{ImporterError, ImporterResult},
     model::{
@@ -18,9 +22,11 @@ use super::{
     context::SecurityRecordContext,
     logic::{TradeDirection, infer_trade_direction, is_repo_trade},
     normalize::normalize_security_commodity,
-    trade_accounts::build_trade_account_plan,
-    trade_repo::{RepoPostingInput, apply_repo_postings},
-    trade_spot::{SpotPostingInput, apply_spot_postings},
+};
+use self::{
+    accounts::build_trade_account_plan,
+    repo::{RepoPostingInput, apply_repo_postings},
+    spot::{SpotPostingInput, apply_spot_postings},
 };
 
 /// 构建证券交易分录。

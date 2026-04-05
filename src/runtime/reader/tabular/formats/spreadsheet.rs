@@ -18,7 +18,7 @@ use crate::{
     utils::time::format_excel_datetime_serial,
 };
 
-use crate::model::reader::tabular::{
+use crate::runtime::reader::tabular::{
     TabularRecordReader,
     table::{RowData, TabularData},
 };
@@ -35,7 +35,7 @@ impl TabularRecordReader {
     ///
     /// # 错误
     /// 工作簿无法打开、工作表读取失败等配置/输入错误。
-    pub(in crate::model::reader::tabular) fn read_spreadsheet_table(
+    pub(in crate::runtime::reader::tabular) fn read_spreadsheet_table(
         &self,
         path: &Path,
         mapping: Option<&FieldMapping>,
@@ -174,7 +174,7 @@ impl TabularRecordReader {
     /// 计分规则：
     /// - 命中一个标准映射列 +1；
     /// - 命中一个 `extra_fields` 映射列 +1。
-    pub(in crate::model::reader::tabular) fn xlsx_header_match_score(
+    pub(in crate::runtime::reader::tabular) fn xlsx_header_match_score(
         &self,
         mapping: &FieldMapping,
         row: &[String],

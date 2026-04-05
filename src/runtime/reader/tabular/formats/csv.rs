@@ -16,7 +16,7 @@ use crate::{
     utils::encoding::decode_file,
 };
 
-use crate::model::reader::tabular::{
+use crate::runtime::reader::tabular::{
     TabularRecordReader,
     table::{RowData, TabularData},
 };
@@ -28,12 +28,12 @@ impl TabularRecordReader {
     /// - `path`：CSV 文件路径。
     ///
     /// # 返回值
-    /// 返回解析后的 [`TabularData`](crate::model::reader::tabular::table::TabularData)。
+    /// 返回解析后的 [`TabularData`](crate::runtime::reader::tabular::table::TabularData)。
     ///
     /// # 错误
     /// - 文件打开或解码失败；
     /// - CSV 语法错误且当前策略要求立即失败（严格模式或禁用 flexible）。
-    pub(in crate::model::reader::tabular) fn read_csv_table(
+    pub(in crate::runtime::reader::tabular) fn read_csv_table(
         &self,
         path: &Path,
     ) -> ImporterResult<TabularData> {

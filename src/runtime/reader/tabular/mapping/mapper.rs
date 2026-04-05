@@ -25,7 +25,7 @@ use crate::{
     },
 };
 
-use crate::model::reader::tabular::{TabularRecordReader, table::TabularData};
+use crate::runtime::reader::tabular::{TabularRecordReader, table::TabularData};
 
 impl TabularRecordReader {
     /// 将表格数据映射为标准 `RawRecord` 列表。
@@ -39,7 +39,7 @@ impl TabularRecordReader {
     ///
     /// # 错误
     /// 严格模式下遇到字段数量不一致或映射异常时返回错误。
-    pub(in crate::model::reader::tabular) fn map_table_to_records(
+    pub(in crate::runtime::reader::tabular) fn map_table_to_records(
         &self,
         table: TabularData,
         mapping: Option<&FieldMapping>,

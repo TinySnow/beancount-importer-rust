@@ -4,7 +4,7 @@
 
 use crate::model::{config::provider::ProviderConfig, rule::match_result::MatchResult};
 
-use super::logic::{derive_cash_account, derive_rounding_account};
+use super::super::logic::{derive_cash_account, derive_rounding_account};
 
 /// 证券交易所需账户集合。
 #[derive(Debug)]

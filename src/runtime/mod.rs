@@ -9,7 +9,10 @@
 //! - `sorting`：写出前确定性排序；
 //! - `inventory`：基于库存信息补全推断成本；
 //! - `pnl`：写入逐笔收益元数据；
-//! - `currency`：提供币种分类辅助。
+//! - `currency`：提供币种分类辅助；
+//! - `reader`：表格读取与映射实现；
+//! - `writer`：Beancount 文本写出实现；
+//! - `provider_registry`：供应商注册与检索。
 
 mod config_loader;
 mod currency;
@@ -17,6 +20,9 @@ mod inventory;
 mod pipeline;
 mod pnl;
 mod sorting;
+pub(crate) mod provider_registry;
+pub(crate) mod reader;
+pub(crate) mod writer;
 
 use std::{
     fs,
@@ -28,10 +34,12 @@ use log::{debug, info};
 
 use crate::{
     model::{
-        cli::Cli, registry::provider_registry::ProviderRegistry, rule::rule_engine::RuleEngine,
+        cli::Cli, rule::rule_engine::RuleEngine,
+    },
+    runtime::{
+        config_loader::load, pipeline::transform_records, provider_registry::ProviderRegistry,
         writer::beancount_writer::BeancountWriter,
     },
-    runtime::{config_loader::load, pipeline::transform_records},
 };
 
 /// 执行端到端导入流程

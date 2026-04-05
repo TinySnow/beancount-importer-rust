@@ -9,7 +9,7 @@ use crate::model::{
     transaction::Transaction,
 };
 
-use super::posting::{append_buy_fee_or_rounding, append_fee_delta};
+use super::super::posting::{append_buy_fee_or_rounding, append_fee_delta};
 
 /// 普通证券买卖分录构建输入。
 pub(super) struct SpotPostingInput<'a> {

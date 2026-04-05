@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
-use crate::model::registry::provider_registry::ProviderRegistry;
+use crate::runtime::provider_registry::ProviderRegistry;
 
 /// 全局供应商注册表。
 pub static GLOBAL_REGISTRY: Lazy<ProviderRegistry> = Lazy::new(|| {

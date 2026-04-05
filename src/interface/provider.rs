@@ -55,9 +55,10 @@ use crate::{
     error::ImporterResult,
     model::{
         config::provider::ProviderConfig, data::raw_record::RawRecord,
-        mapping::field_mapping::FieldMapping, reader::tabular::TabularRecordReader,
-        rule::rule_engine::RuleEngine, transaction::Transaction,
+        mapping::field_mapping::FieldMapping, rule::rule_engine::RuleEngine,
+        transaction::Transaction,
     },
+    runtime::reader::tabular::TabularRecordReader,
 };
 
 /// 供应商抽象接口。

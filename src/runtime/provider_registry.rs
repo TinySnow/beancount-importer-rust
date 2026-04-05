@@ -20,7 +20,7 @@
 //!     model::{
 //!         config::provider::ProviderConfig,
 //!         data::raw_record::RawRecord,
-//!         registry::provider_registry::ProviderRegistry,
+//!         runtime::provider_registry::ProviderRegistry,
 //!         rule::rule_engine::RuleEngine,
 //!         transaction::Transaction,
 //!     },
@@ -71,7 +71,7 @@ impl ProviderRegistry {
     ///
     /// # 示例
     /// ```rust
-    /// use beancount_importer_rust::model::registry::provider_registry::ProviderRegistry;
+    /// use beancount_importer_rust::runtime::provider_registry::ProviderRegistry;
     ///
     /// let registry = ProviderRegistry::new();
     /// assert!(registry.list_providers().is_empty());
@@ -88,7 +88,7 @@ impl ProviderRegistry {
     ///
     /// # 示例
     /// ```rust
-    /// use beancount_importer_rust::model::registry::provider_registry::ProviderRegistry;
+    /// use beancount_importer_rust::runtime::provider_registry::ProviderRegistry;
     ///
     /// let registry = ProviderRegistry::global();
     /// let _names = registry.list_providers();
@@ -117,7 +117,7 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
-    ///         registry::provider_registry::ProviderRegistry,
+    ///         runtime::provider_registry::ProviderRegistry,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
@@ -171,7 +171,7 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
-    ///         registry::provider_registry::ProviderRegistry,
+    ///         runtime::provider_registry::ProviderRegistry,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
@@ -224,7 +224,7 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
-    ///         registry::provider_registry::ProviderRegistry,
+    ///         runtime::provider_registry::ProviderRegistry,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },

@@ -46,7 +46,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::NaiveDate;
 
-use crate::model::transaction::Transaction;
+use crate::{model::transaction::Transaction, utils::currency_kind::is_fiat_currency};
 
 use super::{BeancountWriter, OpenAccountInfo};
 
@@ -148,7 +148,7 @@ impl BeancountWriter {
                 let entry = accounts.entry(account).or_default();
 
                 if let Some(amount) = &posting.amount {
-                    if Self::is_fiat_currency(&amount.currency) {
+                    if is_fiat_currency(&amount.currency) {
                         entry.fiat_currencies.insert(amount.currency.clone());
                     } else {
                         entry.has_non_fiat = true;
@@ -231,7 +231,7 @@ impl BeancountWriter {
             for posting in &tx.postings {
                 if let Some(amount) = &posting.amount
                     && (posting.cost.is_some() || posting.price.is_some())
-                    && !Self::is_fiat_currency(&amount.currency)
+                    && !is_fiat_currency(&amount.currency)
                 {
                     symbols.insert(amount.currency.clone());
                 }
@@ -239,16 +239,5 @@ impl BeancountWriter {
         }
 
         symbols
-    }
-
-    /// 判断币种是否属于内置法币集合。
-    ///
-    /// 该集合用于区分“法币账户”与“商品/证券账户”，以决定
-    /// `open` / `commodity` 指令渲染策略。
-    fn is_fiat_currency(currency: &str) -> bool {
-        matches!(
-            currency,
-            "CNY" | "USD" | "HKD" | "EUR" | "JPY" | "GBP" | "SGD" | "CHF" | "AUD" | "CAD"
-        )
     }
 }

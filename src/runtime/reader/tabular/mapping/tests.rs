@@ -18,7 +18,7 @@ use crate::model::{
 };
 
 use super::mapper::normalize_cell_value;
-use crate::model::reader::tabular::{
+use crate::runtime::reader::tabular::{
     TabularRecordReader,
     table::{RowData, TabularData},
 };

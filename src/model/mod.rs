@@ -9,9 +9,6 @@
 //! - [`rule`]：规则定义、条件运算、匹配模式与执行引擎。
 //! - [`mapping`]：字段映射模型（原始字段到领域字段的映射规范）。
 //! - [`data`]：原始输入记录及中间数据结构。
-//! - [`reader`]：读取器模型（例如表格读取相关类型）。
-//! - [`registry`]：Provider 注册与检索模型。
-//! - [`writer`]：写出层模型（例如 Beancount 指令写出）。
 //! - [`config`]：全局与供应商配置模型。
 //! - [`cli`]：命令行参数与日志级别模型。
 //!
@@ -52,13 +49,7 @@ pub mod config;
 pub mod data;
 /// 字段映射模型。
 pub mod mapping;
-/// 读取器模型。
-pub mod reader;
-/// Provider 注册模型。
-pub mod registry;
 /// 规则模型与执行引擎。
 pub mod rule;
 /// 交易分录模型。
 pub mod transaction;
-/// 写出层模型。
-pub mod writer;

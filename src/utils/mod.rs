@@ -17,6 +17,7 @@
 //! ```
 
 pub mod currency;
+pub mod currency_kind;
 pub mod date;
 pub mod decimal;
 pub mod encoding;
