@@ -4,9 +4,8 @@
 //!
 //! 本文件主要覆盖以下回归场景：
 //! - 供应商名称大小写归一化与配置回退顺序；
-//! - 映射文件从平铺目录迁移到分层目录时的兼容行为；
 //! - `inventory_seed_files` 的跨平台绝对/相对路径处理；
-//! - `src/mapping/*` 历史路径前缀的兼容解析。
+//! - 去兼容化后的映射路径行为（不再支持旧别名路径）。
 
 use std::{
     fs,
@@ -14,11 +13,14 @@ use std::{
 };
 
 use crate::model::{
-    cli::{log_level::LogLevel, Cli},
+    cli::{Cli, log_level::LogLevel},
     config::{global::GlobalConfig, provider::ProviderConfig},
 };
 
-use super::{load, load_field_mapping, load_provider_config, resolve_inventory_seed_paths};
+use super::{
+    global::load_global_config, load, load_field_mapping, load_provider_config,
+    resolve_inventory_seed_paths,
+};
 
 #[test]
 fn load_provider_config_matches_global_key_case_insensitively() {
@@ -63,7 +65,7 @@ fn load_normalizes_provider_name_before_resolving_paths() {
 
 #[test]
 fn load_provider_config_falls_back_to_categorized_layout() {
-    // 验证 provider 配置会优先回退到新分层目录结构。
+    // 验证 provider 配置会优先回退到分层目录结构。
     let global = GlobalConfig::default();
 
     let (_provider, source_path) =
@@ -94,20 +96,22 @@ fn load_field_mapping_falls_back_to_categorized_layout() {
 }
 
 #[test]
-fn load_field_mapping_supports_flat_mapping_path_after_categorized_migration() {
-    // 验证旧平铺路径 mapping/<provider>.yml 会自动扩展到分层目录。
+fn load_field_mapping_does_not_support_flat_mapping_legacy_path() {
+    // 去兼容化后，旧平铺路径 mapping/<provider>.yml 不再自动扩展到分层目录。
     let provider = ProviderConfig {
         mapping_file: Some("mapping/wechat.yml".to_string()),
         ..ProviderConfig::default()
     };
 
-    let mapping = load_field_mapping(
+    let result = load_field_mapping(
         &provider,
         "wechat",
         Path::new("config/third_party/wechat.yml"),
-    )
-    .expect("flat mapping path should fallback to categorized mapping path");
-    assert!(mapping.date.is_some() || mapping.amount.is_some());
+    );
+    assert!(
+        result.is_err(),
+        "legacy flat mapping path should no longer be accepted"
+    );
 }
 
 #[test]
@@ -153,43 +157,120 @@ fn keeps_windows_unc_inventory_seed_paths_unchanged() {
 }
 
 #[test]
-fn load_field_mapping_supports_legacy_src_mapping_prefix() {
-    // 构造临时目录，模拟“新目录 + 旧 mapping_file 前缀”的迁移场景。
+fn load_field_mapping_does_not_support_legacy_src_mapping_prefix() {
+    // 去兼容化后，src/mapping/* 旧前缀不再自动替换为 mapping/*。
+    let provider = ProviderConfig {
+        mapping_file: Some("src/mapping/yinhe.yml".to_string()),
+        ..ProviderConfig::default()
+    };
+
+    let result = load_field_mapping(&provider, "yinhe", &PathBuf::from("config/galaxy.yml"));
+    assert!(
+        result.is_err(),
+        "legacy src/mapping prefix should no longer be accepted"
+    );
+}
+
+#[test]
+fn load_provider_config_normalizes_default_group_fields() {
     let mut temp_root = std::env::temp_dir();
     let unique = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock should be monotonic")
         .as_nanos();
     temp_root.push(format!(
-        "beancount-mapping-compat-{}-{}",
+        "beancount-provider-default-group-{}-{}",
         std::process::id(),
         unique
     ));
 
-    let config_dir = temp_root.join("config-new");
-    let mapping_dir = config_dir.join("mapping");
-    fs::create_dir_all(&mapping_dir).expect("mapping test directory should be created");
-
-    let mapping_file = mapping_dir.join("yinhe.yml");
+    fs::create_dir_all(&temp_root).expect("provider test directory should be created");
+    let provider_path = temp_root.join("provider.yml");
     fs::write(
-        &mapping_file,
+        &provider_path,
         r#"
-date: "成交日期"
-amount: "成交金额"
+name: "test"
+default:
+  asset_account: "Assets:Test:Cash"
+  expense_account: "Expenses:Test"
+  income_account: "Income:Test"
+  currency: "USD"
 "#,
     )
-    .expect("mapping test file should be writable");
+    .expect("provider test file should be writable");
 
-    let provider = ProviderConfig {
-        mapping_file: Some("src/mapping/yinhe.yml".to_string()),
-        ..ProviderConfig::default()
-    };
+    let global = GlobalConfig::default();
+    let (provider, source_path) =
+        load_provider_config(&provider_path, "test", &global).expect("provider config should load");
 
-    let mapping = load_field_mapping(&provider, "yinhe", &config_dir.join("galaxy.yml"))
-        .expect("legacy src/mapping prefix should fallback to mapping/");
-    assert!(mapping.date.is_some());
-    assert!(mapping.amount.is_some());
+    assert_eq!(
+        source_path.expect("provider source path should exist"),
+        provider_path
+    );
+    assert_eq!(
+        provider.default_asset_account.as_deref(),
+        Some("Assets:Test:Cash")
+    );
+    assert_eq!(
+        provider.default_expense_account.as_deref(),
+        Some("Expenses:Test")
+    );
+    assert_eq!(
+        provider.default_income_account.as_deref(),
+        Some("Income:Test")
+    );
+    assert_eq!(provider.default_currency.as_deref(), Some("USD"));
 
-    // 测试结束后尝试清理目录；即使失败也不影响断言结果。
+    let _ = fs::remove_dir_all(temp_root);
+}
+
+#[test]
+fn load_global_config_normalizes_default_group_fields() {
+    let mut temp_root = std::env::temp_dir();
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock should be monotonic")
+        .as_nanos();
+    temp_root.push(format!(
+        "beancount-global-default-group-{}-{}",
+        std::process::id(),
+        unique
+    ));
+
+    fs::create_dir_all(&temp_root).expect("global test directory should be created");
+    let global_path = temp_root.join("global.yml");
+    fs::write(
+        &global_path,
+        r#"
+default:
+  asset_account: "Assets:Global:Cash"
+  expense_account: "Expenses:Global"
+  income_account: "Income:Global"
+  currency: "USD"
+"#,
+    )
+    .expect("global test file should be writable");
+
+    let (global, source_path) =
+        load_global_config(Some(global_path.as_path())).expect("global config should load");
+
+    assert_eq!(
+        source_path.expect("global source path should exist"),
+        global_path
+    );
+    assert_eq!(
+        global.default_asset_account.as_deref(),
+        Some("Assets:Global:Cash")
+    );
+    assert_eq!(
+        global.default_expense_account.as_deref(),
+        Some("Expenses:Global")
+    );
+    assert_eq!(
+        global.default_income_account.as_deref(),
+        Some("Income:Global")
+    );
+    assert_eq!(global.default_currency, "USD");
+
     let _ = fs::remove_dir_all(temp_root);
 }

@@ -43,8 +43,8 @@ use crate::{
         transaction::Transaction,
     },
     providers::shared::{
-        SecurityTransformOptions, append_extra_metadata, append_order_id, apply_match_result,
-        transform_security_record,
+        append_extra_metadata, append_order_id, apply_match_result, transform_security_record,
+        SecurityTransformOptions,
     },
     utils::currency::normalize_cash_currency,
 };
@@ -124,7 +124,7 @@ fn derive_cash_account_for_yinhe(default_asset_account: Option<&str>) -> String 
     "Assets:Broker:Cash".to_string()
 }
 
-/// 解析券商现金账户：优先使用 `default_cash_account`。
+/// 解析券商现金账户：优先使用 `securities_accounts.cash_account`。
 ///
 /// 若配置缺失则回退到 [`derive_cash_account_for_yinhe`] 结果。
 fn resolve_broker_cash_account(config: &ProviderConfig) -> String {

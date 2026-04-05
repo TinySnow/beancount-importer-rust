@@ -9,9 +9,12 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use crate::model::{
-    config::{global::GlobalConfig, provider::ProviderConfig},
+    config::{
+        global::GlobalConfig,
+        provider::{ProviderConfig, SecuritiesAccountsConfig},
+    },
     data::raw_record::RawRecord,
-    rule::{Rule, rule_engine::RuleEngine},
+    rule::{rule_engine::RuleEngine, Rule},
 };
 
 use super::{
@@ -74,8 +77,11 @@ fn builds_interest_rollover_transaction_into_interest_account() {
         .insert("txType".to_string(), "利息归本".to_string());
 
     let config = ProviderConfig {
-        default_cash_account: Some("Assets:Broker:Galaxy:Cash".to_string()),
-        default_repo_interest_account: Some("Income:Broker:Galaxy:RepoInterest".to_string()),
+        securities_accounts: SecuritiesAccountsConfig {
+            cash_account: Some("Assets:Broker:Galaxy:Cash".to_string()),
+            repo_interest_account: Some("Income:Broker:Galaxy:RepoInterest".to_string()),
+            ..SecuritiesAccountsConfig::default()
+        },
         ..ProviderConfig::default()
     };
 

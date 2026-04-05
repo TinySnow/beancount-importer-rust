@@ -1,10 +1,11 @@
 name: "富途"
 mapping_file: "mapping/securities/futu.yml"
 
-default_asset_account: "Assets:Broker:Futu:Securities"
-default_expense_account: "Expenses:Investing:Fees"
-default_income_account: "Income:Investing:Capital-Gains"
-default_currency: "USD"
+default:
+  asset_account: "Assets:Broker:Futu:Securities"
+  expense_account: "Expenses:Investing:Fees"
+  income_account: "Income:Investing:Capital-Gains"
+  currency: "USD"
 
 # 证券场景扩展账户（可被规则逐条覆盖，非必填）
 securities_accounts:

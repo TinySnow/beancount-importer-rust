@@ -2,7 +2,7 @@
 //!
 //! 本模块定义单个数据供应商（银行/券商/平台）的配置结构，并提供：
 //! - 供应商配置与全局配置的合并逻辑。
-//! - 证券账户字段的新旧配置兼容（嵌套字段优先，历史字段兜底）。
+//! - 证券账户字段的结构化配置读取（`securities_accounts`）。
 //! - 表格解析与输出配置的供应商级覆盖。
 //!
 //! # 配置优先级
@@ -35,7 +35,10 @@ use log::trace;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    config::{global::GlobalConfig, output::OutputConfig, tabular_options::TabularOptions},
+    config::{
+        defaults::CommonDefaultsConfig, global::GlobalConfig, output::OutputConfig,
+        tabular_options::TabularOptions,
+    },
     rule::Rule,
 };
 
@@ -54,30 +57,29 @@ use crate::model::{
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SecuritiesAccountsConfig {
     /// 券商现金账户。
-    #[serde(default, alias = "default_cash_account")]
+    #[serde(default)]
     pub cash_account: Option<String>,
 
     /// 手续费账户。
-    #[serde(default, alias = "default_fee_account")]
+    #[serde(default)]
     pub fee_account: Option<String>,
 
     /// 盈亏账户。
-    #[serde(default, alias = "default_pnl_account")]
+    #[serde(default)]
     pub pnl_account: Option<String>,
 
     /// 逆回购利息账户。
-    #[serde(default, alias = "default_repo_interest_account")]
+    #[serde(default)]
     pub repo_interest_account: Option<String>,
 
     /// 舍入差异账户。
-    #[serde(default, alias = "default_rounding_account")]
+    #[serde(default)]
     pub rounding_account: Option<String>,
 }
 
 /// 供应商配置。
 ///
 /// 该结构描述一个供应商从解析到写出的完整参数集合。
-/// 在反序列化时同时兼容新字段与旧字段命名。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderConfig {
     /// 供应商显示名称。
@@ -98,39 +100,23 @@ pub struct ProviderConfig {
     /// 默认币种（通用）。
     pub default_currency: Option<String>,
 
+    /// 默认字段分组（推荐新写法）。
+    ///
+    /// ```yaml
+    /// default:
+    ///   asset_account: "Assets:Wallet:WeChat:Balance"
+    ///   expense_account: "Expenses:Unknown"
+    ///   income_account: "Income:Unknown"
+    ///   currency: "CNY"
+    /// ```
+    ///
+    /// 当该分组与平铺字段（`default_*`）并存时，平铺字段优先。
+    #[serde(default, rename = "default")]
+    pub defaults: CommonDefaultsConfig,
+
     /// 证券账户子结构（推荐新配置使用）。
     #[serde(default)]
     pub securities_accounts: SecuritiesAccountsConfig,
-
-    /// 兼容字段：默认券商现金账户（证券场景）。
-    ///
-    /// 向后兼容别名：`cash_account`。
-    #[serde(alias = "cash_account")]
-    pub default_cash_account: Option<String>,
-
-    /// 兼容字段：默认手续费账户。
-    ///
-    /// 向后兼容别名：`fee_account`。
-    #[serde(alias = "fee_account")]
-    pub default_fee_account: Option<String>,
-
-    /// 兼容字段：默认盈亏账户。
-    ///
-    /// 向后兼容别名：`pnl_account`。
-    #[serde(alias = "pnl_account")]
-    pub default_pnl_account: Option<String>,
-
-    /// 兼容字段：默认逆回购利息账户。
-    ///
-    /// 向后兼容别名：`repo_interest_account`。
-    #[serde(alias = "repo_interest_account")]
-    pub default_repo_interest_account: Option<String>,
-
-    /// 兼容字段：默认舍入差异账户。
-    ///
-    /// 向后兼容别名：`rounding_account`。
-    #[serde(alias = "rounding_account")]
-    pub default_rounding_account: Option<String>,
 
     /// 历史 lot 预加载文件列表（Beancount）。
     ///
@@ -167,16 +153,9 @@ fn default_true() -> bool {
     true
 }
 
-/// 返回首个有效（非空白）字符串引用。
-///
-/// 优先使用 `primary`，当其为空或仅含空白时回退到 `fallback`。
-/// 该函数用于新旧配置字段并存时的统一取值逻辑。
-fn first_non_empty<'a>(primary: Option<&'a str>, fallback: Option<&'a str>) -> Option<&'a str> {
-    primary
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        // 仅当 primary 缺失或为空时，才使用 fallback。
-        .or_else(|| fallback.map(str::trim).filter(|value| !value.is_empty()))
+/// 返回有效（非空白）字符串引用。
+fn non_empty(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|v| !v.is_empty())
 }
 
 impl Default for ProviderConfig {
@@ -189,12 +168,8 @@ impl Default for ProviderConfig {
             default_expense_account: None,
             default_income_account: None,
             default_currency: None,
+            defaults: CommonDefaultsConfig::default(),
             securities_accounts: SecuritiesAccountsConfig::default(),
-            default_cash_account: None,
-            default_fee_account: None,
-            default_pnl_account: None,
-            default_repo_interest_account: None,
-            default_rounding_account: None,
             inventory_seed_files: Vec::new(),
             tabular_options: TabularOptions::default(),
             rules: Vec::new(),
@@ -206,6 +181,26 @@ impl Default for ProviderConfig {
 }
 
 impl ProviderConfig {
+    /// 归一化 `default:` 分组到历史平铺字段。
+    ///
+    /// 兼容策略：
+    /// - 平铺字段（`default_*`）优先；
+    /// - 当平铺字段缺失时，回填 `default:` 分组对应值。
+    pub fn normalize_default_group(&mut self) {
+        if self.default_asset_account.is_none() {
+            self.default_asset_account = self.defaults.asset_account.clone();
+        }
+        if self.default_expense_account.is_none() {
+            self.default_expense_account = self.defaults.expense_account.clone();
+        }
+        if self.default_income_account.is_none() {
+            self.default_income_account = self.defaults.income_account.clone();
+        }
+        if self.default_currency.is_none() {
+            self.default_currency = self.defaults.currency.clone();
+        }
+    }
+
     /// 合并全局配置（供应商配置优先）。
     ///
     /// 仅当供应商字段未设置时，才继承 `global` 的默认值。
@@ -230,6 +225,8 @@ impl ProviderConfig {
     /// assert_eq!(provider.default_currency.as_deref(), Some("HKD"));
     /// ```
     pub fn merge_with_global(&mut self, global: &GlobalConfig) {
+        self.normalize_default_group();
+
         // 通用账户与币种按“供应商优先、全局兜底”合并。
         if self.default_asset_account.is_none() {
             self.default_asset_account = global.default_asset_account.clone();
@@ -250,70 +247,28 @@ impl ProviderConfig {
     }
 
     /// 获取证券场景有效现金账户。
-    ///
-    /// 优先读取 `securities_accounts.cash_account`，再回退到
-    /// 历史字段 `default_cash_account`。
-    ///
-    /// # 示例
-    /// ```rust
-    /// use beancount_importer_rust::model::config::provider::ProviderConfig;
-    ///
-    /// let mut config = ProviderConfig::default();
-    /// config.default_cash_account = Some("Assets:Legacy:Cash".to_string());
-    /// assert_eq!(config.securities_cash_account(), Some("Assets:Legacy:Cash"));
-    ///
-    /// config.securities_accounts.cash_account = Some("Assets:Nested:Cash".to_string());
-    /// assert_eq!(config.securities_cash_account(), Some("Assets:Nested:Cash"));
-    /// ```
     pub fn securities_cash_account(&self) -> Option<&str> {
-        first_non_empty(
-            self.securities_accounts.cash_account.as_deref(),
-            self.default_cash_account.as_deref(),
-        )
+        non_empty(self.securities_accounts.cash_account.as_deref())
     }
 
     /// 获取证券场景有效手续费账户。
-    ///
-    /// 优先读取嵌套字段 `securities_accounts.fee_account`，否则回退到
-    /// 历史字段 `default_fee_account`。
     pub fn securities_fee_account(&self) -> Option<&str> {
-        first_non_empty(
-            self.securities_accounts.fee_account.as_deref(),
-            self.default_fee_account.as_deref(),
-        )
+        non_empty(self.securities_accounts.fee_account.as_deref())
     }
 
     /// 获取证券场景有效盈亏账户。
-    ///
-    /// 优先读取嵌套字段 `securities_accounts.pnl_account`，否则回退到
-    /// 历史字段 `default_pnl_account`。
     pub fn securities_pnl_account(&self) -> Option<&str> {
-        first_non_empty(
-            self.securities_accounts.pnl_account.as_deref(),
-            self.default_pnl_account.as_deref(),
-        )
+        non_empty(self.securities_accounts.pnl_account.as_deref())
     }
 
     /// 获取证券场景有效逆回购利息账户。
-    ///
-    /// 优先读取嵌套字段 `securities_accounts.repo_interest_account`，
-    /// 否则回退到历史字段 `default_repo_interest_account`。
     pub fn securities_repo_interest_account(&self) -> Option<&str> {
-        first_non_empty(
-            self.securities_accounts.repo_interest_account.as_deref(),
-            self.default_repo_interest_account.as_deref(),
-        )
+        non_empty(self.securities_accounts.repo_interest_account.as_deref())
     }
 
     /// 获取证券场景有效舍入差异账户。
-    ///
-    /// 优先读取嵌套字段 `securities_accounts.rounding_account`，否则回退到
-    /// 历史字段 `default_rounding_account`。
     pub fn securities_rounding_account(&self) -> Option<&str> {
-        first_non_empty(
-            self.securities_accounts.rounding_account.as_deref(),
-            self.default_rounding_account.as_deref(),
-        )
+        non_empty(self.securities_accounts.rounding_account.as_deref())
     }
 }
 
@@ -322,18 +277,15 @@ mod tests {
     use super::ProviderConfig;
 
     #[test]
-    fn deserializes_cash_account_alias() {
+    fn reads_nested_securities_cash_account() {
         let yaml = r#"
-cash_account: "Assets:Broker:Alias:Cash"
+securities_accounts:
+  cash_account: "Assets:Broker:Alias:Cash"
 "#;
 
         let config: ProviderConfig =
             serde_yaml::from_str(yaml).expect("provider config should deserialize");
 
-        assert_eq!(
-            config.default_cash_account.as_deref(),
-            Some("Assets:Broker:Alias:Cash")
-        );
         assert_eq!(
             config.securities_cash_account(),
             Some("Assets:Broker:Alias:Cash")
@@ -341,18 +293,15 @@ cash_account: "Assets:Broker:Alias:Cash"
     }
 
     #[test]
-    fn deserializes_repo_interest_account_alias() {
+    fn reads_nested_securities_repo_interest_account() {
         let yaml = r#"
-repo_interest_account: "Income:Broker:Alias:RepoInterest"
+securities_accounts:
+  repo_interest_account: "Income:Broker:Alias:RepoInterest"
 "#;
 
         let config: ProviderConfig =
             serde_yaml::from_str(yaml).expect("provider config should deserialize");
 
-        assert_eq!(
-            config.default_repo_interest_account.as_deref(),
-            Some("Income:Broker:Alias:RepoInterest")
-        );
         assert_eq!(
             config.securities_repo_interest_account(),
             Some("Income:Broker:Alias:RepoInterest")
@@ -380,7 +329,7 @@ lot_seed_files:
     }
 
     #[test]
-    fn prefers_nested_securities_accounts_over_legacy_fields() {
+    fn ignores_legacy_securities_default_fields() {
         let yaml = r#"
 default_cash_account: "Assets:Legacy:Cash"
 securities_accounts:
@@ -393,6 +342,17 @@ securities_accounts:
 
         assert_eq!(config.securities_cash_account(), Some("Assets:Nested:Cash"));
         assert_eq!(config.securities_fee_account(), Some("Expenses:Nested:Fee"));
+
+        let legacy_only_yaml = r#"
+default_cash_account: "Assets:Legacy:Cash"
+default_fee_account: "Expenses:Legacy:Fee"
+default_repo_interest_account: "Income:Legacy:Repo"
+"#;
+        let legacy_only: ProviderConfig =
+            serde_yaml::from_str(legacy_only_yaml).expect("provider config should deserialize");
+        assert_eq!(legacy_only.securities_cash_account(), None);
+        assert_eq!(legacy_only.securities_fee_account(), None);
+        assert_eq!(legacy_only.securities_repo_interest_account(), None);
     }
 
     #[test]
@@ -435,5 +395,49 @@ has_header_row: true
         assert!(!config.tabular_options.flexible);
         assert_eq!(config.tabular_options.encoding, "UTF-8");
         assert!(config.has_header_row);
+    }
+
+    #[test]
+    fn normalizes_default_group_fields_when_flat_defaults_missing() {
+        let yaml = r#"
+default:
+  asset_account: "Assets:Wallet:WeChat:Balance"
+  expense_account: "Expenses:Unknown"
+  income_account: "Income:Unknown"
+  currency: "CNY"
+"#;
+
+        let mut config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+        config.normalize_default_group();
+
+        assert_eq!(
+            config.default_asset_account.as_deref(),
+            Some("Assets:Wallet:WeChat:Balance")
+        );
+        assert_eq!(
+            config.default_expense_account.as_deref(),
+            Some("Expenses:Unknown")
+        );
+        assert_eq!(
+            config.default_income_account.as_deref(),
+            Some("Income:Unknown")
+        );
+        assert_eq!(config.default_currency.as_deref(), Some("CNY"));
+    }
+
+    #[test]
+    fn keeps_flat_defaults_priority_over_default_group() {
+        let yaml = r#"
+default_asset_account: "Assets:Flat"
+default:
+  asset_account: "Assets:Grouped"
+"#;
+
+        let mut config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+        config.normalize_default_group();
+
+        assert_eq!(config.default_asset_account.as_deref(), Some("Assets:Flat"));
     }
 }

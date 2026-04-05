@@ -1,10 +1,11 @@
 name: "美团（基础示例）"
 mapping_file: "mapping/third_party/mt.yml"
 
-default_asset_account: "Assets:Wallet:Meituan:Balance"
-default_expense_account: "Expenses:Unknown"
-default_income_account: "Income:Unknown"
-default_currency: "CNY"
+default:
+  asset_account: "Assets:Wallet:Meituan:Balance"
+  expense_account: "Expenses:Unknown"
+  income_account: "Income:Unknown"
+  currency: "CNY"
 
 tabular_options:
   delimiter: ","

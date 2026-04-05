@@ -70,14 +70,17 @@ fn uses_broker_cash_account_as_fallback_in_security_trade() {
 }
 
 #[test]
-fn uses_explicit_default_cash_account_when_configured() {
+fn uses_explicit_securities_cash_account_when_configured() {
     let options = SecurityTransformOptions {
         provider_name: "yinhe",
         default_payee: "Galaxy",
     };
     let config = ProviderConfig {
         default_asset_account: Some("Assets:Broker:Galaxy:Securities".to_string()),
-        default_cash_account: Some("Assets:Invest:Broker:Galaxy:Cash".to_string()),
+        securities_accounts: SecuritiesAccountsConfig {
+            cash_account: Some("Assets:Invest:Broker:Galaxy:Cash".to_string()),
+            ..SecuritiesAccountsConfig::default()
+        },
         ..ProviderConfig::default()
     };
 
@@ -104,7 +107,6 @@ fn uses_nested_securities_cash_account_when_configured() {
     };
     let config = ProviderConfig {
         default_asset_account: Some("Assets:Broker:Galaxy:Securities".to_string()),
-        default_cash_account: Some("Assets:Legacy:Broker:Cash".to_string()),
         securities_accounts: SecuritiesAccountsConfig {
             cash_account: Some("Assets:Nested:Broker:Cash".to_string()),
             ..SecuritiesAccountsConfig::default()
@@ -135,8 +137,11 @@ fn uses_explicit_repo_interest_account_when_configured() {
     };
     let config = ProviderConfig {
         default_asset_account: Some("Assets:Broker:Galaxy:Securities".to_string()),
-        default_cash_account: Some("Assets:Broker:Galaxy:Cash".to_string()),
-        default_repo_interest_account: Some("Income:Broker:Galaxy:RepoInterest".to_string()),
+        securities_accounts: SecuritiesAccountsConfig {
+            cash_account: Some("Assets:Broker:Galaxy:Cash".to_string()),
+            repo_interest_account: Some("Income:Broker:Galaxy:RepoInterest".to_string()),
+            ..SecuritiesAccountsConfig::default()
+        },
         ..ProviderConfig::default()
     };
 

@@ -1,10 +1,11 @@
 name: "银河证券"
 mapping_file: "mapping/securities/yinhe.yml"
 
-default_asset_account: "Assets:Broker:Galaxy:Securities"
-default_expense_account: "Expenses:Investing:Fees"
-default_income_account: "Income:Investing:Capital-Gains"
-default_currency: "CNY"
+default:
+  asset_account: "Assets:Broker:Galaxy:Securities"
+  expense_account: "Expenses:Investing:Fees"
+  income_account: "Income:Investing:Capital-Gains"
+  currency: "CNY"
 
 # 证券场景扩展账户（可被规则逐条覆盖，非必填）
 securities_accounts:

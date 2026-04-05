@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    config::{output::OutputConfig, provider::ProviderConfig},
+    config::{defaults::CommonDefaultsConfig, output::OutputConfig, provider::ProviderConfig},
     rule::Rule,
 };
 
@@ -44,6 +44,20 @@ pub struct GlobalConfig {
 
     /// 默认收入贷方账户。
     pub default_income_account: Option<String>,
+
+    /// 默认字段分组（推荐新写法）。
+    ///
+    /// ```yaml
+    /// default:
+    ///   asset_account: "Assets:Unknown"
+    ///   expense_account: "Expenses:Unknown"
+    ///   income_account: "Income:Unknown"
+    ///   currency: "CNY"
+    /// ```
+    ///
+    /// 当分组字段与平铺字段并存时，平铺字段优先。
+    #[serde(default, rename = "default")]
+    pub defaults: CommonDefaultsConfig,
 
     /// 全局规则（优先级低于供应商规则）。
     #[serde(default)]
@@ -77,9 +91,93 @@ impl Default for GlobalConfig {
             default_expense_account: None,
             default_asset_account: None,
             default_income_account: None,
+            defaults: CommonDefaultsConfig::default(),
             global_rules: Vec::new(),
             providers: HashMap::new(),
             output: OutputConfig::default(),
         }
+    }
+}
+
+impl GlobalConfig {
+    /// 归一化 `default:` 分组到历史平铺字段。
+    ///
+    /// 兼容策略：
+    /// - 平铺字段（`default_*`）优先；
+    /// - 平铺字段缺失时回填 `default:` 分组值。
+    pub fn normalize_default_group(&mut self) {
+        if self.default_asset_account.is_none() {
+            self.default_asset_account = self.defaults.asset_account.clone();
+        }
+        if self.default_expense_account.is_none() {
+            self.default_expense_account = self.defaults.expense_account.clone();
+        }
+        if self.default_income_account.is_none() {
+            self.default_income_account = self.defaults.income_account.clone();
+        }
+        if self.default_currency == default_currency() {
+            if let Some(currency) = self
+                .defaults
+                .currency
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                self.default_currency = currency.to_string();
+            }
+        }
+
+        for provider in self.providers.values_mut() {
+            provider.normalize_default_group();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GlobalConfig;
+
+    #[test]
+    fn normalizes_default_group_fields_when_flat_defaults_missing() {
+        let yaml = r#"
+default:
+  asset_account: "Assets:Unknown"
+  expense_account: "Expenses:Unknown"
+  income_account: "Income:Unknown"
+  currency: "USD"
+"#;
+
+        let mut config: GlobalConfig =
+            serde_yaml::from_str(yaml).expect("global config should deserialize");
+        config.normalize_default_group();
+
+        assert_eq!(
+            config.default_asset_account.as_deref(),
+            Some("Assets:Unknown")
+        );
+        assert_eq!(
+            config.default_expense_account.as_deref(),
+            Some("Expenses:Unknown")
+        );
+        assert_eq!(
+            config.default_income_account.as_deref(),
+            Some("Income:Unknown")
+        );
+        assert_eq!(config.default_currency, "USD");
+    }
+
+    #[test]
+    fn keeps_flat_defaults_priority_over_default_group() {
+        let yaml = r#"
+default_currency: "HKD"
+default:
+  currency: "USD"
+"#;
+
+        let mut config: GlobalConfig =
+            serde_yaml::from_str(yaml).expect("global config should deserialize");
+        config.normalize_default_group();
+
+        assert_eq!(config.default_currency, "HKD");
     }
 }

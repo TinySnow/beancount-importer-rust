@@ -7,7 +7,7 @@
 //! - 供应商配置（[`ProviderConfig`]）
 //! - 字段映射（[`FieldMapping`]）
 //!
-//! 说明：`mod.rs` 仅保留高层编排，具体加载/路径兼容逻辑拆分到子模块。
+//! 说明：`mod.rs` 仅保留高层编排，具体加载/路径解析逻辑拆分到子模块。
 
 mod global;
 mod inventory;

@@ -15,7 +15,7 @@
 - 规则引擎支持 `equals/contains/regex/in/not_empty/is_empty/数值比较`。
 - 规则执行顺序稳定：`priority -> specificity -> 文件顺序`，后命中覆盖先命中。
 - 支持 `terminal`（命中后停止后续规则）和 `ignore`（忽略该条交易）。
-- 证券场景支持：普通买卖、逆回购、银证转账；支持 `securities_accounts` 子结构统一配置 `cash/fee/pnl/rounding/repo_interest`，并兼容旧版 `default_*` 字段。
+- 证券场景支持：普通买卖、逆回购、银证转账；通过 `securities_accounts` 子结构统一配置 `cash/fee/pnl/rounding/repo_interest`。
 - Writer 支持自动输出 `commodity`，可选自动输出 `open` 指令。
 - metadata key 自动归一化为 Beancount 合法键。
 
@@ -63,9 +63,11 @@ cargo run -- \
 ### 3.5 证券账户最小配置（推荐）
 
 ```yaml
-default_asset_account: "Assets:Broker:Galaxy:Securities"
-default_expense_account: "Expenses:Investing:Fees"
-default_income_account: "Income:Investing:Capital-Gains"
+default:
+  asset_account: "Assets:Broker:Galaxy:Securities"
+  expense_account: "Expenses:Investing:Fees"
+  income_account: "Income:Investing:Capital-Gains"
+  currency: "CNY"
 
 securities_accounts:
   cash_account: "Assets:Broker:Galaxy:Cash"
@@ -83,8 +85,10 @@ output:
 ```
 
 说明：
-- `securities_accounts` 是推荐新写法；旧字段 `default_cash_account/default_fee_account/default_pnl_account/default_rounding_account/default_repo_interest_account` 仍兼容。
-- 当新旧字段同时存在时，优先使用 `securities_accounts`。
+- 通用默认项推荐写在 `default:` 分组下（如 `asset_account/expense_account/income_account/currency`）。
+- 证券账户字段统一写在 `securities_accounts` 下（`cash/fee/pnl/rounding/repo_interest`）。
+- 旧平铺证券账户字段（如 `default_cash_account/default_fee_account` 等）不再生效。
+- 历史平铺字段 `default_asset_account/default_expense_account/default_income_account/default_currency` 仍兼容；与 `default:` 同时存在时，平铺字段优先。
 - `inventory_seed_files` 可选；用于跨账期导入时预加载历史 lot，减少早期卖出（本期无买入）的二义性。
 
 ## 4. CLI 参数
@@ -102,10 +106,10 @@ output:
 ## 5. 配置加载顺序
 
 运行时按以下顺序加载：
-1. 全局配置 `--global-config`（未显式指定时尝试 `config/global.yml`；兼容回退 `src/config/global.yml`）。
-2. provider 配置 `--config`（不存在时优先尝试 `config/<category>/<provider>.yml`，兼容回退 `config/<provider>.yml` 与 `src/config/*` 旧路径）。
+1. 全局配置 `--global-config`（未显式指定时尝试 `config/global.yml`）。
+2. provider 配置 `--config`（不存在时优先尝试 `config/<category>/<provider>.yml`）。
 3. 字段映射 `mapping_file`（若是相对路径，优先相对 provider 配置文件所在目录解析）。
-4. 未指定 `mapping_file` 时，优先尝试 `mapping/<category>/<provider>.yml`，并兼容 `mapping/<provider>.yml`、`mappings/*`、`src/mapping/*` 旧路径。
+4. 未指定 `mapping_file` 时，优先尝试 `mapping/<category>/<provider>.yml`。
 
 补充：provider 默认值会覆盖 global；provider 未设置的字段回退到 global。
 

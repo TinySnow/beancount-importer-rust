@@ -1,9 +1,9 @@
 # 通用全局配置（不包含个人账户信息）
-default_currency: CNY
-
-default_expense_account: Expenses:Unknown
-default_asset_account: Assets:Unknown
-default_income_account: Income:Unknown
+default:
+  currency: CNY
+  expense_account: Expenses:Unknown
+  asset_account: Assets:Unknown
+  income_account: Income:Unknown
 
 # 可选：全局规则（默认留空，避免误判）
 global_rules: []
@@ -18,10 +18,11 @@ providers:
   alipay:
     name: "支付宝"
     mapping_file: "mapping/third_party/alipay.yml"
-    default_asset_account: "Assets:Wallet:Alipay:Balance"
-    default_expense_account: "Expenses:Unknown"
-    default_income_account: "Income:Unknown"
-    default_currency: "CNY"
+    default:
+      asset_account: "Assets:Wallet:Alipay:Balance"
+      expense_account: "Expenses:Unknown"
+      income_account: "Income:Unknown"
+      currency: "CNY"
     tabular_options:
       delimiter: ","
       flexible: true
@@ -32,10 +33,11 @@ providers:
   wechat:
     name: "微信"
     mapping_file: "mapping/third_party/wechat.yml"
-    default_asset_account: "Assets:Wallet:WeChat:Balance"
-    default_expense_account: "Expenses:Unknown"
-    default_income_account: "Income:Unknown"
-    default_currency: "CNY"
+    default:
+      asset_account: "Assets:Wallet:WeChat:Balance"
+      expense_account: "Expenses:Unknown"
+      income_account: "Income:Unknown"
+      currency: "CNY"
     tabular_options:
       delimiter: ","
       flexible: true
@@ -46,10 +48,11 @@ providers:
   jd:
     name: "京东"
     mapping_file: "mapping/third_party/jd.yml"
-    default_asset_account: "Assets:Wallet:JD:Balance"
-    default_expense_account: "Expenses:Unknown"
-    default_income_account: "Income:Unknown"
-    default_currency: "CNY"
+    default:
+      asset_account: "Assets:Wallet:JD:Balance"
+      expense_account: "Expenses:Unknown"
+      income_account: "Income:Unknown"
+      currency: "CNY"
     tabular_options:
       delimiter: ","
       flexible: true
@@ -60,10 +63,11 @@ providers:
   mt:
     name: "美团"
     mapping_file: "mapping/third_party/mt.yml"
-    default_asset_account: "Assets:Wallet:Meituan:Balance"
-    default_expense_account: "Expenses:Unknown"
-    default_income_account: "Income:Unknown"
-    default_currency: "CNY"
+    default:
+      asset_account: "Assets:Wallet:Meituan:Balance"
+      expense_account: "Expenses:Unknown"
+      income_account: "Income:Unknown"
+      currency: "CNY"
     tabular_options:
       delimiter: ","
       flexible: true
@@ -74,10 +78,11 @@ providers:
   icbc:
     name: "工商银行"
     mapping_file: "mapping/banks/icbc.yml"
-    default_asset_account: "Assets:Bank:ICBC:Checking"
-    default_expense_account: "Expenses:Unknown"
-    default_income_account: "Income:Unknown"
-    default_currency: "CNY"
+    default:
+      asset_account: "Assets:Bank:ICBC:Checking"
+      expense_account: "Expenses:Unknown"
+      income_account: "Income:Unknown"
+      currency: "CNY"
     tabular_options:
       delimiter: ","
       flexible: true
@@ -88,10 +93,11 @@ providers:
   ccb:
     name: "建设银行"
     mapping_file: "mapping/banks/ccb.yml"
-    default_asset_account: "Assets:Bank:CCB:Checking"
-    default_expense_account: "Expenses:Unknown"
-    default_income_account: "Income:Unknown"
-    default_currency: "CNY"
+    default:
+      asset_account: "Assets:Bank:CCB:Checking"
+      expense_account: "Expenses:Unknown"
+      income_account: "Income:Unknown"
+      currency: "CNY"
     tabular_options:
       delimiter: ","
       flexible: true
@@ -102,10 +108,11 @@ providers:
   dzccb:
     name: "达州银行"
     mapping_file: "mapping/banks/dzccb.yml"
-    default_asset_account: "Assets:Bank:DZCCB:Checking"
-    default_expense_account: "Expenses:Unknown"
-    default_income_account: "Income:Unknown"
-    default_currency: "CNY"
+    default:
+      asset_account: "Assets:Bank:DZCCB:Checking"
+      expense_account: "Expenses:Unknown"
+      income_account: "Income:Unknown"
+      currency: "CNY"
     tabular_options:
       delimiter: ","
       flexible: true
@@ -116,10 +123,11 @@ providers:
   futu:
     name: "富途"
     mapping_file: "mapping/securities/futu.yml"
-    default_asset_account: "Assets:Broker:Futu:Securities"
-    default_expense_account: "Expenses:Investing:Fees"
-    default_income_account: "Income:Investing:Capital-Gains"
-    default_currency: "USD"
+    default:
+      asset_account: "Assets:Broker:Futu:Securities"
+      expense_account: "Expenses:Investing:Fees"
+      income_account: "Income:Investing:Capital-Gains"
+      currency: "USD"
     securities_accounts:
       cash_account: "Assets:Broker:Futu:Cash"
       fee_account: "Expenses:Broker:Futu:Fee"
@@ -141,10 +149,11 @@ providers:
   yinhe:
     name: "银河证券"
     mapping_file: "mapping/securities/yinhe.yml"
-    default_asset_account: "Assets:Broker:Galaxy:Securities"
-    default_expense_account: "Expenses:Investing:Fees"
-    default_income_account: "Income:Investing:Capital-Gains"
-    default_currency: "CNY"
+    default:
+      asset_account: "Assets:Broker:Galaxy:Securities"
+      expense_account: "Expenses:Investing:Fees"
+      income_account: "Income:Investing:Capital-Gains"
+      currency: "CNY"
     securities_accounts:
       cash_account: "Assets:Broker:Galaxy:Cash"
       fee_account: "Expenses:Broker:Galaxy:Fee"
@@ -162,7 +171,6 @@ providers:
       decimal_places: 4
       booking_method: "FIFO"
       emit_open_directives: true
-
 
 
 

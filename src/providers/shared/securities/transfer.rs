@@ -14,9 +14,9 @@ use crate::{
 };
 
 use super::{
-    DEFAULT_TRANSFER_ASSET_ACCOUNT, SecurityTransformOptions,
     context::SecurityRecordContext,
-    logic::{Direction, derive_cash_account, infer_transfer_direction},
+    logic::{derive_cash_account, infer_transfer_direction, Direction},
+    SecurityTransformOptions, DEFAULT_TRANSFER_ASSET_ACCOUNT,
 };
 
 /// 构建“券商 <-> 银行”现金划转交易。
@@ -131,19 +131,25 @@ mod tests {
     use super::super::context::SecurityRecordContext;
     use super::build_cash_transfer_transaction;
     use crate::{
-        model::{config::provider::ProviderConfig, rule::match_result::MatchResult},
+        model::{
+            config::provider::{ProviderConfig, SecuritiesAccountsConfig},
+            rule::match_result::MatchResult,
+        },
         providers::shared::SecurityTransformOptions,
     };
 
     #[test]
-    fn uses_explicit_default_cash_account_for_cash_transfer() {
+    fn uses_explicit_securities_cash_account_for_cash_transfer() {
         let options = SecurityTransformOptions {
             provider_name: "yinhe",
             default_payee: "Galaxy",
         };
         let config = ProviderConfig {
             default_asset_account: Some("Assets:Broker:Galaxy:Securities".to_string()),
-            default_cash_account: Some("Assets:Invest:Broker:Galaxy:Cash".to_string()),
+            securities_accounts: SecuritiesAccountsConfig {
+                cash_account: Some("Assets:Invest:Broker:Galaxy:Cash".to_string()),
+                ..SecuritiesAccountsConfig::default()
+            },
             ..ProviderConfig::default()
         };
 
