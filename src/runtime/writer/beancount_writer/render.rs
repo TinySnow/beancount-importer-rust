@@ -13,8 +13,8 @@
 //!     account::{amount::Amount, posting::Posting},
 //!     config::output::OutputConfig,
 //!     transaction::Transaction,
-//!     writer::beancount_writer::BeancountWriter,
 //! };
+//! use beancount_importer_rust::runtime::writer::beancount_writer::BeancountWriter;
 //! use chrono::NaiveDate;
 //! use rust_decimal_macros::dec;
 //!

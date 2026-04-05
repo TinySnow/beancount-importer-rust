@@ -8,6 +8,7 @@
 //! - [`model`]：数据模型定义
 //! - [`providers`]：数据提供器实现
 //! - [`utils`]：工具函数和辅助功能
+//! - [`runtime`]：运行时读取/写出与供应商注册能力
 //!
 //! # 核心功能
 //! - 提供 `app()` 函数作为二进制入口与运行时实现之间的薄封装
@@ -35,7 +36,7 @@ pub mod model;
 pub mod providers;
 pub mod utils;
 
-mod runtime;
+pub mod runtime;
 
 use anyhow::Result;
 

@@ -12,9 +12,9 @@
 //! ```rust,no_run
 //! use std::path::Path;
 //!
-//! use beancount_importer_rust::model::{
-//!     config::tabular_options::TabularOptions,
-//!     reader::tabular::TabularRecordReader,
+//! use beancount_importer_rust::{
+//!     model::config::tabular_options::TabularOptions,
+//!     runtime::reader::tabular::TabularRecordReader,
 //! };
 //!
 //! let reader = TabularRecordReader::new(
@@ -71,9 +71,9 @@ impl TabularRecordReader {
     ///
     /// # 示例
     /// ```rust
-    /// use beancount_importer_rust::model::{
-    ///     config::tabular_options::TabularOptions,
-    ///     reader::tabular::TabularRecordReader,
+    /// use beancount_importer_rust::{
+    ///     model::config::tabular_options::TabularOptions,
+    ///     runtime::reader::tabular::TabularRecordReader,
     /// };
     ///
     /// let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, false);
@@ -112,9 +112,9 @@ impl TabularRecordReader {
     /// ```rust,no_run
     /// use std::path::Path;
     ///
-    /// use beancount_importer_rust::model::{
-    ///     config::tabular_options::TabularOptions,
-    ///     reader::tabular::TabularRecordReader,
+    /// use beancount_importer_rust::{
+    ///     model::config::tabular_options::TabularOptions,
+    ///     runtime::reader::tabular::TabularRecordReader,
     /// };
     ///
     /// let reader = TabularRecordReader::new(TabularOptions::default(), 0, true, true);

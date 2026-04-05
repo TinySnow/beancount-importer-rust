@@ -20,9 +20,9 @@ mod inventory;
 mod pipeline;
 mod pnl;
 mod sorting;
-pub(crate) mod provider_registry;
-pub(crate) mod reader;
-pub(crate) mod writer;
+pub mod provider_registry;
+pub mod reader;
+pub mod writer;
 
 use std::{
     fs,

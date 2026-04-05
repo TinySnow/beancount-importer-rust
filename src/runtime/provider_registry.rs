@@ -20,10 +20,10 @@
 //!     model::{
 //!         config::provider::ProviderConfig,
 //!         data::raw_record::RawRecord,
-//!         runtime::provider_registry::ProviderRegistry,
 //!         rule::rule_engine::RuleEngine,
 //!         transaction::Transaction,
 //!     },
+//!     runtime::provider_registry::ProviderRegistry,
 //! };
 //!
 //! struct DemoProvider;
@@ -53,7 +53,12 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{interface::provider::Provider, providers::GLOBAL_REGISTRY};
+use once_cell::sync::Lazy;
+
+use crate::{
+    interface::provider::Provider,
+    providers::{banks, securities, third_party},
+};
 
 /// 运行时供应商注册表。
 ///
@@ -65,6 +70,25 @@ pub struct ProviderRegistry {
     /// 使用 `Arc` 可以让调用方按需克隆引用，避免复制底层 provider 实例。
     providers: HashMap<String, Arc<dyn Provider>>,
 }
+
+/// 全局供应商注册表。
+///
+/// 首次访问时完成惰性初始化，并注册所有内置供应商实现。
+pub static GLOBAL_REGISTRY: Lazy<ProviderRegistry> = Lazy::new(|| {
+    let mut registry = ProviderRegistry::new();
+
+    registry.register(Arc::new(third_party::alipay::AlipayProvider));
+    registry.register(Arc::new(third_party::wechat::WechatProvider));
+    registry.register(Arc::new(third_party::jd::JdProvider));
+    registry.register(Arc::new(third_party::mt::MtProvider));
+    registry.register(Arc::new(banks::icbc::IcbcProvider));
+    registry.register(Arc::new(banks::ccb::CcbProvider));
+    registry.register(Arc::new(banks::dzccb::DzccbProvider));
+    registry.register(Arc::new(securities::futu::FutuProvider));
+    registry.register(Arc::new(securities::yinhe::YinheProvider));
+
+    registry
+});
 
 impl ProviderRegistry {
     /// 创建一个空的供应商注册表。
@@ -84,7 +108,7 @@ impl ProviderRegistry {
 
     /// 返回全局静态注册表（包含内置供应商）。
     ///
-    /// 该注册表由 `src/providers/mod.rs` 在程序启动时完成初始化。
+    /// 该注册表在本模块首次访问时完成惰性初始化。
     ///
     /// # 示例
     /// ```rust
@@ -117,10 +141,10 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
-    ///         runtime::provider_registry::ProviderRegistry,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
+    ///     runtime::provider_registry::ProviderRegistry,
     /// };
     ///
     /// struct DemoProvider;
@@ -171,10 +195,10 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
-    ///         runtime::provider_registry::ProviderRegistry,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
+    ///     runtime::provider_registry::ProviderRegistry,
     /// };
     ///
     /// struct DemoProvider;
@@ -224,10 +248,10 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
-    ///         runtime::provider_registry::ProviderRegistry,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
+    ///     runtime::provider_registry::ProviderRegistry,
     /// };
     ///
     /// struct BProvider;

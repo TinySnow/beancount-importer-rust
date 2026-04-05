@@ -14,8 +14,8 @@
 //!     account::{amount::Amount, posting::Posting},
 //!     config::output::OutputConfig,
 //!     transaction::Transaction,
-//!     writer::beancount_writer::BeancountWriter,
 //! };
+//! use beancount_importer_rust::runtime::writer::beancount_writer::BeancountWriter;
 //! use chrono::NaiveDate;
 //! use rust_decimal_macros::dec;
 //!
@@ -75,10 +75,8 @@ impl BeancountWriter {
     ///
     /// # 示例
     /// ```rust
-    /// use beancount_importer_rust::model::{
-    ///     config::output::OutputConfig,
-    ///     writer::beancount_writer::BeancountWriter,
-    /// };
+    /// use beancount_importer_rust::model::config::output::OutputConfig;
+    /// use beancount_importer_rust::runtime::writer::beancount_writer::BeancountWriter;
     ///
     /// let writer = BeancountWriter::new(OutputConfig::default());
     /// let _ = writer;
@@ -108,8 +106,8 @@ impl BeancountWriter {
     ///     account::{amount::Amount, posting::Posting},
     ///     config::output::OutputConfig,
     ///     transaction::Transaction,
-    ///     writer::beancount_writer::BeancountWriter,
     /// };
+    /// use beancount_importer_rust::runtime::writer::beancount_writer::BeancountWriter;
     /// use chrono::NaiveDate;
     /// use rust_decimal_macros::dec;
     ///
