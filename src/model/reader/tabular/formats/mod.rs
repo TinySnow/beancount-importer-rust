@@ -1,8 +1,10 @@
-//! 模块说明：按文件格式组织的读取实现。
+//! 按文件格式组织的读取实现。
 //!
-//! 文件路径：src/model/reader/tabular/formats/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：csv、spreadsheet。
+//! 本模块只负责把具体格式实现拆分到子模块：
+//! - [`csv`]：CSV 读取与基础规范化。
+//! - [`spreadsheet`]：XLS/XLSX 读取与表头识别。
+//!
+//! 两者最终都输出统一的内部表格结构，供映射层复用。
 
 pub(super) mod csv;
 pub(super) mod spreadsheet;

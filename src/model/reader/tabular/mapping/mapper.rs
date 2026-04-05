@@ -1,8 +1,10 @@
-//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//! 表格行到 `RawRecord` 的映射实现。
 //!
-//! 文件路径：src/model/reader/tabular/mapping/mapper.rs。
-//! 该文件围绕字段映射职责提供实现。
-//! 关键符号：validate_mapping、map_to_raw_record、map_date、map_decimal。
+//! 该模块是 `tabular` 读取流程的“第二阶段”，负责把统一表格结构映射为
+//! [`RawRecord`](crate::model::data::raw_record::RawRecord)，并在必要时做兼容性推断：
+//! - 标准字段映射（日期、金额、对手方等）；
+//! - 常见银行导出表头的兜底推断；
+//! - `extra` 字段补齐与规范化（如 `payTime` / `type`）。
 
 use std::collections::HashMap;
 
@@ -26,7 +28,17 @@ use crate::{
 use crate::model::reader::tabular::{TabularRecordReader, table::TabularData};
 
 impl TabularRecordReader {
-    /// 将表格行映射为标准 `RawRecord` 列表。
+    /// 将表格数据映射为标准 `RawRecord` 列表。
+    ///
+    /// # 参数
+    /// - `table`：格式读取阶段产出的统一表格结构。
+    /// - `mapping`：字段映射配置，可选。
+    ///
+    /// # 返回值
+    /// 返回映射后的记录集合。
+    ///
+    /// # 错误
+    /// 严格模式下遇到字段数量不一致或映射异常时返回错误。
     pub(in crate::model::reader::tabular) fn map_table_to_records(
         &self,
         table: TabularData,
@@ -77,6 +89,7 @@ impl TabularRecordReader {
                 }
             }
 
+            // 把“表头 -> 单元格”折叠为键值映射，供后续字段解析与兜底逻辑复用。
             let field_map = table
                 .headers
                 .iter()
@@ -151,6 +164,9 @@ impl TabularRecordReader {
         }
     }
 
+    /// 将单行字段映射为 `RawRecord`。
+    ///
+    /// 当 `mapping` 缺失时，会把所有非空列直接写入 `record.extra`。
     fn map_to_raw_record(
         &self,
         fields: &HashMap<String, String>,
@@ -167,6 +183,7 @@ impl TabularRecordReader {
             return Ok(record);
         };
 
+        // 标准字段优先按显式映射读取。
         record.date = self.map_date(fields, mapping.date.as_ref(), &mapping.date_formats)?;
         record.amount = self.map_decimal(fields, mapping.amount.as_ref())?;
         record.currency = self.map_text(fields, mapping.currency.as_ref())?;
@@ -182,6 +199,7 @@ impl TabularRecordReader {
         record.fee = self.map_decimal(fields, mapping.fee.as_ref())?;
         record.tax = self.map_decimal(fields, mapping.tax.as_ref())?;
 
+        // 然后补充扩展字段和兼容性兜底推断。
         self.map_extra_fields(fields, mapping, &mut record);
         self.apply_common_fallbacks(fields, mapping, &mut record);
         self.normalize_pay_time_extra(&mut record);
@@ -211,6 +229,9 @@ impl TabularRecordReader {
             .insert("type".to_string(), direction.to_string());
     }
 
+    /// 统一方向语义文本，收敛到“收入/支出”二元值。
+    ///
+    /// 该函数同时兼容中英文关键字，避免不同上游数据源在方向字段上出现歧义。
     fn normalize_direction_text(raw: &str) -> Option<&'static str> {
         if raw.contains("支出") || raw.contains("转出") {
             return Some("支出");
@@ -446,6 +467,10 @@ impl TabularRecordReader {
         self.resolve_text_field(fields, spec)
     }
 
+    /// 映射 `extra_fields` 并兼容历史配置方向。
+    ///
+    /// 推荐写法为 `extra_key -> source_column`，同时兼容旧写法
+    /// `source_column -> extra_key`，以减少历史配置迁移成本。
     fn map_extra_fields(
         &self,
         fields: &HashMap<String, String>,
@@ -526,7 +551,12 @@ impl TabularRecordReader {
         })
     }
 
-    /// 先按日期时间解析，再按日期解析。
+    /// 解析日期文本。
+    ///
+    /// 解析顺序：
+    /// 1. 用户配置格式；
+    /// 2. 内置常见格式；
+    /// 3. Excel 序列日期。
     fn parse_date(&self, value: &str, formats: &[String]) -> Option<NaiveDate> {
         let trimmed = value.trim();
 
@@ -563,11 +593,17 @@ impl TabularRecordReader {
     }
 }
 
+/// 规范化单元格文本。
+///
+/// 目前除了常规 `trim` 外，还会展开 Excel 的 `="literal"` 形式。
 pub(super) fn normalize_cell_value(value: &str) -> String {
     let trimmed = value.trim();
     strip_excel_quoted_literal(trimmed).unwrap_or_else(|| trimmed.to_string())
 }
 
+/// 尝试展开 Excel 导出中的 `="literal"` 字面量包裹格式。
+///
+/// 返回 `Some` 表示成功展开；`None` 表示输入不是该模式。
 fn strip_excel_quoted_literal(value: &str) -> Option<String> {
     // Excel 导出中常见格式：="0.00" / ="240599141221"。
     // 这里仅做保守展开：必须是 `=` + 双引号字面量。

@@ -1,13 +1,28 @@
-//! 模块说明：通用工具函数集合。
+//! 应用初始化工具。
 //!
-//! 文件路径：src/utils/init.rs。
-//! 该文件围绕 'init' 的职责提供实现。
-//! 关键符号：init_logger。
+//! 当前主要提供日志系统初始化能力。
+//!
+//! # 示例
+//! ```rust,no_run
+//! use beancount_importer_rust::utils::init::init_logger;
+//! use log::LevelFilter;
+//!
+//! init_logger(LevelFilter::Info);
+//! log::info!("logger initialized");
+//! ```
 
 use env_logger::Builder;
 use log::LevelFilter;
 
-/// 初始化日志系统
+/// 初始化全局日志系统。
+///
+/// 日志输出带 ANSI 颜色，并在 `Debug`/`Trace` 级别附带源码位置信息。
+///
+/// # 参数
+/// - `level`：全局日志级别过滤器。
+///
+/// # 注意
+/// 该函数底层调用 `env_logger` 全局初始化，同一进程通常只能成功初始化一次。
 pub fn init_logger(level: LevelFilter) {
     Builder::new()
         .filter_level(level)
@@ -23,7 +38,7 @@ pub fn init_logger(level: LevelFilter) {
             };
             let reset = "\x1b[0m";
 
-            // 在 `Debug` 和 `Trace` 级别显示更多信息
+            // 在 `Debug` 和 `Trace` 级别显示更多上下文，便于定位问题。
             if record.level() <= log::Level::Debug {
                 writeln!(
                     buf,

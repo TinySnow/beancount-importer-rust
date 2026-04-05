@@ -17,7 +17,7 @@ output:
 providers:
   alipay:
     name: "支付宝"
-    mapping_file: "mapping/alipay.yml"
+    mapping_file: "mapping/third_party/alipay.yml"
     default_asset_account: "Assets:Wallet:Alipay:Balance"
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
@@ -31,7 +31,7 @@ providers:
 
   wechat:
     name: "微信"
-    mapping_file: "mapping/wechat.yml"
+    mapping_file: "mapping/third_party/wechat.yml"
     default_asset_account: "Assets:Wallet:WeChat:Balance"
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
@@ -45,7 +45,7 @@ providers:
 
   jd:
     name: "京东"
-    mapping_file: "mapping/jd.yml"
+    mapping_file: "mapping/third_party/jd.yml"
     default_asset_account: "Assets:Wallet:JD:Balance"
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
@@ -59,7 +59,7 @@ providers:
 
   mt:
     name: "美团"
-    mapping_file: "mapping/mt.yml"
+    mapping_file: "mapping/third_party/mt.yml"
     default_asset_account: "Assets:Wallet:Meituan:Balance"
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
@@ -73,7 +73,7 @@ providers:
 
   icbc:
     name: "工商银行"
-    mapping_file: "mapping/icbc.yml"
+    mapping_file: "mapping/banks/icbc.yml"
     default_asset_account: "Assets:Bank:ICBC:Checking"
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
@@ -87,7 +87,7 @@ providers:
 
   ccb:
     name: "建设银行"
-    mapping_file: "mapping/ccb.yml"
+    mapping_file: "mapping/banks/ccb.yml"
     default_asset_account: "Assets:Bank:CCB:Checking"
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
@@ -101,7 +101,7 @@ providers:
 
   dzccb:
     name: "达州银行"
-    mapping_file: "mapping/dzccb.yml"
+    mapping_file: "mapping/banks/dzccb.yml"
     default_asset_account: "Assets:Bank:DZCCB:Checking"
     default_expense_account: "Expenses:Unknown"
     default_income_account: "Income:Unknown"
@@ -115,7 +115,7 @@ providers:
 
   futu:
     name: "富途"
-    mapping_file: "mapping/futu.yml"
+    mapping_file: "mapping/securities/futu.yml"
     default_asset_account: "Assets:Broker:Futu:Securities"
     default_expense_account: "Expenses:Investing:Fees"
     default_income_account: "Income:Investing:Capital-Gains"
@@ -140,7 +140,7 @@ providers:
 
   yinhe:
     name: "银河证券"
-    mapping_file: "mapping/yinhe.yml"
+    mapping_file: "mapping/securities/yinhe.yml"
     default_asset_account: "Assets:Broker:Galaxy:Securities"
     default_expense_account: "Expenses:Investing:Fees"
     default_income_account: "Income:Investing:Capital-Gains"

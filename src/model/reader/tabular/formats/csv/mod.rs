@@ -1,8 +1,10 @@
-//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//! CSV 读取实现。
 //!
-//! 文件路径：src/model/reader/tabular/formats/csv/mod.rs。
-//! 该文件围绕 CSV 格式读取的职责提供实现。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 本模块负责：
+//! - 根据 [`TabularOptions`](crate::model::config::tabular_options::TabularOptions)
+//!   构造 `csv` 解析器；
+//! - 对输入文本做基础清洗（跳行、trim）；
+//! - 产出统一的内部 `TabularData` 结构，供映射层复用。
 
 use std::{fs::File, path::Path};
 
@@ -20,7 +22,17 @@ use crate::model::reader::tabular::{
 };
 
 impl TabularRecordReader {
-    /// 读取 CSV 文件并归一化为 `TabularData`。
+    /// 读取 CSV 文件并归一化为内部表格结构。
+    ///
+    /// # 参数
+    /// - `path`：CSV 文件路径。
+    ///
+    /// # 返回值
+    /// 返回解析后的 [`TabularData`](crate::model::reader::tabular::table::TabularData)。
+    ///
+    /// # 错误
+    /// - 文件打开或解码失败；
+    /// - CSV 语法错误且当前策略要求立即失败（严格模式或禁用 flexible）。
     pub(in crate::model::reader::tabular) fn read_csv_table(
         &self,
         path: &Path,
@@ -33,6 +45,7 @@ impl TabularRecordReader {
         let content = decode_file(file, &self.tabular_options.encoding)?;
         debug!("Decoded content length: {} chars", content.len());
 
+        // `skip_lines` 在文本层先执行，后续 csv 解析器只看到有效数据区域。
         let lines: Vec<&str> = content.lines().skip(self.skip_lines).collect();
         if lines.is_empty() {
             warn!(
@@ -85,6 +98,7 @@ impl TabularRecordReader {
         let mut pre_parse_errors = 0usize;
 
         for (line_index, row_result) in csv_reader.records().enumerate() {
+            // `line_index` 是从“数据起始行”计数，需还原为原文件可读行号。
             let actual_line = line_index + self.skip_lines + if self.has_header { 2 } else { 1 };
 
             match row_result {
@@ -98,6 +112,7 @@ impl TabularRecordReader {
                     pre_parse_errors += 1;
                     warn!("Line {}: CSV parse error - {}", actual_line, error);
 
+                    // 严格模式下必须立刻失败；非严格模式仅在 flexible=true 时允许跳过坏行。
                     if self.strict_mode || !self.tabular_options.flexible {
                         return Err(ImporterError::Parse {
                             line: actual_line,

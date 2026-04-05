@@ -1,8 +1,20 @@
-//! 模块说明：通用工具函数集合。
+//! 通用工具模块。
 //!
-//! 文件路径：src/utils/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：currency、date、decimal、encoding、init、time。
+//! 该模块聚合导入流程中复用的通用能力，包括：
+//! - 币种规范化；
+//! - 日期/时间解析；
+//! - 数值文本解析；
+//! - 文件编码读取；
+//! - 元数据键名归一化；
+//! - 日志初始化与文本辅助判断。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::utils::{currency, decimal};
+//!
+//! assert_eq!(currency::normalize_cash_currency(Some("人民币")), "CNY");
+//! assert_eq!(decimal::parse_decimal("¥1,234.56").is_some(), true);
+//! ```
 
 pub mod currency;
 pub mod date;

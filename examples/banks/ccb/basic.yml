@@ -1,7 +1,7 @@
-name: "工商银行（基础示例）"
-mapping_file: "mapping/icbc.yml"
+name: "建设银行（基础示例）"
+mapping_file: "mapping/banks/ccb.yml"
 
-default_asset_account: "Assets:Bank:ICBC:Checking"
+default_asset_account: "Assets:Bank:CCB:Checking"
 default_expense_account: "Expenses:Unknown"
 default_income_account: "Income:Unknown"
 default_currency: "CNY"
@@ -38,7 +38,7 @@ rules:
         regex: "(理财|基金|证券|定投)"
     action:
       debit_account: "Assets:Investments"
-      credit_account: "Assets:Bank:ICBC:Checking"
+      credit_account: "Assets:Bank:CCB:Checking"
     priority: 20
 
   # 基础规则3：收入统一归收入账户。
@@ -47,7 +47,7 @@ rules:
       - field: "type"
         equals: "收入"
     action:
-      debit_account: "Assets:Bank:ICBC:Checking"
+      debit_account: "Assets:Bank:CCB:Checking"
       credit_account: "Income:Misc"
     priority: 30
 
@@ -58,5 +58,5 @@ rules:
         contains: "支出"
     action:
       debit_account: "Expenses:Unknown"
-      credit_account: "Assets:Bank:ICBC:Checking"
+      credit_account: "Assets:Bank:CCB:Checking"
     priority: 40

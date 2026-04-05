@@ -33,7 +33,7 @@ cargo build --release
 cargo run -- \
   --provider alipay \
   --source testsets/支付宝交易明细测试数据集.csv \
-  --config config/alipay.yml \
+  --config config/third_party/alipay.yml \
   --output tmp/output/out-alipay.beancount \
   --log-level info
 ```
@@ -44,7 +44,7 @@ cargo run -- \
 cargo run -- \
   --provider yinhe \
   --source <your-yinhe-statement.xls> \
-  --config config/yinhe.yml \
+  --config config/securities/yinhe.yml \
   --output tmp/output/out-yinhe.beancount \
   --log-level info
 ```
@@ -55,7 +55,7 @@ cargo run -- \
 cargo run -- \
   --provider dzccb \
   --source <your-dzccb-statement.xls> \
-  --config config/dzccb.yml \
+  --config config/banks/dzccb.yml \
   --output tmp/output/out-dzccb.beancount \
   --log-level info
 ```
@@ -103,9 +103,9 @@ output:
 
 运行时按以下顺序加载：
 1. 全局配置 `--global-config`（未显式指定时尝试 `config/global.yml`；兼容回退 `src/config/global.yml`）。
-2. provider 配置 `--config`（不存在时尝试 `config/<provider>.yml`；兼容回退 `src/config/<provider>.yml`）。
+2. provider 配置 `--config`（不存在时优先尝试 `config/<category>/<provider>.yml`，兼容回退 `config/<provider>.yml` 与 `src/config/*` 旧路径）。
 3. 字段映射 `mapping_file`（若是相对路径，优先相对 provider 配置文件所在目录解析）。
-4. 未指定 `mapping_file` 时，回退到 `mapping/<provider>.yml`、`mappings/<provider>.yml`；兼容回退 `src/mapping/<provider>.yml`。
+4. 未指定 `mapping_file` 时，优先尝试 `mapping/<category>/<provider>.yml`，并兼容 `mapping/<provider>.yml`、`mappings/*`、`src/mapping/*` 旧路径。
 
 补充：provider 默认值会覆盖 global；provider 未设置的字段回退到 global。
 
@@ -124,11 +124,17 @@ src/
     securities/
     shared/
 config/
-  *.yml
+  global.yml
+  banks/*.yml
+  third_party/*.yml
+  securities/*.yml
 mapping/
-  *.yml
+  banks/*.yml
+  third_party/*.yml
+  securities/*.yml
 examples/
-  <provider>/{basic.yml,advanced.yml}
+  banks/<provider>/{basic.yml,advanced.yml}
+  third_party/<provider>/{basic.yml,advanced.yml}
 testsets/
   *.csv
   白盒测试数据集说明.md
@@ -141,7 +147,7 @@ docs/
 
 ## 7. 已验证的数据集
 
-已用 `config/*.yml + mapping/*.yml` 跑通以下 6 份白盒数据集：
+已用分层配置（`config/<category>/*.yml + mapping/<category>/*.yml`）跑通以下 6 份白盒数据集：
 - `testsets/支付宝交易明细测试数据集.csv`（23）
 - `testsets/微信支付账单测试数据集.csv`（23）
 - `testsets/京东交易流水测试数据集.csv`（22）
@@ -168,4 +174,3 @@ cargo test --quiet
 ## 10. License
 
 MIT
-

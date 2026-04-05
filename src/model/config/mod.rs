@@ -1,8 +1,23 @@
-//! 模块说明：配置模型定义与序列化反序列化规则。
+//! 配置模型总入口。
 //!
-//! 文件路径：src/model/config/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：tabular_options、global、meta_value、output。
+//! 该模块集中声明导入流程使用的配置数据结构，涵盖：
+//! - 全局默认配置（[`global::GlobalConfig`]）
+//! - 单供应商配置（[`provider::ProviderConfig`]）
+//! - 输出格式配置（[`output::OutputConfig`]）
+//! - 表格解析选项（[`tabular_options::TabularOptions`]）
+//! - 元数据值类型（[`meta_value::MetaValue`]）
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::model::config::global::GlobalConfig;
+//! use beancount_importer_rust::model::config::provider::ProviderConfig;
+//!
+//! let global = GlobalConfig::default();
+//! let mut provider = ProviderConfig::default();
+//!
+//! provider.merge_with_global(&global);
+//! assert_eq!(provider.default_currency.as_deref(), Some("CNY"));
+//! ```
 
 pub mod global;
 pub mod meta_value;

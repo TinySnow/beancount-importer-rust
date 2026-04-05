@@ -1,7 +1,28 @@
-//! 模块说明：读取器模块组织与导出。
+//! 数据读取层入口。
 //!
-//! 文件路径：src/model/reader/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：tabular。
+//! `reader` 模块负责把不同来源的输入文件读取为统一的中间记录，
+//! 供后续规则引擎和写出器继续处理。
+//!
+//! 当前已实现的读取器：
+//! - [`tabular`]：面向 CSV/XLS/XLSX 的表格读取器。
+//!
+//! # 示例
+//! ```rust,no_run
+//! use std::path::Path;
+//!
+//! use beancount_importer_rust::model::{
+//!     config::tabular_options::TabularOptions,
+//!     reader::tabular::TabularRecordReader,
+//! };
+//!
+//! let reader = TabularRecordReader::new(
+//!     TabularOptions::default(),
+//!     0,
+//!     true,
+//!     false,
+//! );
+//! let _records = reader.read_file(Path::new("statement.csv"), None)?;
+//! # Ok::<(), beancount_importer_rust::error::ImporterError>(())
+//! ```
 
 pub mod tabular;

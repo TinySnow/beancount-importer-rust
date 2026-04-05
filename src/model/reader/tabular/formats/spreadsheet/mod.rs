@@ -1,8 +1,11 @@
-//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//! 电子表格读取实现（XLS/XLSX）。
 //!
-//! 文件路径：src/model/reader/tabular/formats/spreadsheet/mod.rs。
-//! 该文件围绕电子表格（XLS/XLSX）读取职责提供实现。
-//! 关键符号：select_xlsx_header_row。
+//! 与 CSV 不同，电子表格导出通常存在：
+//! - 首部说明行；
+//! - 非第一行才是真正表头；
+//! - 日期/时间单元格为 Excel 序列值。
+//!
+//! 本模块负责把上述差异归一化到统一的 `TabularData`，供映射层复用。
 
 use std::path::Path;
 
@@ -22,6 +25,16 @@ use crate::model::reader::tabular::{
 
 impl TabularRecordReader {
     /// 读取电子表格（XLS/XLSX）并转换为统一表格结构。
+    ///
+    /// # 参数
+    /// - `path`：电子表格路径。
+    /// - `mapping`：字段映射配置，用于辅助自动识别表头行。
+    ///
+    /// # 返回值
+    /// 返回归一化后的内部 `TabularData`。
+    ///
+    /// # 错误
+    /// 工作簿无法打开、工作表读取失败等配置/输入错误。
     pub(in crate::model::reader::tabular) fn read_spreadsheet_table(
         &self,
         path: &Path,
@@ -80,6 +93,7 @@ impl TabularRecordReader {
         }
 
         let (headers, rows) = if self.has_header {
+            // XLSX 常见“前几行是说明文字”的情况：根据映射配置自动选择最像表头的那一行。
             let header_row_offset = self.select_xlsx_header_row(&raw_rows, mapping);
             let headers = raw_rows
                 .get(header_row_offset)
@@ -129,7 +143,9 @@ impl TabularRecordReader {
         })
     }
 
-    /// 在开启表头模式时，为 XLSX 自动识别最可能的表头行。
+    /// 在开启表头模式时，自动识别最可能的 XLSX 表头行。
+    ///
+    /// 若未提供映射配置，则默认第一行是表头。
     fn select_xlsx_header_row(
         &self,
         rows: &[Vec<String>],
@@ -154,6 +170,10 @@ impl TabularRecordReader {
     }
 
     /// 计算某一行作为 XLSX 表头时与映射配置的匹配分数。
+    ///
+    /// 计分规则：
+    /// - 命中一个标准映射列 +1；
+    /// - 命中一个 `extra_fields` 映射列 +1。
     pub(in crate::model::reader::tabular) fn xlsx_header_match_score(
         &self,
         mapping: &FieldMapping,
@@ -182,6 +202,9 @@ impl TabularRecordReader {
         score
     }
 
+    /// 规范化电子表格单元格文本。
+    ///
+    /// 对日期时间序列值会先转为可读字符串，避免后续映射阶段再感知底层类型。
     fn normalize_spreadsheet_cell(cell: &Data) -> String {
         match cell {
             Data::DateTime(datetime) => format_excel_datetime_serial(datetime.as_f64()),

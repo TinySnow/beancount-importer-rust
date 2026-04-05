@@ -1,12 +1,23 @@
-//! 模块说明：配置模型定义与序列化反序列化规则。
+//! 表格解析配置模型。
 //!
-//! 文件路径：src/model/config/tabular_options.rs。
-//! 该文件围绕 'tabular_options' 的职责提供实现。
-//! 关键符号：TabularOptions、default、default_delimiter、default_quote。
+//! 本模块定义 CSV/电子表格导入共用的解析参数。
+//! 这些参数可由供应商配置覆盖，用于适配不同导出模板。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::model::config::tabular_options::TabularOptions;
+//!
+//! let options = TabularOptions::default();
+//! assert_eq!(options.delimiter, ',');
+//! assert_eq!(options.quote, '"');
+//! assert_eq!(options.encoding, "UTF-8");
+//! assert!(!options.flexible);
+//! assert!(options.comment.is_none());
+//! ```
 
 use serde::{Deserialize, Serialize};
 
-/// 表格解析选项（CSV/电子表格共用）
+/// 表格解析选项（CSV/电子表格共用）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TabularOptions {
     /// 分隔符（默认为逗号）
@@ -30,6 +41,7 @@ pub struct TabularOptions {
 }
 
 impl Default for TabularOptions {
+    /// 创建表格解析配置默认实例。
     fn default() -> Self {
         Self {
             delimiter: ',',
@@ -41,14 +53,17 @@ impl Default for TabularOptions {
     }
 }
 
+/// `delimiter` 字段默认值工厂函数。
 fn default_delimiter() -> char {
     ','
 }
 
+/// `quote` 字段默认值工厂函数。
 fn default_quote() -> char {
     '"'
 }
 
+/// `encoding` 字段默认值工厂函数。
 fn default_encoding() -> String {
     "UTF-8".to_string()
 }

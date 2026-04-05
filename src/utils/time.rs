@@ -1,8 +1,18 @@
-//! 模块说明：通用时间/日期解析与规范化工具。
+//! 时间文本规范化与 Excel 序列时间工具。
 //!
-//! 文件路径：src/utils/time.rs。
-//! 该文件围绕 Excel 序列时间与文本时间规范化职责提供实现。
-//! 关键符号：normalize_time_text、parse_excel_serial_date、format_excel_datetime_serial。
+//! 该模块用于处理来源不一致的时间文本：
+//! - 纯时间（`14:37` / `14:37:15`）
+//! - 日期时间文本（`2026-03-06 14:37:15`）
+//! - Excel 序列值（如 `46110.5`）
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::utils::time::{format_excel_datetime_serial, normalize_time_text};
+//!
+//! assert_eq!(normalize_time_text("14:37"), Some("14:37:00".to_string()));
+//! assert_eq!(normalize_time_text("46110.5"), Some("12:00:00".to_string()));
+//! assert_eq!(format_excel_datetime_serial(46087.0), "2026-03-06");
+//! ```
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime};
 
@@ -12,6 +22,21 @@ use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime};
 /// - Excel 序列时间（如 `46110.5`）；
 /// - 日期时间字符串（如 `2026-03-06 14:37:15`）；
 /// - 时间字符串（如 `14:37` / `14:37:15`）。
+///
+/// # 参数
+/// - `raw`：原始时间文本。
+///
+/// # 返回值
+/// 成功返回统一后的 `HH:MM:SS`，否则返回 `None`。
+///
+/// # 示例
+/// ```rust
+/// use beancount_importer_rust::utils::time::normalize_time_text;
+///
+/// assert_eq!(normalize_time_text("2026-03-06 14:37"), Some("14:37:00".to_string()));
+/// assert_eq!(normalize_time_text("14:37:15"), Some("14:37:15".to_string()));
+/// assert_eq!(normalize_time_text(""), None);
+/// ```
 pub fn normalize_time_text(raw: &str) -> Option<String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -47,7 +72,26 @@ pub fn normalize_time_text(raw: &str) -> Option<String> {
     None
 }
 
-/// 解析 Excel 序列值中的时间部分。
+/// 解析 Excel 序列值中的时间分量。
+///
+/// Excel 把一天表示为 `1.0`，小数部分对应一天中的时间比例。
+///
+/// # 参数
+/// - `value`：Excel 序列文本。
+///
+/// # 返回值
+/// 若存在有效小数时间分量，返回对应 [`NaiveTime`](chrono::NaiveTime)。
+///
+/// # 示例
+/// ```rust
+/// use beancount_importer_rust::utils::time::parse_excel_serial_time;
+///
+/// assert_eq!(
+///     parse_excel_serial_time("46110.5").map(|t| t.format("%H:%M:%S").to_string()),
+///     Some("12:00:00".to_string())
+/// );
+/// assert_eq!(parse_excel_serial_time("46110"), None);
+/// ```
 pub fn parse_excel_serial_time(value: &str) -> Option<NaiveTime> {
     let serial: f64 = value.parse().ok()?;
     if !serial.is_finite() || serial <= 0.0 {
@@ -59,7 +103,9 @@ pub fn parse_excel_serial_time(value: &str) -> Option<NaiveTime> {
         return None;
     }
 
+    // 四舍五入到秒，避免浮点表示误差造成 `xx:xx:59.999...` 偏移。
     let mut seconds = (fraction * 86_400.0).round() as u32;
+    // 极端情况下会被舍入到 86400 秒（次日 00:00:00），此处回绕到当天起点。
     if seconds >= 86_400 {
         seconds = 0;
     }
@@ -70,6 +116,17 @@ pub fn parse_excel_serial_time(value: &str) -> Option<NaiveTime> {
 /// 解析 Excel 数值序列日期（1900 日期系统）。
 ///
 /// 仅接受 1970~2200 年之间的日期，避免把普通数字误判为日期。
+///
+/// # 示例
+/// ```rust
+/// use beancount_importer_rust::utils::time::parse_excel_serial_date;
+///
+/// assert_eq!(
+///     parse_excel_serial_date("46000").map(|d| d.to_string()),
+///     Some("2025-12-09".to_string())
+/// );
+/// assert_eq!(parse_excel_serial_date("100"), None);
+/// ```
 pub fn parse_excel_serial_date(value: &str) -> Option<NaiveDate> {
     if value.trim().is_empty() {
         return None;
@@ -91,10 +148,21 @@ pub fn parse_excel_serial_date(value: &str) -> Option<NaiveDate> {
     Some(date)
 }
 
-/// 将 Excel 日期时间序列值格式化为稳定文本：
+/// 将 Excel 日期时间序列值格式化为稳定文本。
+///
+/// 输出规则：
 /// - 仅有时间分量：`HH:MM:SS`
 /// - 日期+时间：`YYYY-MM-DD HH:MM:SS`
 /// - 仅日期：`YYYY-MM-DD`
+///
+/// # 示例
+/// ```rust
+/// use beancount_importer_rust::utils::time::format_excel_datetime_serial;
+///
+/// assert_eq!(format_excel_datetime_serial(0.5), "12:00:00");
+/// assert_eq!(format_excel_datetime_serial(46087.0), "2026-03-06");
+/// assert_eq!(format_excel_datetime_serial(46087.60920138889), "2026-03-06 14:37:15");
+/// ```
 pub fn format_excel_datetime_serial(serial: f64) -> String {
     if !serial.is_finite() {
         return serial.to_string();
@@ -107,6 +175,7 @@ pub fn format_excel_datetime_serial(serial: f64) -> String {
 
     let days = serial.trunc() as i64;
     let fraction = serial.fract().abs();
+    // 与 `parse_excel_serial_time` 保持一致，按秒级稳定化浮点小数部分。
     let mut seconds = (fraction * 86_400.0).round() as i64;
     if seconds >= 86_400 {
         seconds = 0;

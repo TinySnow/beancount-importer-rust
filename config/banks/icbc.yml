@@ -1,7 +1,7 @@
-name: "美团"
-mapping_file: "mapping/mt.yml"
+name: "工商银行"
+mapping_file: "mapping/banks/icbc.yml"
 
-default_asset_account: "Assets:Wallet:Meituan:Balance"
+default_asset_account: "Assets:Bank:ICBC:Checking"
 default_expense_account: "Expenses:Unknown"
 default_income_account: "Income:Unknown"
 default_currency: "CNY"
@@ -11,7 +11,7 @@ tabular_options:
   flexible: true
   encoding: "auto"
 
-skip_header_lines: 19
+skip_header_lines: 6
 has_header_row: true
 
 output:

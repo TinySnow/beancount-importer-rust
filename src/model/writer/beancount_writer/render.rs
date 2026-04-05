@@ -1,8 +1,41 @@
-//! 模块说明：Beancount 渲染输出实现。
+//! 交易与过账渲染逻辑。
 //!
-//! 文件路径：src/model/writer/beancount_writer/render.rs。
-//! 该文件聚焦 Beancount 文本渲染细节。
-//! 关键符号：write_posting、write_sorted_metadata、format_decimal、sanitize_date_format。
+//! 本模块负责把 `Transaction` 与 `Posting` 渲染为 Beancount 文本行，
+//! 并处理以下细节：
+//! - 标题行中的 `payee` / `narration` / tags / links；
+//! - 过账行中的金额、成本与价格格式；
+//! - metadata 键名规范化与稳定排序输出；
+//! - 日期格式与字符串转义。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::model::{
+//!     account::{amount::Amount, posting::Posting},
+//!     config::output::OutputConfig,
+//!     transaction::Transaction,
+//!     writer::beancount_writer::BeancountWriter,
+//! };
+//! use chrono::NaiveDate;
+//! use rust_decimal_macros::dec;
+//!
+//! let tx = Transaction::new(
+//!     NaiveDate::from_ymd_opt(2024, 6, 1).expect("valid date"),
+//!     "Tagged transaction",
+//! )
+//! .with_payee("Payee")
+//! .with_tag("food")
+//! .with_link("order123")
+//! .with_posting(Posting::new("Expenses:Food").with_amount(Amount::new(dec!(10), "CNY")))
+//! .with_posting(Posting::new("Assets:Cash").with_amount(Amount::new(dec!(-10), "CNY")));
+//!
+//! let writer = BeancountWriter::new(OutputConfig::default());
+//! let mut output = Vec::new();
+//! writer.write(&[tx], &mut output).expect("write should succeed");
+//!
+//! let rendered = String::from_utf8(output).expect("valid utf8");
+//! assert!(rendered.contains("\"Payee\" \"Tagged transaction\" #food ^order123"));
+//! assert!(rendered.contains("Expenses:Food  10.00 CNY"));
+//! ```
 
 use std::collections::HashMap;
 
@@ -17,6 +50,14 @@ use super::BeancountWriter;
 
 impl BeancountWriter {
     /// 写出单笔交易。
+    ///
+    /// # 参数
+    /// - `tx`：待写出的交易；
+    /// - `writer`：目标写出流。
+    ///
+    /// # 返回值
+    /// - `Ok(())`：写出成功；
+    /// - `Err(std::io::Error)`：底层写入失败。
     pub(super) fn write_transaction(
         &self,
         tx: &Transaction,
@@ -58,6 +99,9 @@ impl BeancountWriter {
     }
 
     /// 写出一条过账分录。
+    ///
+    /// 该函数会依次写出：账户、金额、成本（含推断成本）与价格，
+    /// 然后输出该过账关联的 metadata。
     fn write_posting(
         &self,
         posting: &Posting,
@@ -78,6 +122,7 @@ impl BeancountWriter {
             write!(writer, "  {} {}", formatted_number, amount.currency)?;
         }
 
+        // `{}` 与 `{<cost>}` 互斥：推断成本优先于显式成本。
         if posting.inferred_cost {
             write!(writer, " {{}}")?;
         } else if let Some(cost) = &posting.cost {
@@ -96,6 +141,9 @@ impl BeancountWriter {
     }
 
     /// 根据输出配置渲染账户名（支持前缀补全）。
+    ///
+    /// 若配置了 `account_prefix` 且账户不以该前缀开头，
+    /// 则输出 `<prefix>:<account>`。
     pub(super) fn render_account(&self, account: &str) -> String {
         if let Some(prefix) = &self.config.account_prefix {
             if account.starts_with(prefix) {
@@ -109,6 +157,11 @@ impl BeancountWriter {
     }
 
     /// 按键名排序写出 metadata，保证输出稳定。
+    ///
+    /// # 参数
+    /// - `metadata`：待写出的键值对；
+    /// - `indent`：每行前缀缩进；
+    /// - `writer`：目标写出流。
     fn write_sorted_metadata(
         &self,
         metadata: &HashMap<String, MetaValue>,
@@ -119,6 +172,7 @@ impl BeancountWriter {
         entries.sort_by(|left, right| left.0.cmp(right.0));
 
         for (key, value) in entries {
+            // Beancount metadata key 必须满足标识符规则。
             let normalized_key = ensure_beancount_metadata_key(key);
             writeln!(writer, "{}{}: {}", indent, normalized_key, value)?;
         }
@@ -136,6 +190,9 @@ impl BeancountWriter {
     }
 
     /// 规范化日期格式字符串，去除外层引号。
+    ///
+    /// 例如：`"%Y-%m-%d"` 会转换为 `%Y-%m-%d`，
+    /// 以兼容用户在 YAML 中误加引号的配置值。
     fn sanitize_date_format(raw: &str) -> &str {
         let trimmed = raw.trim();
         if trimmed.len() >= 2 {
@@ -149,6 +206,9 @@ impl BeancountWriter {
     }
 
     /// 渲染交易头部后缀的 tags 与 links。
+    ///
+    /// 输出格式：` #tag1 #tag2 ^link1 ^link2`。
+    /// 空白或空字符串条目会被忽略。
     fn render_tags_links(tx: &Transaction) -> String {
         let mut parts = Vec::new();
 

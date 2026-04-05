@@ -1,8 +1,35 @@
-//! 模块说明：配置模型定义与序列化反序列化规则。
+//! 供应商配置模型。
 //!
-//! 文件路径：src/model/config/provider.rs。
-//! 该文件聚焦 Provider 接口约定。
-//! 关键符号：SecuritiesAccountsConfig、ProviderConfig、default_true、first_non_empty。
+//! 本模块定义单个数据供应商（银行/券商/平台）的配置结构，并提供：
+//! - 供应商配置与全局配置的合并逻辑。
+//! - 证券账户字段的新旧配置兼容（嵌套字段优先，历史字段兜底）。
+//! - 表格解析与输出配置的供应商级覆盖。
+//!
+//! # 配置优先级
+//! 1. 供应商显式配置
+//! 2. 全局默认配置
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::model::config::{
+//!     global::GlobalConfig,
+//!     provider::ProviderConfig,
+//! };
+//!
+//! let mut global = GlobalConfig::default();
+//! global.default_currency = "USD".to_string();
+//! global.default_asset_account = Some("Assets:Global:Cash".to_string());
+//!
+//! let mut provider = ProviderConfig::default();
+//! provider.default_asset_account = Some("Assets:Provider:Cash".to_string());
+//! provider.merge_with_global(&global);
+//!
+//! assert_eq!(
+//!     provider.default_asset_account.as_deref(),
+//!     Some("Assets:Provider:Cash")
+//! );
+//! assert_eq!(provider.default_currency.as_deref(), Some("USD"));
+//! ```
 
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -48,6 +75,9 @@ pub struct SecuritiesAccountsConfig {
 }
 
 /// 供应商配置。
+///
+/// 该结构描述一个供应商从解析到写出的完整参数集合。
+/// 在反序列化时同时兼容新字段与旧字段命名。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderConfig {
     /// 供应商显示名称。
@@ -122,6 +152,8 @@ pub struct ProviderConfig {
     pub output: OutputConfig,
 
     /// 文件开头需要跳过的非数据行数。
+    ///
+    /// 适用于导出文件在真实表头前存在额外说明行的情况。
     #[serde(default)]
     pub skip_header_lines: usize,
 
@@ -130,18 +162,25 @@ pub struct ProviderConfig {
     pub has_header_row: bool,
 }
 
+/// `has_header_row` 字段默认值工厂函数。
 fn default_true() -> bool {
     true
 }
 
+/// 返回首个有效（非空白）字符串引用。
+///
+/// 优先使用 `primary`，当其为空或仅含空白时回退到 `fallback`。
+/// 该函数用于新旧配置字段并存时的统一取值逻辑。
 fn first_non_empty<'a>(primary: Option<&'a str>, fallback: Option<&'a str>) -> Option<&'a str> {
     primary
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        // 仅当 primary 缺失或为空时，才使用 fallback。
         .or_else(|| fallback.map(str::trim).filter(|value| !value.is_empty()))
 }
 
 impl Default for ProviderConfig {
+    /// 创建供应商配置默认实例。
     fn default() -> Self {
         Self {
             name: None,
@@ -168,7 +207,30 @@ impl Default for ProviderConfig {
 
 impl ProviderConfig {
     /// 合并全局配置（供应商配置优先）。
+    ///
+    /// 仅当供应商字段未设置时，才继承 `global` 的默认值。
+    /// 输出配置通过 [`OutputConfig::merge_with`] 执行同样策略。
+    ///
+    /// # 参数
+    /// - `global`：全局默认配置。
+    ///
+    /// # 示例
+    /// ```rust
+    /// use beancount_importer_rust::model::config::{
+    ///     global::GlobalConfig,
+    ///     provider::ProviderConfig,
+    /// };
+    ///
+    /// let mut global = GlobalConfig::default();
+    /// global.default_currency = "HKD".to_string();
+    ///
+    /// let mut provider = ProviderConfig::default();
+    /// provider.merge_with_global(&global);
+    ///
+    /// assert_eq!(provider.default_currency.as_deref(), Some("HKD"));
+    /// ```
     pub fn merge_with_global(&mut self, global: &GlobalConfig) {
+        // 通用账户与币种按“供应商优先、全局兜底”合并。
         if self.default_asset_account.is_none() {
             self.default_asset_account = global.default_asset_account.clone();
         }
@@ -188,6 +250,21 @@ impl ProviderConfig {
     }
 
     /// 获取证券场景有效现金账户。
+    ///
+    /// 优先读取 `securities_accounts.cash_account`，再回退到
+    /// 历史字段 `default_cash_account`。
+    ///
+    /// # 示例
+    /// ```rust
+    /// use beancount_importer_rust::model::config::provider::ProviderConfig;
+    ///
+    /// let mut config = ProviderConfig::default();
+    /// config.default_cash_account = Some("Assets:Legacy:Cash".to_string());
+    /// assert_eq!(config.securities_cash_account(), Some("Assets:Legacy:Cash"));
+    ///
+    /// config.securities_accounts.cash_account = Some("Assets:Nested:Cash".to_string());
+    /// assert_eq!(config.securities_cash_account(), Some("Assets:Nested:Cash"));
+    /// ```
     pub fn securities_cash_account(&self) -> Option<&str> {
         first_non_empty(
             self.securities_accounts.cash_account.as_deref(),
@@ -196,6 +273,9 @@ impl ProviderConfig {
     }
 
     /// 获取证券场景有效手续费账户。
+    ///
+    /// 优先读取嵌套字段 `securities_accounts.fee_account`，否则回退到
+    /// 历史字段 `default_fee_account`。
     pub fn securities_fee_account(&self) -> Option<&str> {
         first_non_empty(
             self.securities_accounts.fee_account.as_deref(),
@@ -204,6 +284,9 @@ impl ProviderConfig {
     }
 
     /// 获取证券场景有效盈亏账户。
+    ///
+    /// 优先读取嵌套字段 `securities_accounts.pnl_account`，否则回退到
+    /// 历史字段 `default_pnl_account`。
     pub fn securities_pnl_account(&self) -> Option<&str> {
         first_non_empty(
             self.securities_accounts.pnl_account.as_deref(),
@@ -212,6 +295,9 @@ impl ProviderConfig {
     }
 
     /// 获取证券场景有效逆回购利息账户。
+    ///
+    /// 优先读取嵌套字段 `securities_accounts.repo_interest_account`，
+    /// 否则回退到历史字段 `default_repo_interest_account`。
     pub fn securities_repo_interest_account(&self) -> Option<&str> {
         first_non_empty(
             self.securities_accounts.repo_interest_account.as_deref(),
@@ -220,6 +306,9 @@ impl ProviderConfig {
     }
 
     /// 获取证券场景有效舍入差异账户。
+    ///
+    /// 优先读取嵌套字段 `securities_accounts.rounding_account`，否则回退到
+    /// 历史字段 `default_rounding_account`。
     pub fn securities_rounding_account(&self) -> Option<&str> {
         first_non_empty(
             self.securities_accounts.rounding_account.as_deref(),

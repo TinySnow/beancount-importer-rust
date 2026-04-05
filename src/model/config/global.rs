@@ -1,8 +1,22 @@
-//! 模块说明：配置模型定义与序列化反序列化规则。
+//! 全局配置模型。
 //!
-//! 文件路径：src/model/config/global.rs。
-//! 该文件围绕 'global' 的职责提供实现。
-//! 关键符号：GlobalConfig、default_currency、default。
+//! 本模块定义所有供应商共享的默认配置项，包含默认账户、默认币种、
+//! 全局规则列表、嵌入式供应商配置以及输出选项。
+//!
+//! # 设计约束
+//! - 供应商配置优先于全局配置。
+//! - 全局配置用于填充供应商未显式设置的字段。
+//! - 反序列化缺省时，`default_currency` 默认值为 `CNY`。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::model::config::global::GlobalConfig;
+//!
+//! let config = GlobalConfig::default();
+//! assert_eq!(config.default_currency, "CNY");
+//! assert!(config.global_rules.is_empty());
+//! assert!(config.providers.is_empty());
+//! ```
 
 use std::collections::HashMap;
 
@@ -14,6 +28,8 @@ use crate::model::{
 };
 
 /// 全局配置（由所有供应商共享）。
+///
+/// 通常对应主配置文件中的顶层字段，作为导入流程的默认行为定义。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
     /// 默认币种（当供应商记录未提供币种时使用）。
@@ -34,6 +50,8 @@ pub struct GlobalConfig {
     pub global_rules: Vec<Rule>,
 
     /// 汇总在同一全局文件中的供应商配置。
+    ///
+    /// 键通常是供应商标识（如 `cmb`、`icbc`）。
     #[serde(default)]
     pub providers: HashMap<String, ProviderConfig>,
 
@@ -42,11 +60,17 @@ pub struct GlobalConfig {
     pub output: OutputConfig,
 }
 
+/// `default_currency` 字段的默认值工厂函数。
 fn default_currency() -> String {
     "CNY".to_string()
 }
 
 impl Default for GlobalConfig {
+    /// 创建全局配置的默认实例。
+    ///
+    /// 该默认值会被用于：
+    /// - 手动初始化配置对象。
+    /// - 配置文件字段缺失时的序列化默认填充。
     fn default() -> Self {
         Self {
             default_currency: default_currency(),

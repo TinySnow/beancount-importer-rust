@@ -1,8 +1,12 @@
-//! 模块说明：导入流水线阶段编排与执行。
+//! 导入流水线编排模块。
 //!
-//! 文件路径：src/runtime/pipeline.rs。
-//! 该文件聚焦流水线阶段执行与统计。
-//! 关键符号：AlwaysFailProvider、name、parse、transform。
+//! 该模块负责将供应商解析得到的原始记录批量转换为标准交易，并执行写出前后处理：
+//! - 严格/非严格模式下的逐条转换与错误策略；
+//! - 输出稳定排序；
+//! - 基于库存种子补全卖出分录推断成本；
+//! - 逐笔收益元数据（PnL）写入。
+//!
+//! 该阶段是“解析输入”与“最终写出”之间的桥接层。
 
 use anyhow::{Result, anyhow};
 use log::{debug, info, warn};
@@ -23,6 +27,21 @@ use super::{
 
 /// 将供应商原始记录转换为 Beancount 交易，并执行后处理：
 /// 稳定排序、卖出 lot 成本补全、PnL 元数据标注。
+///
+/// # 参数
+/// - `provider`：当前供应商实现，负责单条记录转换；
+/// - `raw_records`：待转换原始记录列表；
+/// - `rule_engine`：规则引擎；
+/// - `provider_config`：供应商配置；
+/// - `strict_mode`：严格模式开关。
+///
+/// # 返回值
+/// - `Ok(Vec<Transaction>)`：转换成功并完成后处理的交易列表；
+/// - `Err`：严格模式下遇到首条转换错误时立即返回。
+///
+/// # 严格模式行为
+/// - `strict_mode = true`：任一记录转换失败即终止并返回错误；
+/// - `strict_mode = false`：失败记录记日志并跳过，其余记录继续处理。
 pub(crate) fn transform_records(
     provider: &dyn Provider,
     raw_records: Vec<RawRecord>,
@@ -55,6 +74,7 @@ pub(crate) fn transform_records(
                 error_count += 1;
 
                 if strict_mode {
+                    // 严格模式下保留首个失败上下文，避免继续处理掩盖问题根因。
                     return Err(anyhow!(
                         "Record {} transformation failed in strict mode: {}",
                         index + 1,
@@ -103,6 +123,7 @@ mod tests {
 
     use super::transform_records;
 
+    /// 测试桩：任何 `transform` 调用都返回转换失败。
     struct AlwaysFailProvider;
 
     impl Provider for AlwaysFailProvider {
@@ -130,6 +151,7 @@ mod tests {
         }
     }
 
+    /// 测试桩：任何 `transform` 调用都返回固定成功交易。
     struct AlwaysPassProvider;
 
     impl Provider for AlwaysPassProvider {
@@ -160,6 +182,7 @@ mod tests {
         }
     }
 
+    /// 构建一个不带规则的最小可用规则引擎，供流水线单测复用。
     fn build_rule_engine() -> RuleEngine<'static> {
         let provider_rules: &'static [Rule] = Box::leak(Vec::<Rule>::new().into_boxed_slice());
         let global: &'static GlobalConfig = Box::leak(Box::new(GlobalConfig::default()));

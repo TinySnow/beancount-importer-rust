@@ -1,8 +1,16 @@
-//! 模块说明：通用工具函数集合。
+//! 元数据键名规范化工具。
 //!
-//! 文件路径：src/utils/metadata.rs。
-//! 该文件围绕 'metadata' 的职责提供实现。
-//! 关键符号：normalize_metadata_key、ensure_beancount_metadata_key、map_key、to_lower_camel_ascii。
+//! 用于把供应商原始字段名转换为：
+//! - 语义稳定的英文键（如 `交易状态` -> `status`）；
+//! - 或 Beancount 可接受的 ASCII 标识符。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::utils::metadata::normalize_metadata_key;
+//!
+//! assert_eq!(normalize_metadata_key("alipay", "交易状态"), "status");
+//! assert_eq!(normalize_metadata_key("wechat", "payment_method"), "method");
+//! ```
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -10,6 +18,21 @@ use std::hash::{Hash, Hasher};
 /// 将供应商元数据键规范化为便于迁移的英文键名。
 ///
 /// 主要目标：与 double-entry-generator 风格键名保持兼容。
+///
+/// # 参数
+/// - `provider`：数据来源标识（如 `alipay`、`wechat`）。
+/// - `raw_key`：原始字段名。
+///
+/// # 返回值
+/// 规范化后的键名，保证非空。
+///
+/// # 示例
+/// ```rust
+/// use beancount_importer_rust::utils::metadata::normalize_metadata_key;
+///
+/// assert_eq!(normalize_metadata_key("alipay", "交易分类"), "category");
+/// assert_eq!(normalize_metadata_key("futu", "交易分类"), "txType");
+/// ```
 pub fn normalize_metadata_key(provider: &str, raw_key: &str) -> String {
     let key = raw_key.trim();
     if key.is_empty() {
@@ -27,6 +50,14 @@ pub fn normalize_metadata_key(provider: &str, raw_key: &str) -> String {
 ///
 /// 若键无法规范化为可用标识符，则返回稳定的
 /// 哈希键，格式为 `meta_xxxxxxxx`。
+///
+/// # 示例
+/// ```rust
+/// use beancount_importer_rust::utils::metadata::ensure_beancount_metadata_key;
+///
+/// assert_eq!(ensure_beancount_metadata_key("payment_method"), "paymentMethod");
+/// assert!(ensure_beancount_metadata_key("未知字段").starts_with("meta_"));
+/// ```
 pub fn ensure_beancount_metadata_key(raw_key: &str) -> String {
     let raw = raw_key.trim();
     if raw.is_empty() {
@@ -42,6 +73,9 @@ pub fn ensure_beancount_metadata_key(raw_key: &str) -> String {
     format!("meta_{:08x}", hasher.finish() as u32)
 }
 
+/// 对常见供应商字段进行语义映射。
+///
+/// `alipay` 在“交易分类”上使用 `category`，其余来源保持 `txType`。
 fn map_key(provider: &str, raw_key: &str) -> Option<&'static str> {
     let provider_is_alipay = provider.eq_ignore_ascii_case("alipay");
 
@@ -114,6 +148,9 @@ fn map_key(provider: &str, raw_key: &str) -> Option<&'static str> {
     }
 }
 
+/// 将 ASCII 文本转换为 lowerCamelCase 标识符。
+///
+/// 非 ASCII 输入返回 `None`，由外层逻辑决定回退策略。
 fn to_lower_camel_ascii(raw: &str) -> Option<String> {
     if !raw.is_ascii() {
         return None;
@@ -134,6 +171,7 @@ fn to_lower_camel_ascii(raw: &str) -> Option<String> {
             };
             output.push(normalized);
         } else if !output.is_empty() {
+            // 分隔符后的下一个字母转大写，实现 `snake_case` -> `snakeCase`。
             make_upper = true;
         }
     }
@@ -142,6 +180,7 @@ fn to_lower_camel_ascii(raw: &str) -> Option<String> {
         return None;
     }
 
+    // Beancount 元数据键不能以数字开头，前置下划线兜底。
     if output.as_bytes()[0].is_ascii_digit() {
         output.insert(0, '_');
     }

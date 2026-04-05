@@ -1,8 +1,25 @@
-//! 模块说明：通用工具函数集合。
+//! 文件编码读取与自动检测工具。
 //!
-//! 文件路径：src/utils/encoding.rs。
-//! 该文件围绕 'encoding' 的职责提供实现。
-//! 关键符号：decode_file、read_utf8、read_with_encoding、auto_detect。
+//! 该模块面向银行/支付平台导出的文本文件，提供：
+//! - 显式编码读取（如 UTF-8、GBK、BIG5）；
+//! - 自动检测（`AUTO`）；
+//! - UTF-8 失败时的兜底策略。
+//!
+//! # 示例
+//! ```rust,no_run
+//! use beancount_importer_rust::utils::encoding::decode_file;
+//! use std::fs::{remove_file, File, write};
+//!
+//! let path = std::env::temp_dir().join("beancount-importer-encoding-demo.txt");
+//! write(&path, b"hello")?;
+//!
+//! let file = File::open(&path)?;
+//! let content = decode_file(file, "UTF-8")?;
+//! assert_eq!(content, "hello");
+//!
+//! remove_file(path)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
 
 use std::{
     fs::File,
@@ -16,6 +33,21 @@ use log::{debug, info, trace, warn};
 use crate::error::ImporterResult;
 
 /// 根据编码名称解码文件内容
+///
+/// 支持编码名称：
+/// - `AUTO`：自动检测；
+/// - `UTF-8` / `UTF8`：按 UTF-8 读取；
+/// - 其他：按指定编码读取，不识别时回退为 GBK。
+///
+/// # 示例
+/// ```rust,no_run
+/// use beancount_importer_rust::utils::encoding::decode_file;
+/// use std::fs::File;
+///
+/// let file = File::open("statement.csv")?;
+/// let _content = decode_file(file, "AUTO")?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub fn decode_file(file: File, encoding_name: &str) -> ImporterResult<String> {
     let encoding_name = encoding_name.to_uppercase();
     debug!("Decoding file with encoding: {}", encoding_name);
@@ -27,7 +59,9 @@ pub fn decode_file(file: File, encoding_name: &str) -> ImporterResult<String> {
     }
 }
 
-/// 读取 UTF-8 文件
+/// 按 UTF-8 读取文件。
+///
+/// 若 UTF-8 解码失败，会自动降级到 [`auto_detect_from_bytes`]。
 fn read_utf8(file: File) -> ImporterResult<String> {
     let mut reader = BufReader::new(file);
     let mut bytes = Vec::new();
@@ -46,7 +80,9 @@ fn read_utf8(file: File) -> ImporterResult<String> {
     }
 }
 
-/// 使用指定编码读取
+/// 使用指定编码读取文件内容。
+///
+/// 对常见别名（如 `GB2312`、`SHIFT-JIS`）做了归一化映射。
 fn read_with_encoding(file: File, encoding_name: &str) -> ImporterResult<String> {
     let encoding = match encoding_name {
         "GBK" | "GB2312" | "GB18030" => encoding_rs::GBK,
@@ -68,7 +104,11 @@ fn read_with_encoding(file: File, encoding_name: &str) -> ImporterResult<String>
     Ok(content)
 }
 
-/// 自动检测编码
+/// 自动检测文件编码并解码为 UTF-8 字符串。
+///
+/// 检测顺序：
+/// 1. 尝试 UTF-8；
+/// 2. 回退到 [`auto_detect_from_bytes`] 继续检测。
 fn auto_detect(file: File) -> ImporterResult<String> {
     let mut reader = BufReader::new(file);
     let mut bytes = Vec::new();
@@ -84,7 +124,10 @@ fn auto_detect(file: File) -> ImporterResult<String> {
     auto_detect_from_bytes(&bytes)
 }
 
-/// 从字节自动检测编码
+/// 从原始字节自动检测编码。
+///
+/// 依次尝试 GBK/GB18030/BIG5，全部失败时强制按 GBK 解码，
+/// 保证不会因为编码不明而中断导入流程。
 fn auto_detect_from_bytes(bytes: &[u8]) -> ImporterResult<String> {
     let encodings = [
         ("GBK", encoding_rs::GBK),

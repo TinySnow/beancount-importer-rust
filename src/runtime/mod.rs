@@ -1,8 +1,15 @@
-//! 模块说明：运行时总入口，串联读取、转换、写出。
+//! 运行时编排入口模块。
 //!
-//! 文件路径：src/runtime/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：run。
+//! 该模块负责串联导入执行链路：加载配置、调用供应商解析、按规则转换交易、
+//! 执行排序/库存/PnL 后处理，并最终写出 Beancount 文本。
+//!
+//! 运行时子模块职责：
+//! - `config_loader`：读取并组装运行配置；
+//! - `pipeline`：执行记录转换与后处理编排；
+//! - `sorting`：写出前确定性排序；
+//! - `inventory`：基于库存信息补全推断成本；
+//! - `pnl`：写入逐笔收益元数据；
+//! - `currency`：提供币种分类辅助。
 
 mod config_loader;
 mod currency;
@@ -27,20 +34,45 @@ use crate::{
     runtime::{config_loader::load, pipeline::transform_records},
 };
 
-/// 执行端到端导入流程：
+/// 执行端到端导入流程
 ///
-/// 1. 加载 global/provider/mapping 配置；
-/// 2. 调用供应商解析源记录；
-/// 3. 转换为标准交易；
-/// 4. 输出 Beancount 文本到文件或标准输出。
+/// 该函数是整个导入流程的主入口，负责协调各个模块完成从源文件到 Beancount 格式的转换。
+///
+/// # 流程步骤
+/// 1. 加载 global/provider/mapping 配置
+/// 2. 调用供应商解析源记录
+/// 3. 转换为标准交易
+/// 4. 输出 Beancount 文本到文件或标准输出
+///
+/// # 参数
+/// - `cli`：命令行参数对象，包含供应商、源文件、配置文件等信息
+///
+/// # 返回值
+/// - `Ok(())`：导入流程成功完成
+/// - `Err(Error)`：导入流程失败，包含详细错误信息
+///
+/// # 错误处理
+/// - 配置加载失败
+/// - 供应商不存在或解析失败
+/// - 记录转换失败
+/// - 输出文件创建失败
+///
+/// # 日志输出
+/// - 启动和完成信息
+/// - 解析的记录数量
+/// - 生成的交易数量
+/// - 调试信息（供应商、文件路径等）
 pub fn run(cli: Cli) -> Result<()> {
+    // 输出启动信息
     info!("Starting beancount-importer");
     debug!("Provider: {}", cli.provider);
     debug!("Source file: {}", cli.source.display());
     debug!("Config file: {}", cli.config.display());
 
+    // 加载配置文件
     let loaded = load(&cli)?;
 
+    // 获取供应商实例
     let registry = ProviderRegistry::global();
     let provider = registry.get(&cli.provider).with_context(|| {
         format!(
@@ -50,18 +82,22 @@ pub fn run(cli: Cli) -> Result<()> {
         )
     })?;
 
+    // 输出使用的供应商信息
     info!(
         "Using provider: {} ({})",
         provider.name(),
         provider.description()
     );
 
+    // 解析源文件记录
     let raw_records = provider
         .parse(&cli.source, &loaded.mapping, &loaded.provider, cli.strict)
         .with_context(|| format!("Failed to parse source file: {}", cli.source.display()))?;
 
+    // 输出解析的记录数量
     info!("Parsed {} records", raw_records.len());
 
+    // 初始化规则引擎并转换记录
     let rule_engine = RuleEngine::new(&loaded.provider.rules, &loaded.global);
     let transactions = transform_records(
         provider.as_ref(),
@@ -71,6 +107,7 @@ pub fn run(cli: Cli) -> Result<()> {
         cli.strict,
     )?;
 
+    // 创建输出目标（文件或标准输出）
     let writer = BeancountWriter::new(loaded.provider.output.clone());
     let mut output: Box<dyn Write> = match cli.output {
         Some(path) => {
@@ -86,6 +123,7 @@ pub fn run(cli: Cli) -> Result<()> {
         }
     };
 
+    // 写入交易数据
     writer.write(&transactions, &mut output)?;
     info!("Successfully generated {} transactions", transactions.len());
 

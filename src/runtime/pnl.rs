@@ -1,8 +1,14 @@
-//! 模块说明：交易盈亏元数据计算与写入。
+//! 交易盈亏元数据计算模块。
 //!
-//! 文件路径：src/runtime/pnl.rs。
-//! 该文件聚焦盈亏元数据计算。
-//! 关键符号：TradeProfitMetadata、calculate_trade_profit_metadata、infer_fee_total_from_postings、read_numeric_metadata。
+//! 该模块在交易标准化与 lot 成本补全之后运行，负责按“逐笔交易”写入：
+//! - `grossPnl`：税费前已实现收益；
+//! - `feeTotal`：本笔交易税费合计；
+//! - `netPnl`：`grossPnl - feeTotal`。
+//!
+//! 设计约束：
+//! - 仅计算单笔值，不维护历史累计值；
+//! - 卖出 lot 信息不完整时，宁可不写入，也不输出可能误导的收益值；
+//! - 显式元数据 `fee`/`tax` 优先于从分录自动推断的费用合计。
 
 use std::{collections::HashMap, str::FromStr};
 
@@ -12,10 +18,14 @@ use crate::model::{config::meta_value::MetaValue, transaction::Transaction};
 
 use super::currency::is_fiat_currency;
 
+/// 单笔交易收益字段的内部聚合结果。
 #[derive(Debug, Clone, Copy)]
 struct TradeProfitMetadata {
+    /// 税费前已实现收益。
     gross_pnl: Decimal,
+    /// 税费总额。
     fee_total: Decimal,
+    /// 税后净收益。
     net_pnl: Decimal,
 }
 
@@ -24,9 +34,12 @@ struct TradeProfitMetadata {
 /// - `feeTotal`：本笔交易税费合计；
 /// - `netPnl`：`grossPnl - feeTotal`。
 ///
-/// 说明：
-/// - 这里是“逐笔值”，不是历史累计值；
-/// - 卖出 lot 成本无法完整确定时，不写入收益元数据，避免误导。
+/// # 参数
+/// - `transactions`：待处理交易列表，会被原地补充 metadata。
+///
+/// # 说明
+/// - 这里写入的是“逐笔值”，不是历史累计值；
+/// - 若当前交易无法可靠计算收益，则保持原 metadata，不写入上述键。
 pub(crate) fn annotate_trade_profit_metadata(transactions: &mut [Transaction]) {
     for tx in transactions {
         let Some(pnl) = calculate_trade_profit_metadata(tx) else {
@@ -42,7 +55,12 @@ pub(crate) fn annotate_trade_profit_metadata(transactions: &mut [Transaction]) {
 }
 
 /// 基于标准化分录计算单笔交易收益元数据。
+///
+/// # 返回值
+/// - `Some(TradeProfitMetadata)`：可以可靠计算收益；
+/// - `None`：不应写入收益元数据（例如非证券交易或卖出 lot 信息缺失）。
 fn calculate_trade_profit_metadata(tx: &Transaction) -> Option<TradeProfitMetadata> {
+    // 状态位用于在单次遍历中记录“是否为证券交易”“是否涉及卖出”“卖出信息是否完整”。
     let mut has_non_fiat_posting = false;
     let mut has_sell_posting = false;
     let mut unresolved_sell = false;
@@ -95,6 +113,7 @@ fn calculate_trade_profit_metadata(tx: &Transaction) -> Option<TradeProfitMetada
     {
         return None;
     }
+    // 约定：显式 fee/tax 元数据优先。仅在二者都未给出时才使用推断值。
     let fee_total = if explicit_fee_total.is_zero() {
         inferred_fee_total
     } else {
@@ -109,6 +128,19 @@ fn calculate_trade_profit_metadata(tx: &Transaction) -> Option<TradeProfitMetada
     })
 }
 
+/// 从费用类分录中推断税费总额。
+///
+/// 推断范围：
+/// - 账户前缀为 `Expenses:`；
+/// - 金额为正数（支出方向）；
+/// - 币种与报价币一致；若未知报价币，则接受法币现金。
+///
+/// # 参数
+/// - `tx`：单笔交易；
+/// - `quote_currency`：卖出分录价格币种（可选）。
+///
+/// # 返回值
+/// 推断得到的费用合计，默认 `0`。
 fn infer_fee_total_from_postings(tx: &Transaction, quote_currency: Option<&str>) -> Decimal {
     tx.postings
         .iter()
@@ -123,6 +155,13 @@ fn infer_fee_total_from_postings(tx: &Transaction, quote_currency: Option<&str>)
         .fold(Decimal::ZERO, |acc, number| acc + number)
 }
 
+/// 从 metadata 中读取数值类型字段。
+///
+/// 支持两种输入：
+/// - `MetaValue::Number`；
+/// - 可解析为十进制数值的 `MetaValue::String`。
+///
+/// 其余类型或解析失败时返回 `None`。
 fn read_numeric_metadata(metadata: &HashMap<String, MetaValue>, key: &str) -> Option<Decimal> {
     let value = metadata.get(key)?;
     match value {

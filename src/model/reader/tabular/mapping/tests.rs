@@ -1,8 +1,9 @@
-//! 模块说明：CSV/XLS 源读取与字段映射解析能力。
+//! `tabular::mapping` 回归测试集。
 //!
-//! 文件路径：src/model/reader/tabular/mapping/tests.rs。
-//! 该文件主要包含单元测试与回归测试。
-//! 关键符号：strict_mode_fails_on_field_count_mismatch、strict_mode_fails_on_mapping_error、non_strict_mode_skips_mapping_error、normalizes_excel_equals_quoted_literals。
+//! 覆盖点包括：
+//! - 严格/非严格模式在字段数量错误、映射错误下的行为差异；
+//! - Excel 文本字面量归一化；
+//! - 常见银行导出列（分栏金额、日期、方向）的兜底推断逻辑。
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;

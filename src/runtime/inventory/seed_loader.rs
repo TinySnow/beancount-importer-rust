@@ -1,8 +1,7 @@
-//! 模块说明：证券库存 lot 匹配、种子加载与成本补全能力。
+//! seed 库存加载器。
 //!
-//! 文件路径：src/runtime/inventory/seed_loader.rs。
-//! 该文件围绕 'seed_loader' 的职责提供实现。
-//! 关键符号：ingest_seed_inventory_file。
+//! 本模块负责从外部 seed 文件回放历史持仓变化，构建初始库存状态，
+//! 以支持当前批次交易进行跨期 lot 匹配。
 
 use std::{fs, path::Path};
 
@@ -16,7 +15,10 @@ use super::{InventoryLot, InventoryState};
 
 /// 从给定 seed 文件列表加载库存状态。
 ///
-/// 文件解析失败不会中断主流程，只记录 warning。
+/// 设计目标是“尽力加载”：
+/// - 某个文件读取或解析失败仅记录 warning；
+/// - 其余文件仍继续处理；
+/// - 最终返回已成功回放得到的库存状态。
 pub(super) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState {
     if paths.is_empty() {
         return InventoryState::default();
@@ -39,6 +41,11 @@ pub(super) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState
 }
 
 /// 解析单个 seed 文件，并把分录变化应用到库存状态。
+///
+/// 支持的回放行为：
+/// - 买入（正数量）会新增 lot；
+/// - 卖出（负数量）会按成本约束消费 lot；
+/// - 法币分录与无效分录会被忽略。
 fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> Result<()> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read inventory seed file: {}", path.display()))?;
@@ -46,6 +53,7 @@ fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> Re
     let mut current_date: Option<chrono::NaiveDate> = None;
 
     for line in content.lines() {
+        // 交易头用于刷新 fallback 日期，供后续成本缺日期时回填。
         if let Some(tx_date) = parse_seed_transaction_date(line) {
             current_date = Some(tx_date);
             continue;
@@ -63,9 +71,11 @@ fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> Re
         let lots = inventory.lots.entry(key).or_default();
 
         if parsed.quantity.is_sign_positive() {
+            // seed 买入必须携带成本，否则无法构建可消费 lot。
             let Some(mut cost) = parsed.cost else {
                 continue;
             };
+            // 若成本未显式给出日期，则使用当前交易日期作为 lot 日期。
             if cost.date.is_none() {
                 cost.date = current_date;
             }
@@ -84,7 +94,7 @@ fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> Re
             continue;
         };
 
-        // seed 卖出用于回放库存变化，只消费匹配 lot，不额外生成残余记录。
+        // seed 卖出仅用于回放库存变化：消费匹配 lot，不生成残余分录。
         let _ = consume_lots(lots, parsed.quantity.abs(), Some(&target_cost));
     }
 

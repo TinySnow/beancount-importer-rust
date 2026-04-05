@@ -1,8 +1,12 @@
-//! 模块说明：证券库存 lot 匹配、种子加载与成本补全能力。
+//! 运行期库存模块。
 //!
-//! 文件路径：src/runtime/inventory/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 该模块用于在导入阶段维护证券/商品库存（lot）状态，并为卖出分录补全可确定的成本信息。
+//!
+//! 核心规则：
+//! - 按 `(账户, 商品)` 维度维护库存 lot；
+//! - 买入分录会注册为可消费 lot；
+//! - 卖出分录按 FIFO 消费库存，并在可匹配时拆分为带明确成本的分录；
+//! - 可从 seed 文件预加载跨期库存状态。
 
 use std::collections::HashMap;
 
@@ -18,28 +22,38 @@ mod seed_parser;
 #[cfg(test)]
 mod tests;
 
+/// 库存中的单个 lot。
+///
+/// 一个 lot 表示某次买入后尚未被卖出消费的剩余数量及其成本信息。
 #[derive(Debug, Clone)]
 pub(super) struct InventoryLot {
-    /// 当前 lot 剩余可用数量。
+    /// 当前 lot 剩余可用数量，始终为正值。
     pub(super) remaining: Decimal,
-    /// 当前 lot 的成本信息。
+    /// 当前 lot 的成本信息，用于后续卖出分录补全成本。
     pub(super) cost: Cost,
 }
 
-/// 运行期库存状态：按 `(账户, 商品)` 维度保存 lot 列表。
+/// 运行期库存状态。
+///
+/// `lots` 使用 `(账户, 商品)` 作为键，值为该维度下按时间顺序维护的 lot 列表。
 #[derive(Debug, Default)]
 pub(crate) struct InventoryState {
+    /// 按 `(账户, 商品)` 分组的库存 lot 队列。
     pub(super) lots: HashMap<(String, String), Vec<InventoryLot>>,
 }
 
-/// 测试辅助：不加载 seed 文件，仅使用当前批次交易推导 lot。
+/// 测试辅助入口：不加载 seed 文件，仅使用当前交易切片推导库存并补全卖出成本。
 #[cfg(test)]
 pub(crate) fn resolve_inferred_cost_postings(transactions: &mut [Transaction]) {
     let mut inventory = InventoryState::default();
     resolve_inferred_cost_postings_with_inventory(transactions, &mut inventory);
 }
 
-/// 使用给定库存状态解析交易中的推断成本分录（`{}`）。
+/// 使用给定库存状态补全交易中的卖出成本。
+///
+/// 该函数会处理两类待补全分录：
+/// - 使用推断成本 `{}` 的卖出分录；
+/// - 显式成本存在但未带日期、需要按 FIFO lot 回填日期的卖出分录。
 pub(crate) fn resolve_inferred_cost_postings_with_inventory(
     transactions: &mut [Transaction],
     inventory: &mut InventoryState,
@@ -48,6 +62,8 @@ pub(crate) fn resolve_inferred_cost_postings_with_inventory(
 }
 
 /// 从 seed 文件批量加载库存状态。
+///
+/// 解析失败的文件会被跳过并记录日志，不会中断主流程。
 pub(crate) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState {
     seed_loader::load_seed_inventory_from_files(paths)
 }

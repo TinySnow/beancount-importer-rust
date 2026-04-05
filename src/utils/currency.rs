@@ -1,8 +1,15 @@
-//! 模块说明：通用工具函数集合。
+//! 现金币种规范化工具。
 //!
-//! 文件路径：src/utils/currency.rs。
-//! 该文件围绕现金币种规范化职责提供实现。
-//! 关键符号：normalize_cash_currency。
+//! 用于将交易明细中的币种文本统一为 Beancount 中常见的大写代码。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::utils::currency::normalize_cash_currency;
+//!
+//! assert_eq!(normalize_cash_currency(Some("人民币")), "CNY");
+//! assert_eq!(normalize_cash_currency(Some("usd")), "USD");
+//! assert_eq!(normalize_cash_currency(Some("未知币种")), "CNY");
+//! ```
 
 use crate::utils::text::starts_with_ascii_letter;
 
@@ -11,6 +18,21 @@ use crate::utils::text::starts_with_ascii_letter;
 /// - 常见中文名称会映射到标准代码；
 /// - 对合法 ASCII 代码做大写保留；
 /// - 其余或缺失值回退为 `CNY`。
+///
+/// # 参数
+/// - `raw`：原始币种文本，可为空。
+///
+/// # 返回值
+/// 归一化后的币种代码。
+///
+/// # 示例
+/// ```rust
+/// use beancount_importer_rust::utils::currency::normalize_cash_currency;
+///
+/// assert_eq!(normalize_cash_currency(Some("港元")), "HKD");
+/// assert_eq!(normalize_cash_currency(Some("eur")), "EUR");
+/// assert_eq!(normalize_cash_currency(None), "CNY");
+/// ```
 pub fn normalize_cash_currency(raw: Option<&str>) -> String {
     let trimmed = raw.unwrap_or("CNY").trim();
     if trimmed.is_empty() {
