@@ -1,8 +1,6 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 证券交易构建流程测试。
 //!
-//! 文件路径：src/providers/shared/securities/trade/tests.rs。
-//! 该文件主要包含单元测试与回归测试。
-//! 关键符号：make_context、uses_broker_cash_account_as_fallback_in_security_trade、uses_explicit_default_cash_account_when_configured、uses_nested_securities_cash_account_when_configured。
+//! 重点覆盖账户回退优先级，确保配置变体下的现金账户和利息账户行为稳定。
 
 use std::collections::HashMap;
 

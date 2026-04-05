@@ -1,8 +1,7 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 证券交易中的差额分录附加工具。
 //!
-//! 文件路径：src/providers/shared/securities/posting.rs。
-//! 该文件围绕 'posting' 的职责提供实现。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 该模块处理“理论金额与实际金额差额”的落账策略，例如手续费、
+//! 舍入差异、逆回购利息/损失等。
 
 use rust_decimal::Decimal;
 
@@ -15,6 +14,8 @@ use crate::model::{
 ///
 /// - 正差额：记入手续费账户。
 /// - 负差额：记入舍入差异账户。
+///
+/// `delta` 的计算由调用方完成，这里只负责按符号分流到账户。
 pub(super) fn append_buy_fee_or_rounding(
     mut tx: Transaction,
     delta: Decimal,
@@ -40,6 +41,8 @@ pub(super) fn append_buy_fee_or_rounding(
 }
 
 /// 卖出场景差额处理：统一记入手续费账户。
+///
+/// `delta` 可能为正或负，按原符号写入，便于保留 Provider 给出的净额语义。
 pub(super) fn append_fee_delta(
     mut tx: Transaction,
     delta: Decimal,
@@ -61,6 +64,9 @@ pub(super) fn append_fee_delta(
 ///
 /// - 正差额：记为利息收入（负号记入 Income）。
 /// - 负差额：记为费用损失。
+///
+/// 这里把利息收入记为负值，是为了与 Beancount 中收入账户“贷方增加”的
+/// 记账符号保持一致。
 pub(super) fn append_repo_interest_or_loss(
     mut tx: Transaction,
     delta: Decimal,

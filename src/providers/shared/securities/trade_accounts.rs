@@ -1,8 +1,6 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 证券交易账户规划逻辑。
 //!
-//! 文件路径：src/providers/shared/securities/trade_accounts.rs。
-//! 该文件围绕 'trade_accounts' 的职责提供实现。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 根据规则匹配结果与 Provider 默认配置，生成交易构建所需的账户组合。
 
 use crate::model::{config::provider::ProviderConfig, rule::match_result::MatchResult};
 
@@ -11,20 +9,32 @@ use super::logic::{derive_cash_account, derive_rounding_account};
 /// 证券交易所需账户集合。
 #[derive(Debug)]
 pub(super) struct TradeAccountPlan {
+    /// 证券持仓账户。
     pub(super) holdings_account: String,
+    /// 券商现金账户（交易对手现金腿）。
     pub(super) cash_account: String,
+    /// 手续费账户。
     pub(super) fee_account: String,
+    /// 舍入差异账户。
     pub(super) rounding_account: String,
+    /// 已实现盈亏账户。
     pub(super) pnl_account: String,
+    /// 逆回购利息账户。
     pub(super) interest_account: String,
 }
 
 /// 按交易方向与配置解析证券交易涉及账户。
+///
+/// 账户优先级总体遵循：
+/// 1. 规则显式指定；
+/// 2. Provider 配置默认值；
+/// 3. 模块内置兜底账户。
 pub(super) fn build_trade_account_plan(
     match_result: &MatchResult,
     config: &ProviderConfig,
     is_buy: bool,
 ) -> TradeAccountPlan {
+    // 持仓账户在买卖方向上对应不同的规则字段。
     let holdings_account = if is_buy {
         match_result
             .debit_account
@@ -44,6 +54,7 @@ pub(super) fn build_trade_account_plan(
         .map(str::to_string)
         .unwrap_or_else(|| derive_cash_account(config.default_asset_account.as_deref()));
 
+    // 买入时现金腿通常在贷方，卖出时在借方。
     let cash_account = if is_buy {
         match_result
             .credit_account

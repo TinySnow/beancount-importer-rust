@@ -1,8 +1,36 @@
-//! 模块说明：银行对账单 Provider 适配实现。
+//! 中国建设银行（CCB）账单导入适配器。
 //!
-//! 文件路径：src/providers/banks/ccb.rs。
-//! 该文件围绕 'ccb' 的职责提供实现。
-//! 关键符号：CCB_OPTIONS、CcbProvider、name、description。
+//! 该模块定义了 `ccb` 供应商的最小实现：
+//! - 提供稳定的供应商标识与描述；
+//! - 传入银行特定的默认账户参数；
+//! - 将转换流程委托给共享现金流转换器，避免各银行重复实现转换细节。
+//!
+//! # 示例
+//! ```rust,no_run
+//! use beancount_importer_rust::{
+//!     interface::provider::Provider,
+//!     model::{
+//!         config::{global::GlobalConfig, provider::ProviderConfig},
+//!         data::raw_record::RawRecord,
+//!         rule::{Rule, rule_engine::RuleEngine},
+//!     },
+//!     providers::banks::ccb::CcbProvider,
+//! };
+//!
+//! let provider = CcbProvider;
+//! assert_eq!(provider.name(), "ccb");
+//! assert_eq!(provider.description(), "CCB statement importer");
+//!
+//! let config = ProviderConfig::default();
+//! let global = GlobalConfig::default();
+//! let provider_rules: [Rule; 0] = [];
+//! let rule_engine = RuleEngine::new(&provider_rules, &global);
+//! let record = RawRecord::new();
+//!
+//! // 示例仅验证调用方式；真实导入时 record 需包含日期、金额等必要字段。
+//! let _ = provider.transform(record, &rule_engine, &config)?;
+//! # Ok::<(), beancount_importer_rust::error::ImporterError>(())
+//! ```
 
 use crate::{
     error::ImporterResult,
@@ -14,28 +42,43 @@ use crate::{
     providers::shared::{CashflowTransformOptions, transform_cashflow_record},
 };
 
+/// CCB 现金流转换参数。
+///
+/// - `provider_name` 用于元数据命名空间与日志定位。
+/// - `default_asset_fallback` 在规则和配置都未给出资产账户时兜底使用。
 const CCB_OPTIONS: CashflowTransformOptions = CashflowTransformOptions {
     provider_name: "ccb",
     default_asset_fallback: "Assets:CCB",
 };
 
+/// CCB 账单 `Provider`。
+///
+/// 该类型为 `unit struct`，不持有运行时状态；
+/// 转换依赖全部由 `transform` 方法参数注入。
 pub struct CcbProvider;
 
 impl Provider for CcbProvider {
+    /// 返回供应商唯一标识：`"ccb"`。
     fn name(&self) -> &'static str {
         "ccb"
     }
 
+    /// 返回供应商说明文本。
     fn description(&self) -> &'static str {
         "CCB statement importer"
     }
 
+    /// 将一条标准化原始记录转换为交易。
+    ///
+    /// 关键逻辑：当前实现只负责注入 CCB 专属参数，
+    /// 实际字段解析、收支分类、分录构建与元数据附加由共享转换器完成。
     fn transform(
         &self,
         record: RawRecord,
         rule_engine: &RuleEngine,
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
+        // 统一走共享现金流转换流程，保证银行类 Provider 行为一致。
         transform_cashflow_record(CCB_OPTIONS, record, rule_engine, config)
     }
 }

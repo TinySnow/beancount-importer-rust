@@ -14,7 +14,7 @@ use std::{
 };
 
 use crate::model::{
-    cli::{Cli, log_level::LogLevel},
+    cli::{log_level::LogLevel, Cli},
     config::{global::GlobalConfig, provider::ProviderConfig},
 };
 

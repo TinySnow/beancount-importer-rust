@@ -1,8 +1,6 @@
-//! 模块说明：跨 Provider 的现金流分类与分录构建能力。
+//! 现金流交易的双分录构建工具。
 //!
-//! 文件路径：src/providers/shared/cashflow/posting.rs。
-//! 该文件围绕 'posting' 的职责提供实现。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 本模块只负责“已知方向后的分录落账”，不承担方向判定与账户规划。
 
 use rust_decimal::Decimal;
 
@@ -15,6 +13,8 @@ use crate::model::{
 ///
 /// 借：费用账户
 /// 贷：资产账户
+///
+/// `amount` 可正可负，内部统一取绝对值后再按借贷方向加符号。
 pub(super) fn apply_expense_postings(
     mut tx: Transaction,
     expense_account: &str,
@@ -36,6 +36,8 @@ pub(super) fn apply_expense_postings(
 ///
 /// 借：资产账户
 /// 贷：收入账户
+///
+/// `amount` 可正可负，内部统一取绝对值后再按借贷方向加符号。
 pub(super) fn apply_income_postings(
     mut tx: Transaction,
     asset_account: &str,

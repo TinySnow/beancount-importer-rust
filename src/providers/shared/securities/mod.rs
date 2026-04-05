@@ -1,8 +1,12 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 跨 Provider 的证券交易转换模块。
 //!
-//! 文件路径：src/providers/shared/securities/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 统一处理证券相关流水的三类核心场景：
+//! - 普通买卖（现货）；
+//! - 逆回购；
+//! - 银证资金划转。
+//!
+//! 模块内部完成交易分类、账户规划、分录构建和元数据补充，
+//! 对外暴露单一入口 `transform_security_record`。
 
 mod context;
 mod logic;
@@ -18,6 +22,8 @@ mod transform;
 pub(crate) use transform::transform_security_record;
 
 /// 证券转换共享参数。
+///
+/// 每个证券类 Provider 在调用共享转换入口时提供该配置。
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SecurityTransformOptions {
     /// 供应商标识（如 `futu`、`yinhe`），用于 metadata 规范化和来源标签。

@@ -1,8 +1,7 @@
-//! 模块说明：跨 Provider 的现金流分类与分录构建能力。
+//! 现金流原始记录到交易对象的编排入口。
 //!
-//! 文件路径：src/providers/shared/cashflow/transform.rs。
-//! 该文件聚焦原始记录到交易的转换编排。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 该模块负责把来自不同 Provider 的现金流水记录转换为统一的
+//! `Transaction`：先做规则匹配与字段归一，再根据收支方向选择账户并构建双分录。
 
 use crate::{
     error::{ImporterError, ImporterResult},
@@ -27,6 +26,8 @@ use super::{
 /// 2. 解析必要字段（日期、金额、币种）。
 /// 3. 判定收支方向并构建分录。
 /// 4. 附加订单号、扩展字段与规则输出元数据。
+///
+/// 当缺少必要字段时返回 `ImporterError::Conversion`，调用方可据此决定是否记录失败项。
 pub(crate) fn transform_cashflow_record(
     options: CashflowTransformOptions,
     record: RawRecord,
@@ -62,6 +63,7 @@ pub(crate) fn transform_cashflow_record(
         .or(narration)
         .unwrap_or_else(|| "Unknown transaction".to_string());
 
+    // 优先使用结构化字段 `transaction_type`，其次读取原始扩展字段 `extra.type`。
     let direction = transaction_type
         .as_deref()
         .map(str::to_string)
@@ -72,6 +74,7 @@ pub(crate) fn transform_cashflow_record(
     let mut tx = Transaction::new(date, narration);
 
     if is_expense {
+        // 支出: 借费用、贷资产。规则账户优先于配置默认值。
         let expense_account = match_result
             .debit_account
             .clone()
@@ -86,6 +89,7 @@ pub(crate) fn transform_cashflow_record(
 
         tx = apply_expense_postings(tx, &expense_account, &asset_account, amount, &currency);
     } else {
+        // 收入: 借资产、贷收入。规则账户优先于配置默认值。
         let income_account = match_result
             .credit_account
             .clone()

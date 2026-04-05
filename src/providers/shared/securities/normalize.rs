@@ -1,29 +1,27 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 证券转换中的币种与标的代码归一化工具。
 //!
-//! 文件路径：src/providers/shared/securities/normalize.rs。
-//! 该文件围绕 'normalize' 的职责提供实现。
-//! 关键符号：sanitize_token、starts_with_ascii_letter、normalizes_chinese_currency_to_iso_code、prefixes_numeric_code_with_uppercase_sec_prefix。
+//! 负责把 Provider 文本字段转换为 Beancount 可解析的稳定符号，
+//! 包括现金币种标准化与证券商品代码规范化。
 
 use crate::utils::{
     currency::normalize_cash_currency as normalize_common_cash_currency,
     text::starts_with_ascii_letter,
 };
 
-/// Normalizes cash currency labels to ISO uppercase codes.
+/// 将现金币种标签归一化为 ISO 大写代码。
 ///
-/// Falls back to `CNY` when value is missing or invalid, so Beancount
-/// output remains parseable.
+/// 输入异常时回退到 `CNY`，确保生成的 Beancount 分录始终可解析。
 pub(super) fn normalize_cash_currency(raw: &str) -> String {
     normalize_common_cash_currency(Some(raw))
 }
 
-/// Normalizes security symbol to a valid Beancount commodity.
+/// 将证券代码归一化为合法的 Beancount commodity。
 ///
-/// Rules:
-/// - If raw symbol starts with ASCII letter: keep sanitized uppercase token.
-/// - Otherwise: always prefix with `SEC_`.
+/// 规则：
+/// - 若净化后的代码以 ASCII 字母开头：直接使用大写代码；
+/// - 否则统一添加 `SEC_` 前缀，避免以数字开头导致解析歧义。
 ///
-/// `transaction_type` and `security_name` are kept for API compatibility.
+/// `transaction_type` 与 `security_name` 当前保留用于接口兼容。
 pub(super) fn normalize_security_commodity(
     raw_symbol: &str,
     _transaction_type: Option<&str>,
@@ -38,7 +36,10 @@ pub(super) fn normalize_security_commodity(
     format!("SEC_{}", token)
 }
 
-/// Removes characters that are not allowed in commodity symbols.
+/// 移除 commodity 不允许的字符。
+///
+/// 仅保留字母、数字、下划线、短横线和点号。
+/// 若结果为空，回退为 `UNKNOWN`。
 fn sanitize_token(raw: &str) -> String {
     let mut out = String::new();
     for ch in raw.trim().chars() {

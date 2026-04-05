@@ -1,8 +1,6 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 银证现金划转分录构建。
 //!
-//! 文件路径：src/providers/shared/securities/transfer.rs。
-//! 该文件聚焦证券资金划转分录构建。
-//! 关键符号：uses_explicit_default_cash_account_for_cash_transfer。
+//! 负责“银行 <-> 券商”纯现金划转场景，不涉及证券持仓变动。
 
 use crate::{
     error::{ImporterError, ImporterResult},
@@ -24,6 +22,7 @@ use super::{
 /// 构建“券商 <-> 银行”现金划转交易。
 ///
 /// 划转方向可被规则中的 `debit_account` / `credit_account` 覆盖。
+/// 若规则未覆盖，则使用 Provider 配置或模块默认账户。
 pub(super) fn build_cash_transfer_transaction(
     options: SecurityTransformOptions,
     match_result: &MatchResult,

@@ -1,8 +1,7 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 逆回购交易分录构建。
 //!
-//! 文件路径：src/providers/shared/securities/trade_repo.rs。
-//! 该文件围绕 'trade_repo' 的职责提供实现。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 与普通现货交易不同，逆回购使用固定面值建模持仓成本，
+//! 并把本金差额解释为利息或费用。
 
 use rust_decimal::Decimal;
 
@@ -18,18 +17,31 @@ use super::{
 
 /// 逆回购分录构建输入。
 pub(super) struct RepoPostingInput<'a> {
+    /// 待追加分录的交易对象。
     pub(super) tx: Transaction,
+    /// 逆回购持仓账户。
     pub(super) holdings_account: &'a str,
+    /// 券商现金账户。
     pub(super) cash_account: &'a str,
+    /// 商品代码（已归一化）。
     pub(super) commodity_symbol: &'a str,
+    /// 现金币种。
     pub(super) cash_currency: &'a str,
+    /// 带方向的持仓数量（买入为正、卖出为负）。
     pub(super) signed_quantity: Decimal,
+    /// 带方向的现金金额（买入为负、卖出为正）。
     pub(super) signed_cash: Decimal,
+    /// 原始数量绝对值（用于本金计算）。
     pub(super) quantity: Decimal,
+    /// 原始现金金额绝对值（用于差额计算）。
     pub(super) cash_amount: Decimal,
+    /// 是否买入方向。
     pub(super) is_buy: bool,
+    /// 手续费账户。
     pub(super) fee_account: &'a str,
+    /// 舍入差异账户。
     pub(super) rounding_account: &'a str,
+    /// 逆回购利息收入账户。
     pub(super) interest_account: &'a str,
 }
 
@@ -68,6 +80,7 @@ pub(super) fn apply_repo_postings(input: RepoPostingInput<'_>) -> Transaction {
         Posting::new(cash_account).with_amount(Amount::new(signed_cash, cash_currency.to_string())),
     );
 
+    // 理论本金 = 份额 * 面值。实际现金与理论本金的差即费用/利息来源。
     let principal = quantity.abs() * Decimal::from(REPO_FACE_VALUE);
     let delta = cash_amount - principal;
 

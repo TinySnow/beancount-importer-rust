@@ -1,8 +1,71 @@
-//! 模块说明：规则匹配、条件运算与动作执行引擎。
+//! 规则执行引擎。
 //!
-//! 文件路径：src/model/rule/rule_engine.rs。
-//! 该文件围绕 'rule_engine' 的职责提供实现。
-//! 关键符号：IndexedRule、RuleEngine、new、match_record。
+//! [`RuleEngine`] 负责对单条原始记录执行规则匹配并聚合动作结果。
+//!
+//! 执行顺序与覆盖策略：
+//! 1. 全局规则先执行，供应商规则后执行。
+//! 2. 同一组内按 `priority` 升序、`specificity` 升序、定义顺序升序执行。
+//! 3. 后命中的动作可覆盖先命中的标量字段。
+//! 4. 命中 `terminal = true` 的规则后立即停止。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::model::{
+//!     config::global::GlobalConfig,
+//!     data::raw_record::RawRecord,
+//!     rule::{
+//!         Rule,
+//!         condition::Condition,
+//!         condition_operator::ConditionOperator,
+//!         rule_action::RuleAction,
+//!         rule_engine::RuleEngine,
+//!     },
+//! };
+//!
+//! let global_rule = Rule {
+//!     name: Some("global-coffee".to_string()),
+//!     conditions: vec![Condition {
+//!         field: "payee".to_string(),
+//!         operator: ConditionOperator::Contains("coffee".to_string()),
+//!     }],
+//!     match_mode: Default::default(),
+//!     action: RuleAction {
+//!         debit_account: Some("Expenses:Food:Coffee".to_string()),
+//!         ..Default::default()
+//!     },
+//!     priority: 0,
+//!     terminal: false,
+//! };
+//!
+//! let provider_rule = Rule {
+//!     name: Some("provider-coffee".to_string()),
+//!     conditions: vec![Condition {
+//!         field: "payee".to_string(),
+//!         operator: ConditionOperator::Contains("coffee".to_string()),
+//!     }],
+//!     match_mode: Default::default(),
+//!     action: RuleAction {
+//!         debit_account: Some("Expenses:Coffee:Specialty".to_string()),
+//!         ..Default::default()
+//!     },
+//!     priority: 0,
+//!     terminal: false,
+//! };
+//!
+//! let mut config = GlobalConfig::default();
+//! config.global_rules.push(global_rule);
+//! let provider_rules = vec![provider_rule];
+//! let engine = RuleEngine::new(&provider_rules, &config);
+//!
+//! let mut record = RawRecord::new();
+//! record.payee = Some("best coffee".to_string());
+//!
+//! let result = engine.match_record(&record);
+//! assert_eq!(
+//!     result.debit_account.as_deref(),
+//!     Some("Expenses:Coffee:Specialty")
+//! );
+//! ```
 
 use crate::model::{
     config::global::GlobalConfig,
@@ -10,26 +73,27 @@ use crate::model::{
     rule::{Rule, match_mode::MatchMode, match_result::MatchResult, matcher::Matcher},
 };
 
+/// 规则及其原始顺序下标。
+///
+/// `order` 用于在排序条件完全相同的情况下维持稳定顺序。
 #[derive(Clone, Copy)]
 struct IndexedRule<'a> {
+    /// 规则引用。
     rule: &'a Rule,
+    /// 在原始配置中的顺序。
     order: usize,
 }
 
 /// 规则引擎：先应用全局规则，再应用供应商规则。
-///
-/// 匹配策略：
-/// 1. 先应用低优先级规则。
-/// 2. 先应用低特异度规则。
-/// 3. 同级时按文件中先后顺序应用。
-/// 4. 后命中的结果覆盖先命中的结果。
 pub struct RuleEngine<'a> {
+    /// 已排序的供应商规则。
     provider_rules: Vec<IndexedRule<'a>>,
+    /// 已排序的全局规则。
     global_rules: Vec<IndexedRule<'a>>,
 }
 
 impl<'a> RuleEngine<'a> {
-    /// 构建规则引擎。
+    /// 构建规则引擎并预处理排序。
     pub fn new(provider_rules: &'a [Rule], global_config: &'a GlobalConfig) -> Self {
         Self {
             provider_rules: Self::prepare_rules(provider_rules),
@@ -37,7 +101,7 @@ impl<'a> RuleEngine<'a> {
         }
     }
 
-    /// 匹配一条记录并聚合所有动作。
+    /// 匹配一条记录并聚合所有命中动作。
     pub fn match_record(&self, record: &RawRecord) -> MatchResult {
         // 采用“累积覆盖”策略：先应用低优先级规则，后命中的规则覆盖前值。
         let mut result = MatchResult::default();
@@ -45,11 +109,10 @@ impl<'a> RuleEngine<'a> {
         // 全局规则先执行，供应商规则后执行；后者可覆盖前者。
         for indexed in self.global_rules.iter().chain(self.provider_rules.iter()) {
             let rule = indexed.rule;
-            // 命中规则后，将动作合并进最终结果。
             if self.rule_matches(rule, record) {
                 result.apply_action(&rule.action);
 
-                // `terminal=true` 时立即停止后续规则匹配。
+                // `terminal = true` 时立即停止后续匹配。
                 if rule.terminal {
                     break;
                 }
@@ -78,7 +141,7 @@ impl<'a> RuleEngine<'a> {
         indexed_rules
     }
 
-    /// 判断一条规则是否命中。
+    /// 判断一条规则是否命中当前记录。
     fn rule_matches(&self, rule: &Rule, record: &RawRecord) -> bool {
         if rule.conditions.is_empty() {
             return false;

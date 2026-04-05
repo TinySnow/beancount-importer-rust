@@ -1,8 +1,7 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 证券流水到交易对象的统一转换入口。
 //!
-//! 文件路径：src/providers/shared/securities/transform.rs。
-//! 该文件聚焦原始记录到交易的转换编排。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 该模块负责路由与编排，不直接关心分录细节。
+//! 它会在“银证转账”和“证券交易”两条子流程之间做分派。
 
 use crate::{
     error::ImporterResult,
@@ -27,6 +26,10 @@ use super::{
 /// 1. 规则匹配与忽略判断；
 /// 2. 构建标准证券上下文；
 /// 3. 在“银证转账”和“证券交易”之间路由。
+///
+/// 该函数返回 `Option<Transaction>`：
+/// - `None` 表示被规则忽略；
+/// - `Some` 表示成功生成交易。
 pub(crate) fn transform_security_record(
     options: SecurityTransformOptions,
     record: RawRecord,
@@ -48,6 +51,7 @@ pub(crate) fn transform_security_record(
 
     let context = SecurityRecordContext::from_record(record, cash_currency)?;
 
+    // 先做语义分类，再路由到对应构建器。
     if classify_transaction_kind(
         context.transaction_type.as_deref(),
         context.symbol.as_deref(),

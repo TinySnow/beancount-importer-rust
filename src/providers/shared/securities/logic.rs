@@ -1,8 +1,10 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 证券转换中的语义判定与账户推导逻辑。
 //!
-//! 文件路径：src/providers/shared/securities/logic.rs。
-//! 该文件围绕 'logic' 的职责提供实现。
-//! 关键符号：is_cash_transfer_keyword、derives_rounding_account_from_fee_account_prefix、detects_cash_transfer_without_symbol、infers_transfer_direction_from_type_or_amount。
+//! 该模块不直接创建分录，专注于：
+//! - 交易类型分类；
+//! - 方向推断；
+//! - 账户名称推导；
+//! - 特殊交易（逆回购）识别。
 
 use rust_decimal::Decimal;
 
@@ -68,6 +70,8 @@ pub(super) fn classify_transaction_kind(
 }
 
 /// 判断交易类型是否包含“银证转账”关键词。
+///
+/// 只做关键字命中，不做更深语义分析；调用方负责兜底路径。
 fn is_cash_transfer_keyword(transaction_type: Option<&str>) -> bool {
     transaction_type
         .map(|value| {
@@ -81,6 +85,10 @@ fn is_cash_transfer_keyword(transaction_type: Option<&str>) -> bool {
 }
 
 /// 推断现金划转方向。
+///
+/// 优先按交易类型关键字识别；无法识别时使用金额符号回退：
+/// - 正数视为资金转入券商；
+/// - 负数视为资金转出券商。
 pub(super) fn infer_transfer_direction(
     transaction_type: Option<&str>,
     amount: Decimal,
@@ -150,6 +158,7 @@ pub(super) fn infer_trade_direction(
         }
     }
 
+    // 经验规则：金额缺失或为负通常对应买入侧现金流出。
     if amount.map(|value| value.is_sign_negative()).unwrap_or(true) {
         TradeDirection::Buy
     } else {

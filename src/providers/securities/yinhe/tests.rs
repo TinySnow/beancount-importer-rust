@@ -1,8 +1,9 @@
-//! 模块说明：证券对账单 Provider 适配实现。
+//! 银河证券 Provider 单元测试。
 //!
-//! 文件路径：src/providers/securities/yinhe/tests.rs。
-//! 该文件主要包含单元测试与回归测试。
-//! 关键符号：recognizes_interest_rollover_without_symbol、keeps_interest_rollover_when_symbol_present、normalizes_repo_settlement_transaction_type、normalizes_repo_mature_settlement_transaction_type。
+//! 重点覆盖银河特化逻辑：
+//! - “利息归本 + 空证券代码”的特判识别；
+//! - 逆回购清算交易类型的归一化；
+//! - 利息归本交易的借贷方向与账户落点。
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
@@ -20,6 +21,7 @@ use super::{
 
 #[test]
 fn recognizes_interest_rollover_without_symbol() {
+    // 空白 symbol 视为“无证券代码”，应走利息归本特判路径。
     let mut record = RawRecord::new();
     record.transaction_type = Some("利息归本".to_string());
     record.symbol = Some("   ".to_string());
@@ -29,6 +31,7 @@ fn recognizes_interest_rollover_without_symbol() {
 
 #[test]
 fn keeps_interest_rollover_when_symbol_present() {
+    // 有证券代码时仍按证券交易处理，不应触发特判分支。
     let mut record = RawRecord::new();
     record.transaction_type = Some("利息归本".to_string());
     record.symbol = Some("131810".to_string());
@@ -38,6 +41,7 @@ fn keeps_interest_rollover_when_symbol_present() {
 
 #[test]
 fn normalizes_repo_settlement_transaction_type() {
+    // 银河“清算”语义统一映射为共享层可识别的“融券购回”。
     let mut record = RawRecord::new();
     record.transaction_type = Some("债券质押回购融券清算".to_string());
 
@@ -47,6 +51,7 @@ fn normalizes_repo_settlement_transaction_type() {
 
 #[test]
 fn normalizes_repo_mature_settlement_transaction_type() {
+    // 银河“到期清算”语义同样映射到统一交易类型。
     let mut record = RawRecord::new();
     record.transaction_type = Some("债券质押回购融券到期清算".to_string());
 
@@ -56,6 +61,7 @@ fn normalizes_repo_mature_settlement_transaction_type() {
 
 #[test]
 fn builds_interest_rollover_transaction_into_interest_account() {
+    // 正金额利息归本：借现金、贷利息收入。
     let mut record = RawRecord::new();
     record.date = NaiveDate::from_ymd_opt(2026, 2, 1);
     record.amount = Some(Decimal::new(1234, 2));

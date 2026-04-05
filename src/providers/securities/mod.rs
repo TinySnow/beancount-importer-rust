@@ -1,8 +1,24 @@
-//! 模块说明：证券对账单 Provider 适配实现。
+//! 证券账单 Provider 入口模块。
 //!
-//! 文件路径：src/providers/securities/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：futu、yinhe。
+//! 该模块汇总并导出所有券商适配器实现，目前包括：
+//! - [`futu`]：富途证券账单导入；
+//! - [`yinhe`]：银河证券账单导入。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::{
+//!     interface::provider::Provider,
+//!     providers::securities::{futu::FutuProvider, yinhe::YinheProvider},
+//! };
+//!
+//! let futu = FutuProvider;
+//! let yinhe = YinheProvider;
+//!
+//! assert_eq!(futu.name(), "futu");
+//! assert_eq!(yinhe.name(), "yinhe");
+//! ```
 
+/// 富途证券账单 Provider。
 pub mod futu;
+/// 银河证券账单 Provider。
 pub mod yinhe;

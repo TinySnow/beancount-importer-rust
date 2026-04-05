@@ -1,18 +1,26 @@
-//! 模块说明：规则匹配、条件运算与动作执行引擎。
+//! 条件组合模式。
 //!
-//! 文件路径：src/model/rule/match_mode.rs。
-//! 该文件围绕 'match_mode' 的职责提供实现。
-//! 关键符号：MatchMode。
+//! [`MatchMode`] 用于描述一条规则内部多个条件的组合关系：
+//! - `And`：所有条件都命中才算规则命中
+//! - `Or`：任一条件命中即可
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::model::rule::match_mode::MatchMode;
+//!
+//! assert_eq!(MatchMode::default(), MatchMode::And);
+//! assert_ne!(MatchMode::And, MatchMode::Or);
+//! ```
 
 use serde::{Deserialize, Serialize};
 
-/// 条件组合模式
+/// 条件组合模式。
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum MatchMode {
-    /// 所有条件都匹配
+    /// 所有条件均命中（逻辑与）。
     #[default]
     And,
-    /// 任一条件匹配
+    /// 任一条件命中（逻辑或）。
     Or,
 }

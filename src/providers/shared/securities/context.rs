@@ -1,8 +1,7 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 证券记录标准上下文模型。
 //!
-//! 文件路径：src/providers/shared/securities/context.rs。
-//! 该文件围绕 'context' 的职责提供实现。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 将 `RawRecord` 中证券转换所需字段集中收敛为单一结构，
+//! 以降低下游构建函数的参数复杂度并统一基础校验。
 
 use std::collections::HashMap;
 
@@ -16,28 +15,46 @@ use crate::{
 
 /// 证券记录标准上下文。
 ///
-/// 用于把 `RawRecord` 中证券转换所需字段一次性归一化，
-/// 降低后续“交易构建函数”的参数传递链路。
+/// 该结构保留证券转换过程中可能使用到的所有字段：
+/// - 必填字段在构造阶段校验（如 `date`）；
+/// - 其余字段按 `Option` 传递，由具体交易类型自行决定是否必需。
 #[derive(Debug, Clone)]
 pub(super) struct SecurityRecordContext {
+    /// 交易日期（必填）。
     pub(super) date: NaiveDate,
+    /// 现金金额，通常为成交总额或划转金额。
     pub(super) amount: Option<Decimal>,
+    /// 现金币种（已归一为标准代码，如 `CNY`、`USD`）。
     pub(super) cash_currency: String,
+    /// 交易对手。
     pub(super) payee: Option<String>,
+    /// 交易摘要。
     pub(super) narration: Option<String>,
+    /// Provider 原始交易类型文本。
     pub(super) transaction_type: Option<String>,
+    /// 订单号或参考号。
     pub(super) reference: Option<String>,
+    /// 证券代码。
     pub(super) symbol: Option<String>,
+    /// 证券名称。
     pub(super) security_name: Option<String>,
+    /// 成交数量。
     pub(super) quantity: Option<Decimal>,
+    /// 成交单价。
     pub(super) unit_price: Option<Decimal>,
+    /// 手续费。
     pub(super) fee: Option<Decimal>,
+    /// 税费。
     pub(super) tax: Option<Decimal>,
+    /// 其余未标准化字段。
     pub(super) extra: HashMap<String, String>,
 }
 
 impl SecurityRecordContext {
     /// 从原始记录构造证券上下文，并完成基础字段校验。
+    ///
+    /// 当前仅强制校验 `date`，其余字段由后续“现金划转”或“证券交易”
+    /// 路径按需校验，以兼容不同 Provider 的字段完整度差异。
     pub(super) fn from_record(record: RawRecord, cash_currency: String) -> ImporterResult<Self> {
         let RawRecord {
             date,

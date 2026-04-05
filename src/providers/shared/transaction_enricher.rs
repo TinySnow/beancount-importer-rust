@@ -1,15 +1,22 @@
-//! 模块说明：Provider 共享逻辑模块。
+//! 交易补充与元数据写入工具。
 //!
-//! 文件路径：src/providers/shared/transaction_enricher.rs。
-//! 该文件围绕 'transaction_enricher' 的职责提供实现。
-//! 关键符号：resolve_provider_source、map_provider_source、resolves_known_provider_source_label、falls_back_to_display_name_for_unknown_provider。
+//! 该模块负责把规则引擎输出、Provider 补充字段以及来源标签
+//! 统一写入 `Transaction`，避免各转换流程重复实现同一套元数据逻辑。
 
 use crate::model::{
     config::meta_value::MetaValue, rule::match_result::MatchResult, transaction::Transaction,
 };
 use crate::utils::metadata::normalize_metadata_key;
 
-/// 应用规则匹配得到的通用交易属性。
+/// 将规则匹配结果附加到交易对象。
+///
+/// 会按统一顺序写入：
+/// 1. 可覆盖字段（`payee`、`flag`）；
+/// 2. 集合字段（`tags`、`links`）；
+/// 3. 规则元数据（经过 provider 前缀归一化）；
+/// 4. `source` 来源标签。
+///
+/// `fallback_payee` 在规则未命中 `payee` 时生效，通常用于保留原始记录中的对手方。
 pub(crate) fn apply_match_result(
     mut tx: Transaction,
     provider_name: &str,
@@ -49,7 +56,10 @@ pub(crate) fn apply_match_result(
     tx
 }
 
-/// 将扩展字段按供应商规范附加为元数据。
+/// 将原始记录中的扩展字段写入交易元数据。
+///
+/// 元数据键会先经过 [`normalize_metadata_key`] 处理，确保不同 Provider
+/// 的同名字段不会发生命名冲突。
 pub(crate) fn append_extra_metadata<I>(
     mut tx: Transaction,
     provider_name: &str,
@@ -66,7 +76,9 @@ where
     tx
 }
 
-/// 使用规范化键名附加订单号元数据。
+/// 按规范化键名写入 `orderId` 元数据。
+///
+/// 当 `order_id` 为空时不写入任何字段。
 pub(crate) fn append_order_id(
     mut tx: Transaction,
     provider_name: &str,
@@ -80,7 +92,10 @@ pub(crate) fn append_order_id(
     tx
 }
 
-/// 解析来源标签（`source`），优先使用供应商配置显示名。
+/// 解析交易来源标签（`source`）。
+///
+/// 优先使用 `provider_display_name`，其次使用 `provider_name`。如果命中内置映射，
+/// 返回中文来源标签；否则回退为原始输入文本。
 fn resolve_provider_source(provider_name: &str, provider_display_name: Option<&str>) -> String {
     let hinted = provider_display_name
         .map(str::trim)
@@ -92,7 +107,9 @@ fn resolve_provider_source(provider_name: &str, provider_display_name: Option<&s
         .unwrap_or_else(|| hinted.to_string())
 }
 
-/// 将常见供应商名称映射为中文来源标签。
+/// 将常见 Provider 标识映射为统一中文来源标签。
+///
+/// 输入大小写不敏感；未命中时返回 `None`。
 fn map_provider_source(raw: &str) -> Option<String> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "wechat" | "weixin" => Some("微信".to_string()),

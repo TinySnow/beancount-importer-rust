@@ -1,8 +1,7 @@
-//! 模块说明：跨 Provider 的现金流分类与分录构建能力。
+//! 现金流方向判定逻辑。
 //!
-//! 文件路径：src/providers/shared/cashflow/classify.rs。
-//! 该文件围绕 'classify' 的职责提供实现。
-//! 关键符号：infers_expense_from_direction_keywords、infers_expense_from_english_keywords、falls_back_to_amount_sign_when_direction_missing。
+//! 本模块聚焦“是否为支出”的语义判定，提供对中英文关键字和金额符号的
+//! 组合推断，供现金流转换流程复用。
 
 use rust_decimal::Decimal;
 
@@ -11,6 +10,9 @@ use rust_decimal::Decimal;
 /// 判定优先级：
 /// 1. 方向字段中的中英文关键词。
 /// 2. 若方向缺失或无法识别，则回退到金额符号（正数视为支出）。
+///
+/// 该“正数即支出”的约定与当前导入源数据语义一致：
+/// 原始记录常以“绝对金额 + 方向字段”表达流水，而非借贷记账符号。
 pub(super) fn infer_is_expense(direction: Option<&str>, amount: Decimal) -> bool {
     if let Some(raw) = direction {
         let normalized = raw.to_ascii_lowercase();

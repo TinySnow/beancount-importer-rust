@@ -1,8 +1,7 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 证券交易分录构建主流程。
 //!
-//! 文件路径：src/providers/shared/securities/trade.rs。
-//! 该文件聚焦证券交易分录构建主流程。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 该模块负责把证券交易上下文转换为最终 `Transaction`，并根据交易语义
+//! 选择现货或逆回购构建路径。
 
 use crate::{
     error::{ImporterError, ImporterResult},
@@ -27,6 +26,7 @@ use super::{
 /// 构建证券交易分录。
 ///
 /// 输入使用 `SecurityRecordContext` 承载，避免长参数链路。
+/// 函数会在必要字段缺失时返回 `ImporterError::Conversion`。
 pub(super) fn build_security_trade_transaction(
     options: SecurityTransformOptions,
     match_result: &MatchResult,
@@ -71,6 +71,7 @@ pub(super) fn build_security_trade_transaction(
 
     let tx = Transaction::new(date, narration);
 
+    // 交易方向与交易类型共同决定账户选型和金额符号。
     let trade_direction = infer_trade_direction(transaction_type.as_deref(), amount);
     let is_buy = trade_direction == TradeDirection::Buy;
     let repo_trade = is_repo_trade(&symbol, transaction_type.as_deref());
@@ -88,6 +89,7 @@ pub(super) fn build_security_trade_transaction(
         }
     };
 
+    // 统一符号语义：买入数量为正/现金为负；卖出相反。
     let signed_quantity = if is_buy {
         quantity.abs()
     } else {
@@ -95,6 +97,7 @@ pub(super) fn build_security_trade_transaction(
     };
     let signed_cash = if is_buy { -cash_amount } else { cash_amount };
 
+    // 逆回购与现货交易在持仓成本和差额归因上规则不同，拆分为两套构建器。
     let mut tx = if repo_trade {
         apply_repo_postings(RepoPostingInput {
             tx,
@@ -112,6 +115,7 @@ pub(super) fn build_security_trade_transaction(
             interest_account: &account_plan.interest_account,
         })
     } else {
+        // 未给出单价时，允许由现金总额与数量反推单价。
         let effective_price = match unit_price {
             Some(price) => price,
             None => {

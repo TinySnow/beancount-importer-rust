@@ -1,8 +1,41 @@
-//! 模块说明：规则匹配、条件运算与动作执行引擎。
+//! 条件匹配器。
 //!
-//! 文件路径：src/model/rule/matcher.rs。
-//! 该文件围绕 'matcher' 的职责提供实现。
-//! 关键符号：Matcher、matches、field_value、parse_decimal_field。
+//! [`Matcher`] 负责对单条 [`Condition`] 执行实际判定。
+//! 该模块同时处理两类字段来源：
+//! - `RawRecord` 的标准强类型字段（如 `amount`、`date`）
+//! - 供应商扩展字段（`RawRecord::extra`）
+//!
+//! 对数值比较操作符，匹配器优先读取强类型十进制字段，
+//! 并在必要时回退到字符串清洗后解析，提升跨供应商数据兼容性。
+//!
+//! # 示例
+//! ```rust
+//! use beancount_importer_rust::model::{
+//!     data::raw_record::RawRecord,
+//!     rule::{
+//!         condition::Condition,
+//!         condition_operator::ConditionOperator,
+//!         matcher::Matcher,
+//!     },
+//! };
+//! use rust_decimal::Decimal;
+//!
+//! let mut record = RawRecord::new();
+//! record.payee = Some("Coffee Shop".to_string());
+//! record.amount = Some(Decimal::from_str_exact("32.50").unwrap());
+//!
+//! let payee_condition = Condition {
+//!     field: "payee".to_string(),
+//!     operator: ConditionOperator::Contains("Coffee".to_string()),
+//! };
+//! let amount_condition = Condition {
+//!     field: "amount".to_string(),
+//!     operator: ConditionOperator::GreaterThan(Decimal::from_str_exact("20").unwrap()),
+//! };
+//!
+//! assert!(Matcher::matches(&payee_condition, &record));
+//! assert!(Matcher::matches(&amount_condition, &record));
+//! ```
 
 use std::{borrow::Cow, str::FromStr};
 
@@ -18,6 +51,9 @@ pub struct Matcher;
 
 impl Matcher {
     /// 判断一条记录是否命中一个条件。
+    ///
+    /// 对于不存在的字段，大多操作符返回 `false`；
+    /// 唯一例外是 [`ConditionOperator::IsEmpty`]，其在字段缺失时返回 `true`。
     pub fn matches(condition: &Condition, record: &RawRecord) -> bool {
         let field_name = condition.field.as_str();
         let field_value = Self::field_value(record, field_name);
@@ -83,6 +119,10 @@ impl Matcher {
         }
     }
 
+    /// 读取字段值并统一成字符串视图。
+    ///
+    /// 对于标准强类型字段（日期、数值）会按统一格式转换成字符串，
+    /// 其余字段通过 `record.get` 走扩展字段回退链路。
     fn field_value<'a>(record: &'a RawRecord, field_name: &str) -> Option<Cow<'a, str>> {
         match field_name {
             "date" => record
@@ -107,6 +147,10 @@ impl Matcher {
         }
     }
 
+    /// 将目标字段解析成十进制数值，供数值比较使用。
+    ///
+    /// 优先读取 `RawRecord` 中已解析的强类型数值字段，
+    /// 对其它字段则尝试从字符串回退解析。
     fn parse_decimal_field(
         record: &RawRecord,
         field_name: &str,
@@ -122,9 +166,12 @@ impl Matcher {
         }
     }
 
-    /// 从字符串字段解析十进制数值。
+    /// 从字符串字段中提取并解析十进制数值。
+    ///
+    /// 实现会过滤掉非数字/符号字符，兼容如 `"CNY -12.30"` 这类输入。
     fn parse_decimal(value: Option<&str>) -> Option<Decimal> {
         value.and_then(|raw| {
+            // 保留十进制解析所需字符，尽量容忍上游字段夹带单位或文本。
             let cleaned: String = raw
                 .chars()
                 .filter(|ch| ch.is_ascii_digit() || *ch == '.' || *ch == '-' || *ch == '+')

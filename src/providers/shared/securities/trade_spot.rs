@@ -1,8 +1,6 @@
-//! 模块说明：跨 Provider 的证券交易分类、账户规划与分录构建能力。
+//! 普通证券买卖分录构建。
 //!
-//! 文件路径：src/providers/shared/securities/trade_spot.rs。
-//! 该文件围绕 'trade_spot' 的职责提供实现。
-//! 关键符号：无显式公开符号，主要通过内部实现或模块组织发挥作用。
+//! 负责现货买卖场景下的持仓、现金腿和费用/盈亏补充分录。
 
 use rust_decimal::Decimal;
 
@@ -15,19 +13,33 @@ use super::posting::{append_buy_fee_or_rounding, append_fee_delta};
 
 /// 普通证券买卖分录构建输入。
 pub(super) struct SpotPostingInput<'a> {
+    /// 待追加分录的交易对象。
     pub(super) tx: Transaction,
+    /// 证券持仓账户。
     pub(super) holdings_account: &'a str,
+    /// 券商现金账户。
     pub(super) cash_account: &'a str,
+    /// 商品代码（已归一化）。
     pub(super) commodity_symbol: &'a str,
+    /// 现金币种。
     pub(super) cash_currency: &'a str,
+    /// 带方向的持仓数量（买入为正、卖出为负）。
     pub(super) signed_quantity: Decimal,
+    /// 带方向的现金金额（买入为负、卖出为正）。
     pub(super) signed_cash: Decimal,
+    /// 原始数量绝对值（用于差额计算）。
     pub(super) quantity: Decimal,
+    /// 原始现金金额绝对值（用于差额计算）。
     pub(super) cash_amount: Decimal,
+    /// 是否买入方向。
     pub(super) is_buy: bool,
+    /// 生效单价（原始单价或由金额/数量反推）。
     pub(super) effective_price: Decimal,
+    /// 手续费账户。
     pub(super) fee_account: &'a str,
+    /// 舍入差异账户。
     pub(super) rounding_account: &'a str,
+    /// 已实现盈亏账户。
     pub(super) pnl_account: &'a str,
 }
 
@@ -71,6 +83,7 @@ pub(super) fn apply_spot_postings(input: SpotPostingInput<'_>) -> Transaction {
         Posting::new(cash_account).with_amount(Amount::new(signed_cash, cash_currency.to_string())),
     );
 
+    // 差额 = 实际现金 与 理论成交额 的差，用于补记费用或舍入误差。
     let fee_delta = if is_buy {
         cash_amount - quantity.abs() * effective_price
     } else {
