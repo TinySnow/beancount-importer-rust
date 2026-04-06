@@ -12,7 +12,7 @@ tabular_options:
   flexible: true
   encoding: "auto"
 
-skip_header_lines: 0
+skip_header_lines: 6
 has_header_row: true
 
 output:

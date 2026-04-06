@@ -88,7 +88,7 @@ output:
 - 通用默认项推荐写在 `default:` 分组下（如 `asset_account/expense_account/income_account/currency`）。
 - 证券账户字段统一写在 `securities_accounts` 下（`cash/fee/pnl/rounding/repo_interest`）。
 - 旧平铺证券账户字段（如 `default_cash_account/default_fee_account` 等）不再生效。
-- 历史平铺字段 `default_asset_account/default_expense_account/default_income_account/default_currency` 仍兼容；与 `default:` 同时存在时，平铺字段优先。
+- 历史平铺字段 `default_asset_account/default_expense_account/default_income_account/default_currency` 已移除；继续使用会在加载配置时报错。
 - `inventory_seed_files` 可选；用于跨账期导入时预加载历史 lot，减少早期卖出（本期无买入）的二义性。
 
 ## 4. CLI 参数

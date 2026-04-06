@@ -31,18 +31,30 @@ use crate::model::{
 ///
 /// 通常对应主配置文件中的顶层字段，作为导入流程的默认行为定义。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
     /// 默认币种（当供应商记录未提供币种时使用）。
-    #[serde(default = "default_currency")]
+    ///
+    /// 该字段为运行时缓存字段，由 `default.currency` 归一化填充。
+    #[serde(skip, default = "default_currency")]
     pub default_currency: String,
 
     /// 默认支出借方账户。
+    ///
+    /// 该字段为运行时缓存字段，由 `default.expense_account` 归一化填充。
+    #[serde(skip)]
     pub default_expense_account: Option<String>,
 
     /// 默认资产账户。
+    ///
+    /// 该字段为运行时缓存字段，由 `default.asset_account` 归一化填充。
+    #[serde(skip)]
     pub default_asset_account: Option<String>,
 
     /// 默认收入贷方账户。
+    ///
+    /// 该字段为运行时缓存字段，由 `default.income_account` 归一化填充。
+    #[serde(skip)]
     pub default_income_account: Option<String>,
 
     /// 默认字段分组（推荐新写法）。
@@ -55,7 +67,6 @@ pub struct GlobalConfig {
     ///   currency: "CNY"
     /// ```
     ///
-    /// 当分组字段与平铺字段并存时，平铺字段优先。
     #[serde(default, rename = "default")]
     pub defaults: CommonDefaultsConfig,
 
@@ -100,32 +111,19 @@ impl Default for GlobalConfig {
 }
 
 impl GlobalConfig {
-    /// 归一化 `default:` 分组到历史平铺字段。
-    ///
-    /// 兼容策略：
-    /// - 平铺字段（`default_*`）优先；
-    /// - 平铺字段缺失时回填 `default:` 分组值。
+    /// 归一化 `default:` 分组到运行时缓存字段。
     pub fn normalize_default_group(&mut self) {
-        if self.default_asset_account.is_none() {
-            self.default_asset_account = self.defaults.asset_account.clone();
-        }
-        if self.default_expense_account.is_none() {
-            self.default_expense_account = self.defaults.expense_account.clone();
-        }
-        if self.default_income_account.is_none() {
-            self.default_income_account = self.defaults.income_account.clone();
-        }
-        if self.default_currency == default_currency() {
-            if let Some(currency) = self
-                .defaults
-                .currency
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-            {
-                self.default_currency = currency.to_string();
-            }
-        }
+        self.default_asset_account = self.defaults.asset_account.clone();
+        self.default_expense_account = self.defaults.expense_account.clone();
+        self.default_income_account = self.defaults.income_account.clone();
+        self.default_currency = self
+            .defaults
+            .currency
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .unwrap_or_else(default_currency);
 
         for provider in self.providers.values_mut() {
             provider.normalize_default_group();
@@ -167,17 +165,17 @@ default:
     }
 
     #[test]
-    fn keeps_flat_defaults_priority_over_default_group() {
+    fn rejects_flat_defaults_fields() {
         let yaml = r#"
 default_currency: "HKD"
 default:
   currency: "USD"
 "#;
 
-        let mut config: GlobalConfig =
-            serde_yaml::from_str(yaml).expect("global config should deserialize");
-        config.normalize_default_group();
-
-        assert_eq!(config.default_currency, "HKD");
+        let result = serde_yaml::from_str::<GlobalConfig>(yaml);
+        assert!(
+            result.is_err(),
+            "legacy flat default fields should be rejected"
+        );
     }
 }

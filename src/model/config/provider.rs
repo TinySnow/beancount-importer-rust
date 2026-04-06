@@ -12,16 +12,24 @@
 //! # 示例
 //! ```rust
 //! use beancount_importer_rust::model::config::{
+//!     defaults::CommonDefaultsConfig,
 //!     global::GlobalConfig,
 //!     provider::ProviderConfig,
 //! };
 //!
 //! let mut global = GlobalConfig::default();
-//! global.default_currency = "USD".to_string();
-//! global.default_asset_account = Some("Assets:Global:Cash".to_string());
+//! global.defaults = CommonDefaultsConfig {
+//!     asset_account: Some("Assets:Global:Cash".to_string()),
+//!     currency: Some("USD".to_string()),
+//!     ..CommonDefaultsConfig::default()
+//! };
+//! global.normalize_default_group();
 //!
 //! let mut provider = ProviderConfig::default();
-//! provider.default_asset_account = Some("Assets:Provider:Cash".to_string());
+//! provider.defaults = CommonDefaultsConfig {
+//!     asset_account: Some("Assets:Provider:Cash".to_string()),
+//!     ..CommonDefaultsConfig::default()
+//! };
 //! provider.merge_with_global(&global);
 //!
 //! assert_eq!(
@@ -55,6 +63,7 @@ use crate::model::{
 ///   rounding_account: "Expenses:Broker:Galaxy:Rounding"
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct SecuritiesAccountsConfig {
     /// 券商现金账户。
     #[serde(default)]
@@ -81,6 +90,7 @@ pub struct SecuritiesAccountsConfig {
 ///
 /// 该结构描述一个供应商从解析到写出的完整参数集合。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderConfig {
     /// 供应商显示名称。
     pub name: Option<String>,
@@ -89,15 +99,27 @@ pub struct ProviderConfig {
     pub mapping_file: Option<String>,
 
     /// 默认资产账户（通用）。
+    ///
+    /// 该字段为运行时缓存字段，由 `default.asset_account` 归一化填充。
+    #[serde(skip)]
     pub default_asset_account: Option<String>,
 
     /// 默认支出账户（通用）。
+    ///
+    /// 该字段为运行时缓存字段，由 `default.expense_account` 归一化填充。
+    #[serde(skip)]
     pub default_expense_account: Option<String>,
 
     /// 默认收入账户（通用）。
+    ///
+    /// 该字段为运行时缓存字段，由 `default.income_account` 归一化填充。
+    #[serde(skip)]
     pub default_income_account: Option<String>,
 
     /// 默认币种（通用）。
+    ///
+    /// 该字段为运行时缓存字段，由 `default.currency` 归一化填充。
+    #[serde(skip)]
     pub default_currency: Option<String>,
 
     /// 默认字段分组（推荐新写法）。
@@ -110,7 +132,6 @@ pub struct ProviderConfig {
     ///   currency: "CNY"
     /// ```
     ///
-    /// 当该分组与平铺字段（`default_*`）并存时，平铺字段优先。
     #[serde(default, rename = "default")]
     pub defaults: CommonDefaultsConfig,
 
@@ -121,12 +142,11 @@ pub struct ProviderConfig {
     /// 历史 lot 预加载文件列表（Beancount）。
     ///
     /// 用于跨账期导入时补充历史持仓，减少卖出分录的 lot 二义性。
-    /// 向后兼容别名：`lot_seed_files`、`history_beancount_files`。
-    #[serde(default, alias = "lot_seed_files", alias = "history_beancount_files")]
+    #[serde(default)]
     pub inventory_seed_files: Vec<String>,
 
     /// 表格解析选项（CSV/电子表格共用）。
-    #[serde(default, alias = "csv_options")]
+    #[serde(default)]
     pub tabular_options: TabularOptions,
 
     /// 供应商规则列表。
@@ -144,7 +164,7 @@ pub struct ProviderConfig {
     pub skip_header_lines: usize,
 
     /// 数据是否包含表头行。
-    #[serde(default = "default_true", alias = "has_csv_header")]
+    #[serde(default = "default_true")]
     pub has_header_row: bool,
 }
 
@@ -181,24 +201,18 @@ impl Default for ProviderConfig {
 }
 
 impl ProviderConfig {
-    /// 归一化 `default:` 分组到历史平铺字段。
-    ///
-    /// 兼容策略：
-    /// - 平铺字段（`default_*`）优先；
-    /// - 当平铺字段缺失时，回填 `default:` 分组对应值。
+    /// 归一化 `default:` 分组到运行时缓存字段。
     pub fn normalize_default_group(&mut self) {
-        if self.default_asset_account.is_none() {
-            self.default_asset_account = self.defaults.asset_account.clone();
-        }
-        if self.default_expense_account.is_none() {
-            self.default_expense_account = self.defaults.expense_account.clone();
-        }
-        if self.default_income_account.is_none() {
-            self.default_income_account = self.defaults.income_account.clone();
-        }
-        if self.default_currency.is_none() {
-            self.default_currency = self.defaults.currency.clone();
-        }
+        self.default_asset_account = self.defaults.asset_account.clone();
+        self.default_expense_account = self.defaults.expense_account.clone();
+        self.default_income_account = self.defaults.income_account.clone();
+        self.default_currency = self
+            .defaults
+            .currency
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
     }
 
     /// 合并全局配置（供应商配置优先）。
@@ -309,9 +323,9 @@ securities_accounts:
     }
 
     #[test]
-    fn deserializes_inventory_seed_files_alias() {
+    fn deserializes_inventory_seed_files() {
         let yaml = r#"
-lot_seed_files:
+inventory_seed_files:
   - "transactions/2025/12/galaxy.bean"
   - "transactions/2025/11/galaxy.bean"
 "#;
@@ -329,7 +343,7 @@ lot_seed_files:
     }
 
     #[test]
-    fn ignores_legacy_securities_default_fields() {
+    fn rejects_legacy_securities_default_fields() {
         let yaml = r#"
 default_cash_account: "Assets:Legacy:Cash"
 securities_accounts:
@@ -337,26 +351,23 @@ securities_accounts:
   fee_account: "Expenses:Nested:Fee"
 "#;
 
-        let config: ProviderConfig =
-            serde_yaml::from_str(yaml).expect("provider config should deserialize");
-
-        assert_eq!(config.securities_cash_account(), Some("Assets:Nested:Cash"));
-        assert_eq!(config.securities_fee_account(), Some("Expenses:Nested:Fee"));
+        let result = serde_yaml::from_str::<ProviderConfig>(yaml);
+        assert!(result.is_err(), "legacy securities flat keys should be rejected");
 
         let legacy_only_yaml = r#"
 default_cash_account: "Assets:Legacy:Cash"
 default_fee_account: "Expenses:Legacy:Fee"
 default_repo_interest_account: "Income:Legacy:Repo"
 "#;
-        let legacy_only: ProviderConfig =
-            serde_yaml::from_str(legacy_only_yaml).expect("provider config should deserialize");
-        assert_eq!(legacy_only.securities_cash_account(), None);
-        assert_eq!(legacy_only.securities_fee_account(), None);
-        assert_eq!(legacy_only.securities_repo_interest_account(), None);
+        let legacy_only = serde_yaml::from_str::<ProviderConfig>(legacy_only_yaml);
+        assert!(
+            legacy_only.is_err(),
+            "legacy securities flat keys should be rejected"
+        );
     }
 
     #[test]
-    fn deserializes_legacy_tabular_option_aliases() {
+    fn rejects_legacy_tabular_option_aliases() {
         let yaml = r#"
 csv_options:
   delimiter: ";"
@@ -366,14 +377,11 @@ csv_options:
 has_csv_header: false
 "#;
 
-        let config: ProviderConfig =
-            serde_yaml::from_str(yaml).expect("provider config should deserialize");
-
-        assert_eq!(config.tabular_options.delimiter, ';');
-        assert_eq!(config.tabular_options.quote, '\'');
-        assert!(config.tabular_options.flexible);
-        assert_eq!(config.tabular_options.encoding, "GBK");
-        assert!(!config.has_header_row);
+        let result = serde_yaml::from_str::<ProviderConfig>(yaml);
+        assert!(
+            result.is_err(),
+            "legacy tabular aliases should be rejected"
+        );
     }
 
     #[test]
@@ -427,17 +435,17 @@ default:
     }
 
     #[test]
-    fn keeps_flat_defaults_priority_over_default_group() {
+    fn rejects_flat_defaults_fields() {
         let yaml = r#"
 default_asset_account: "Assets:Flat"
 default:
   asset_account: "Assets:Grouped"
 "#;
 
-        let mut config: ProviderConfig =
-            serde_yaml::from_str(yaml).expect("provider config should deserialize");
-        config.normalize_default_group();
-
-        assert_eq!(config.default_asset_account.as_deref(), Some("Assets:Flat"));
+        let result = serde_yaml::from_str::<ProviderConfig>(yaml);
+        assert!(
+            result.is_err(),
+            "legacy flat default fields should be rejected"
+        );
     }
 }

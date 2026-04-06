@@ -13,7 +13,9 @@ use std::{
 };
 
 use crate::{
-    model::config::{global::GlobalConfig, provider::ProviderConfig},
+    model::config::{
+        defaults::CommonDefaultsConfig, global::GlobalConfig, provider::ProviderConfig,
+    },
     runtime::cli::{Cli, log_level::LogLevel},
 };
 
@@ -27,7 +29,10 @@ fn load_provider_config_matches_global_key_case_insensitively() {
     // 验证 global.providers 键名大小写不敏感匹配。
     let mut global = GlobalConfig::default();
     let provider = ProviderConfig {
-        default_asset_account: Some("Assets:Broker:Case:Cash".to_string()),
+        defaults: CommonDefaultsConfig {
+            asset_account: Some("Assets:Broker:Case:Cash".to_string()),
+            ..CommonDefaultsConfig::default()
+        },
         ..ProviderConfig::default()
     };
 
@@ -40,7 +45,10 @@ fn load_provider_config_matches_global_key_case_insensitively() {
             .expect("global provider context lookup should work");
 
     assert!(source_path.is_none());
-    assert_eq!(loaded.default_asset_account, provider.default_asset_account);
+    assert_eq!(
+        loaded.default_asset_account.as_deref(),
+        Some("Assets:Broker:Case:Cash")
+    );
 }
 
 #[test]

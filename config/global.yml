@@ -42,7 +42,7 @@ providers:
       delimiter: ","
       flexible: true
       encoding: "auto"
-    skip_header_lines: 0
+    skip_header_lines: 17
     has_header_row: true
 
   jd:
@@ -57,7 +57,7 @@ providers:
       delimiter: ","
       flexible: true
       encoding: "auto"
-    skip_header_lines: 0
+    skip_header_lines: 21
     has_header_row: true
 
   mt:
@@ -72,7 +72,7 @@ providers:
       delimiter: ","
       flexible: true
       encoding: "auto"
-    skip_header_lines: 0
+    skip_header_lines: 19
     has_header_row: true
 
   icbc:
@@ -171,7 +171,6 @@ providers:
       decimal_places: 4
       booking_method: "FIFO"
       emit_open_directives: true
-
 
 
 

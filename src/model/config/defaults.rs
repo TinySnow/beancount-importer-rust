@@ -10,27 +10,27 @@
 //!   currency: "CNY"
 //! ```
 //!
-//! 兼容说明：
-//! - 分组内也接受历史命名（如 `default_asset_account`），便于平滑迁移。
+//! 该分组仅接受新格式字段，不再兼容历史平铺字段命名。
 
 use serde::{Deserialize, Serialize};
 
 /// 通用默认字段分组。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct CommonDefaultsConfig {
     /// 默认资产账户。
-    #[serde(default, alias = "default_asset_account")]
+    #[serde(default)]
     pub asset_account: Option<String>,
 
     /// 默认支出账户。
-    #[serde(default, alias = "default_expense_account")]
+    #[serde(default)]
     pub expense_account: Option<String>,
 
     /// 默认收入账户。
-    #[serde(default, alias = "default_income_account")]
+    #[serde(default)]
     pub income_account: Option<String>,
 
     /// 默认币种。
-    #[serde(default, alias = "default_currency")]
+    #[serde(default)]
     pub currency: Option<String>,
 }
