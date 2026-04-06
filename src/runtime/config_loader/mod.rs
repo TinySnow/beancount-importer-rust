@@ -20,10 +20,12 @@ use std::path::Path;
 
 use anyhow::Result;
 
-use crate::model::{
-    cli::Cli,
-    config::{global::GlobalConfig, provider::ProviderConfig},
-    mapping::field_mapping::FieldMapping,
+use crate::{
+    model::{
+        config::{global::GlobalConfig, provider::ProviderConfig},
+        mapping::field_mapping::FieldMapping,
+    },
+    runtime::cli::Cli,
 };
 
 /// 加载完成后的运行时配置快照。

@@ -43,8 +43,8 @@ use crate::{
         transaction::Transaction,
     },
     providers::shared::{
-        append_extra_metadata, append_order_id, apply_match_result, transform_security_record,
-        SecurityTransformOptions,
+        SecurityTransformOptions, append_extra_metadata, append_order_id, apply_match_result,
+        transform_security_record,
     },
     utils::currency::normalize_cash_currency,
 };

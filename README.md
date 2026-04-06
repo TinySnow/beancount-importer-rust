@@ -120,6 +120,7 @@ src/
   main.rs
   lib.rs
   runtime/
+    cli/
   interface/
   model/
   providers/

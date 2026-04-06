@@ -16,7 +16,7 @@
 //!
 //! # 使用示例
 //! ```rust,no_run
-//! use beancount_importer_rust::{app, model::cli::Cli};
+//! use beancount_importer_rust::{app, runtime::cli::Cli};
 //! use clap::Parser;
 //!
 //! // 解析命令行参数
@@ -40,7 +40,7 @@ pub mod runtime;
 
 use anyhow::Result;
 
-use crate::model::cli::Cli;
+use crate::runtime::cli::Cli;
 
 /// 运行导入主流程
 ///
@@ -56,7 +56,7 @@ use crate::model::cli::Cli;
 ///
 /// # 示例
 /// ```rust,no_run
-/// use beancount_importer_rust::{app, model::cli::Cli};
+/// use beancount_importer_rust::{app, runtime::cli::Cli};
 /// use clap::Parser;
 ///
 /// // 解析命令行参数

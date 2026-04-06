@@ -9,19 +9,22 @@
 //! - `sorting`：写出前确定性排序；
 //! - `inventory`：基于库存信息补全推断成本；
 //! - `pnl`：写入逐笔收益元数据；
-//! - `currency`：提供币种分类辅助；
+//! - `cli`：命令行参数与日志级别模型；
 //! - `reader`：表格读取与映射实现；
 //! - `writer`：Beancount 文本写出实现；
 //! - `provider_registry`：供应商注册与检索。
 
+/// 命令行参数与日志级别定义。
+///
+/// 放在 runtime 层，避免将“进程入口参数”混入纯领域模型层。
+pub mod cli;
 mod config_loader;
-mod currency;
 mod inventory;
 mod pipeline;
 mod pnl;
-mod sorting;
 pub mod provider_registry;
 pub mod reader;
+mod sorting;
 pub mod writer;
 
 use std::{
@@ -32,10 +35,9 @@ use std::{
 use anyhow::{Context, Result};
 use log::{debug, info};
 
+use self::cli::Cli;
 use crate::{
-    model::{
-        cli::Cli, rule::rule_engine::RuleEngine,
-    },
+    model::rule::rule_engine::RuleEngine,
     runtime::{
         config_loader::load, pipeline::transform_records, provider_registry::ProviderRegistry,
         writer::beancount_writer::BeancountWriter,

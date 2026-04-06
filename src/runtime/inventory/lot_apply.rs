@@ -11,8 +11,8 @@ use crate::model::{
     account::{cost::Cost, posting::Posting},
     transaction::Transaction,
 };
+use crate::utils::currency_kind::is_fiat_currency;
 
-use super::super::currency::is_fiat_currency;
 use super::lot_matcher::consume_lots;
 use super::{InventoryLot, InventoryState};
 

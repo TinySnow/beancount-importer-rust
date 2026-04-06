@@ -12,9 +12,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::model::{
-    cli::{Cli, log_level::LogLevel},
-    config::{global::GlobalConfig, provider::ProviderConfig},
+use crate::{
+    model::config::{global::GlobalConfig, provider::ProviderConfig},
+    runtime::cli::{Cli, log_level::LogLevel},
 };
 
 use super::{

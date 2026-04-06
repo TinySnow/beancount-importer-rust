@@ -5,7 +5,7 @@
 //!
 //! # 示例
 //! ```rust
-//! use beancount_importer_rust::model::cli::log_level::LogLevel;
+//! use beancount_importer_rust::runtime::cli::log_level::LogLevel;
 //! use log::LevelFilter;
 //!
 //! assert_eq!(LogLevel::Warn.to_level_filter(), LevelFilter::Warn);
@@ -37,7 +37,7 @@ impl LogLevel {
     ///
     /// # 示例
     /// ```rust
-    /// use beancount_importer_rust::model::cli::log_level::LogLevel;
+    /// use beancount_importer_rust::runtime::cli::log_level::LogLevel;
     /// use log::LevelFilter;
     ///
     /// assert_eq!(LogLevel::Error.to_level_filter(), LevelFilter::Error);

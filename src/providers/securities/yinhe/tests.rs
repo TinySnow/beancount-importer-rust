@@ -14,7 +14,7 @@ use crate::model::{
         provider::{ProviderConfig, SecuritiesAccountsConfig},
     },
     data::raw_record::RawRecord,
-    rule::{rule_engine::RuleEngine, Rule},
+    rule::{Rule, rule_engine::RuleEngine},
 };
 
 use super::{

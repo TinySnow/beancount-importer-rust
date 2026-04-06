@@ -20,7 +20,7 @@
 
 use std::process;
 
-use beancount_importer_rust::{app, model::cli::Cli, utils::init::init_logger};
+use beancount_importer_rust::{app, runtime::cli::Cli, utils::init::init_logger};
 use clap::Parser;
 use log::{debug, info};
 

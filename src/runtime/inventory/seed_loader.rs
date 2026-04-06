@@ -5,10 +5,10 @@
 
 use std::{fs, path::Path};
 
+use crate::utils::currency_kind::is_fiat_currency;
 use anyhow::{Context, Result};
 use log::{debug, warn};
 
-use super::super::currency::is_fiat_currency;
 use super::lot_matcher::consume_lots;
 use super::seed_parser::{parse_seed_posting_line, parse_seed_transaction_date};
 use super::{InventoryLot, InventoryState};

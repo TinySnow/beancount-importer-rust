@@ -15,8 +15,7 @@ use std::{collections::HashMap, str::FromStr};
 use rust_decimal::Decimal;
 
 use crate::model::{config::meta_value::MetaValue, transaction::Transaction};
-
-use super::currency::is_fiat_currency;
+use crate::utils::currency_kind::is_fiat_currency;
 
 /// 单笔交易收益字段的内部聚合结果。
 #[derive(Debug, Clone, Copy)]

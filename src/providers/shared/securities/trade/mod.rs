@@ -17,16 +17,16 @@ use crate::{
     providers::shared::{append_extra_metadata, append_order_id, apply_match_result},
 };
 
+use self::{
+    accounts::build_trade_account_plan,
+    repo::{RepoPostingInput, apply_repo_postings},
+    spot::{SpotPostingInput, apply_spot_postings},
+};
 use super::{
     SecurityTransformOptions,
     context::SecurityRecordContext,
     logic::{TradeDirection, infer_trade_direction, is_repo_trade},
     normalize::normalize_security_commodity,
-};
-use self::{
-    accounts::build_trade_account_plan,
-    repo::{RepoPostingInput, apply_repo_postings},
-    spot::{SpotPostingInput, apply_spot_postings},
 };
 
 /// 构建证券交易分录。

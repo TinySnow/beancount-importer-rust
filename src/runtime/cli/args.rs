@@ -11,7 +11,7 @@
 //!
 //! # 示例
 //! ```rust
-//! use beancount_importer_rust::model::cli::Cli;
+//! use beancount_importer_rust::runtime::cli::Cli;
 //! use clap::Parser;
 //!
 //! let cli = Cli::parse_from([
@@ -30,7 +30,7 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-use crate::model::cli::log_level::LogLevel;
+use crate::runtime::cli::log_level::LogLevel;
 
 /// Beancount 交易导入器命令行参数。
 ///
@@ -39,7 +39,7 @@ use crate::model::cli::log_level::LogLevel;
 ///
 /// # 示例
 /// ```rust
-/// use beancount_importer_rust::model::cli::Cli;
+/// use beancount_importer_rust::runtime::cli::Cli;
 /// use clap::Parser;
 ///
 /// let cli = Cli::parse_from([
@@ -127,7 +127,7 @@ impl Cli {
     ///
     /// # 示例
     /// ```rust
-    /// use beancount_importer_rust::model::cli::Cli;
+    /// use beancount_importer_rust::runtime::cli::Cli;
     /// use clap::Parser;
     /// use log::LevelFilter;
     ///
