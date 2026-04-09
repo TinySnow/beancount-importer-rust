@@ -1,11 +1,13 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use log::info;
 
 use crate::model::{config::provider::ProviderConfig, mapping::field_mapping::FieldMapping};
 
 use super::{layout::PROVIDER_CATEGORY_DIRS, yaml::load_yaml_file};
+
+include!(concat!(env!("OUT_DIR"), "/embedded_mappings.rs"));
 
 /// 加载字段映射配置。
 ///
@@ -36,6 +38,16 @@ pub(super) fn load_field_mapping(
         if path.exists() {
             info!("Loading field mapping: {}", path.display());
             return load_yaml_file(path, "field mapping");
+        }
+    }
+
+    if provider_config.mapping_file.is_none() {
+        if let Some(mapping) = load_embedded_field_mapping(provider_name)? {
+            info!(
+                "Loading embedded field mapping for provider '{}'",
+                provider_name
+            );
+            return Ok(mapping);
         }
     }
 
@@ -88,4 +100,36 @@ fn resolve_candidate_paths(path: &Path, base_path: &Path) -> Vec<PathBuf> {
 fn deduplicate_paths(paths: &mut Vec<PathBuf>) {
     let mut seen = std::collections::HashSet::new();
     paths.retain(|path| seen.insert(path.to_string_lossy().to_ascii_lowercase()));
+}
+
+/// 加载内嵌字段映射（仅内置供应商）。
+pub(super) fn load_embedded_field_mapping(provider_name: &str) -> Result<Option<FieldMapping>> {
+    let Some(yaml) = embedded_mapping_yaml(provider_name) else {
+        return Ok(None);
+    };
+
+    let yaml = yaml.strip_prefix('\u{feff}').unwrap_or(yaml);
+    let mapping = serde_yaml::from_str::<FieldMapping>(yaml).with_context(|| {
+        format!(
+            "Failed to parse embedded field mapping for provider '{}'",
+            provider_name
+        )
+    })?;
+
+    Ok(Some(mapping))
+}
+
+fn embedded_mapping_yaml(provider_name: &str) -> Option<&'static str> {
+    let provider_name = provider_name.to_ascii_lowercase();
+    EMBEDDED_FIELD_MAPPINGS
+        .iter()
+        .find_map(|(provider, yaml)| (*provider == provider_name).then_some(*yaml))
+}
+
+#[cfg(test)]
+pub(super) fn embedded_mapping_provider_names() -> Vec<&'static str> {
+    EMBEDDED_FIELD_MAPPINGS
+        .iter()
+        .map(|(provider, _)| *provider)
+        .collect()
 }

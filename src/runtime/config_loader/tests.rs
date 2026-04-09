@@ -8,6 +8,7 @@
 //! - 去兼容化后的映射路径行为（不再支持旧别名路径）。
 
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -20,8 +21,8 @@ use crate::{
 };
 
 use super::{
-    global::load_global_config, load, load_field_mapping, load_provider_config,
-    resolve_inventory_seed_paths,
+    embedded_mapping_provider_names, global::load_global_config, load, load_embedded_field_mapping,
+    load_field_mapping, load_provider_config, resolve_inventory_seed_paths,
 };
 
 #[test]
@@ -177,6 +178,78 @@ fn load_field_mapping_does_not_support_legacy_src_mapping_prefix() {
         result.is_err(),
         "legacy src/mapping prefix should no longer be accepted"
     );
+}
+
+#[test]
+fn load_embedded_field_mapping_supports_builtin_provider() {
+    for provider in embedded_mapping_provider_names() {
+        let mapping = load_embedded_field_mapping(provider)
+            .expect("embedded mapping loading should not fail")
+            .unwrap_or_else(|| panic!("{} should have an embedded mapping", provider));
+
+        assert!(
+            mapping.date.is_some() || mapping.amount.is_some(),
+            "embedded mapping for {} should contain core fields",
+            provider
+        );
+    }
+}
+
+#[test]
+fn embedded_mapping_index_covers_all_mapping_files() {
+    let embedded: BTreeSet<String> = embedded_mapping_provider_names()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect();
+
+    let disk = mapping_provider_names_on_disk();
+
+    assert_eq!(
+        embedded, disk,
+        "embedded mapping index should cover mapping/ directory exactly"
+    );
+}
+
+#[test]
+fn load_embedded_field_mapping_returns_none_for_unknown_provider() {
+    let mapping = load_embedded_field_mapping("__unknown_provider__")
+        .expect("embedded mapping lookup should not fail");
+    assert!(mapping.is_none());
+}
+
+fn mapping_provider_names_on_disk() -> BTreeSet<String> {
+    let mapping_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("mapping");
+    let mut providers = BTreeSet::new();
+
+    collect_provider_names(&mapping_root, &mut providers);
+    providers
+}
+
+fn collect_provider_names(dir: &Path, providers: &mut BTreeSet<String>) {
+    let entries = fs::read_dir(dir).expect("mapping directory should be readable");
+    for entry in entries {
+        let path = entry.expect("directory entry should be readable").path();
+        if path.is_dir() {
+            collect_provider_names(&path, providers);
+            continue;
+        }
+
+        let is_yaml = path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("yml"))
+            .unwrap_or(false);
+        if !is_yaml {
+            continue;
+        }
+
+        let provider = path
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .map(|name| name.to_ascii_lowercase())
+            .expect("mapping filename should have a valid UTF-8 stem");
+        providers.insert(provider);
+    }
 }
 
 #[test]

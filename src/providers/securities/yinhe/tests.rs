@@ -89,7 +89,7 @@ fn builds_interest_rollover_transaction_into_interest_account() {
     let global: &'static GlobalConfig = Box::leak(Box::new(GlobalConfig::default()));
     let rule_engine = RuleEngine::new(provider_rules, global);
 
-    let tx = build_yinhe_interest_rollover_transaction(record, &rule_engine, &config)
+    let tx = build_yinhe_interest_rollover_transaction("yinhe", record, &rule_engine, &config)
         .expect("interest rollover should build")
         .expect("interest rollover should not be ignored");
 

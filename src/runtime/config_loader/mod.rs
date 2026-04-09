@@ -94,6 +94,10 @@ pub fn load(cli: &Cli) -> Result<LoadedConfig> {
 #[cfg(test)]
 use inventory::resolve_inventory_seed_paths;
 #[cfg(test)]
+use mapping::embedded_mapping_provider_names;
+#[cfg(test)]
+use mapping::load_embedded_field_mapping;
+#[cfg(test)]
 use mapping::load_field_mapping;
 #[cfg(test)]
 use provider::load_provider_config;

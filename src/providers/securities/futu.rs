@@ -43,7 +43,6 @@ use crate::{
 
 /// 富途证券共享转换参数。
 const FUTU_OPTIONS: SecurityTransformOptions = SecurityTransformOptions {
-    provider_name: "futu",
     default_payee: "Futu",
 };
 
@@ -73,6 +72,6 @@ impl Provider for FutuProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 将富途标识与默认 payee 注入共享转换层，避免 Provider 间重复实现。
-        transform_security_record(FUTU_OPTIONS, record, rule_engine, config)
+        transform_security_record(self.name(), FUTU_OPTIONS, record, rule_engine, config)
     }
 }

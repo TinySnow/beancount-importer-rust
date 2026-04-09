@@ -18,8 +18,6 @@ pub(crate) use transform::transform_cashflow_record;
 /// 由各 Provider 在调用共享转换入口时传入，用于绑定 Provider 语义。
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct CashflowTransformOptions {
-    /// 供应商标识（如 `wechat`、`icbc`）。
-    pub(crate) provider_name: &'static str,
     /// 当未在规则或配置中指定资产账户时的兜底账户。
     pub(crate) default_asset_fallback: &'static str,
 }

@@ -31,6 +31,8 @@ use super::{
 /// - `None` 表示被规则忽略；
 /// - `Some` 表示成功生成交易。
 pub(crate) fn transform_security_record(
+    // 统一使用 Provider trait 的 `name()` 结果作为 metadata 命名空间。
+    provider_name: &str,
     options: SecurityTransformOptions,
     record: RawRecord,
     rule_engine: &RuleEngine,
@@ -57,10 +59,11 @@ pub(crate) fn transform_security_record(
         context.symbol.as_deref(),
     ) == TransactionKind::CashTransfer
     {
-        let tx = build_cash_transfer_transaction(options, &match_result, config, context)?;
+        let tx = build_cash_transfer_transaction(provider_name, &match_result, config, context)?;
         return Ok(Some(tx));
     }
 
-    let tx = build_security_trade_transaction(options, &match_result, config, context)?;
+    let tx =
+        build_security_trade_transaction(provider_name, options, &match_result, config, context)?;
     Ok(Some(tx))
 }

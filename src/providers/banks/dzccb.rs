@@ -43,9 +43,8 @@ use crate::{
 
 /// DZCCB 现金流转换参数。
 ///
-/// 该常量将银行标识与资产账户兜底值绑定到共享转换入口。
+/// 该常量将资产账户兜底值绑定到共享转换入口。
 const DZCCB_OPTIONS: CashflowTransformOptions = CashflowTransformOptions {
-    provider_name: "dzccb",
     default_asset_fallback: "Assets:DZCCB",
 };
 
@@ -76,6 +75,6 @@ impl Provider for DzccbProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 委托共享转换逻辑，避免不同银行重复实现现金流转换流程。
-        transform_cashflow_record(DZCCB_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(self.name(), DZCCB_OPTIONS, record, rule_engine, config)
     }
 }

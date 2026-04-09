@@ -14,7 +14,7 @@ use crate::{
 };
 
 use super::{
-    DEFAULT_TRANSFER_ASSET_ACCOUNT, SecurityTransformOptions,
+    DEFAULT_TRANSFER_ASSET_ACCOUNT,
     context::SecurityRecordContext,
     logic::{Direction, derive_cash_account, infer_transfer_direction},
 };
@@ -24,7 +24,7 @@ use super::{
 /// 划转方向可被规则中的 `debit_account` / `credit_account` 覆盖。
 /// 若规则未覆盖，则使用 Provider 配置或模块默认账户。
 pub(super) fn build_cash_transfer_transaction(
-    options: SecurityTransformOptions,
+    provider_name: &str,
     match_result: &MatchResult,
     config: &ProviderConfig,
     context: SecurityRecordContext,
@@ -108,11 +108,11 @@ pub(super) fn build_cash_transfer_transaction(
         tx = tx.with_meta("tax", MetaValue::Number(tax));
     }
 
-    tx = append_order_id(tx, options.provider_name, reference);
-    tx = append_extra_metadata(tx, options.provider_name, extra);
+    tx = append_order_id(tx, provider_name, reference);
+    tx = append_extra_metadata(tx, provider_name, extra);
     tx = apply_match_result(
         tx,
-        options.provider_name,
+        provider_name,
         match_result,
         payee.or(transaction_type),
         config.name.as_deref(),
@@ -130,20 +130,13 @@ mod tests {
 
     use super::super::context::SecurityRecordContext;
     use super::build_cash_transfer_transaction;
-    use crate::{
-        model::{
-            config::provider::{ProviderConfig, SecuritiesAccountsConfig},
-            rule::match_result::MatchResult,
-        },
-        providers::shared::SecurityTransformOptions,
+    use crate::model::{
+        config::provider::{ProviderConfig, SecuritiesAccountsConfig},
+        rule::match_result::MatchResult,
     };
 
     #[test]
     fn uses_explicit_securities_cash_account_for_cash_transfer() {
-        let options = SecurityTransformOptions {
-            provider_name: "yinhe",
-            default_payee: "Galaxy",
-        };
         let config = ProviderConfig {
             default_asset_account: Some("Assets:Broker:Galaxy:Securities".to_string()),
             securities_accounts: SecuritiesAccountsConfig {
@@ -171,7 +164,7 @@ mod tests {
         };
 
         let tx =
-            build_cash_transfer_transaction(options, &MatchResult::default(), &config, context)
+            build_cash_transfer_transaction("yinhe", &MatchResult::default(), &config, context)
                 .expect("cash transfer should build");
 
         let has_custom_cash_account = tx

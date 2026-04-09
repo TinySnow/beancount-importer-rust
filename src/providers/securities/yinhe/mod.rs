@@ -51,7 +51,6 @@ use crate::{
 
 /// 银河证券共享转换参数。
 const YINHE_OPTIONS: SecurityTransformOptions = SecurityTransformOptions {
-    provider_name: "yinhe",
     default_payee: "Galaxy",
 };
 
@@ -168,6 +167,7 @@ fn resolve_fee_account(config: &ProviderConfig) -> String {
 /// # Errors
 /// 当记录缺失 `date` 或 `amount` 时返回 `ImporterError::Conversion`。
 fn build_yinhe_interest_rollover_transaction(
+    provider_name: &str,
     mut record: RawRecord,
     rule_engine: &RuleEngine,
     config: &ProviderConfig,
@@ -238,11 +238,11 @@ fn build_yinhe_interest_rollover_transaction(
         .with_posting(Posting::new(credit_account).with_amount(Amount::new(-amount_abs, currency)));
 
     // 对齐共享转换产物，统一补充订单号、扩展元数据与规则引擎动作结果。
-    tx = append_order_id(tx, "yinhe", record.reference.take());
-    tx = append_extra_metadata(tx, "yinhe", record.extra);
+    tx = append_order_id(tx, provider_name, record.reference.take());
+    tx = append_extra_metadata(tx, provider_name, record.extra);
     tx = apply_match_result(
         tx,
-        "yinhe",
+        provider_name,
         &match_result,
         record
             .payee
@@ -281,12 +281,17 @@ impl Provider for YinheProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         if is_interest_rollover_without_symbol(&record) {
-            return build_yinhe_interest_rollover_transaction(record, rule_engine, config);
+            return build_yinhe_interest_rollover_transaction(
+                self.name(),
+                record,
+                rule_engine,
+                config,
+            );
         }
 
         // 常规证券流水在进入共享层前做一次银河术语归一化。
         let record = normalize_yinhe_record(record);
-        transform_security_record(YINHE_OPTIONS, record, rule_engine, config)
+        transform_security_record(self.name(), YINHE_OPTIONS, record, rule_engine, config)
     }
 }
 

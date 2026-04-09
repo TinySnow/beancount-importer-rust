@@ -44,10 +44,8 @@ use crate::{
 
 /// CCB 现金流转换参数。
 ///
-/// - `provider_name` 用于元数据命名空间与日志定位。
 /// - `default_asset_fallback` 在规则和配置都未给出资产账户时兜底使用。
 const CCB_OPTIONS: CashflowTransformOptions = CashflowTransformOptions {
-    provider_name: "ccb",
     default_asset_fallback: "Assets:CCB",
 };
 
@@ -79,6 +77,6 @@ impl Provider for CcbProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 统一走共享现金流转换流程，保证银行类 Provider 行为一致。
-        transform_cashflow_record(CCB_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(self.name(), CCB_OPTIONS, record, rule_engine, config)
     }
 }

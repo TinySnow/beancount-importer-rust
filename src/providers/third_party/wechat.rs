@@ -42,9 +42,8 @@ use crate::{
 
 /// 微信现金流转换参数。
 ///
-/// 该常量用于向共享转换器注入平台特定标识和默认资产账户兜底值。
+/// 该常量用于向共享转换器注入默认资产账户兜底值。
 const WECHAT_OPTIONS: CashflowTransformOptions = CashflowTransformOptions {
-    provider_name: "wechat",
     default_asset_fallback: "Assets:WeChat",
 };
 
@@ -75,6 +74,6 @@ impl Provider for WechatProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 复用共享转换实现，保持第三方支付 Provider 行为一致。
-        transform_cashflow_record(WECHAT_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(self.name(), WECHAT_OPTIONS, record, rule_engine, config)
     }
 }

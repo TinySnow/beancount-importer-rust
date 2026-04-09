@@ -110,6 +110,7 @@ output:
 2. provider 配置 `--config`（不存在时优先尝试 `config/<category>/<provider>.yml`）。
 3. 字段映射 `mapping_file`（若是相对路径，优先相对 provider 配置文件所在目录解析）。
 4. 未指定 `mapping_file` 时，优先尝试 `mapping/<category>/<provider>.yml`。
+5. 若第 4 步仍未命中，且 provider 属于内置供应商，则回退到可执行文件内嵌的默认 mapping。
 
 补充：provider 默认值会覆盖 global；provider 未设置的字段回退到 global。
 
@@ -166,6 +167,7 @@ scripts/
 
 - [架构设计](docs/架构设计.md)
 - [配置详解](docs/配置详解.md)
+- [配置最佳实践指南](docs/配置最佳实践指南.md)
 - [供应商扩展指南](docs/供应商扩展指南.md)
 - [开发与调试手册](docs/开发与调试手册.md)
 - [示例配置说明](examples/README.md)

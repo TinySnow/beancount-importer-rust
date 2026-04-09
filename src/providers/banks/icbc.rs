@@ -44,7 +44,6 @@ use crate::{
 ///
 /// 该常量定义了共享转换流程所需的银行特定配置。
 const ICBC_OPTIONS: CashflowTransformOptions = CashflowTransformOptions {
-    provider_name: "icbc",
     default_asset_fallback: "Assets:ICBC",
 };
 
@@ -74,6 +73,6 @@ impl Provider for IcbcProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 复用共享转换实现，减少银行 Provider 之间的逻辑分叉。
-        transform_cashflow_record(ICBC_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(self.name(), ICBC_OPTIONS, record, rule_engine, config)
     }
 }

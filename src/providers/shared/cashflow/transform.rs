@@ -29,6 +29,8 @@ use super::{
 ///
 /// 当缺少必要字段时返回 `ImporterError::Conversion`，调用方可据此决定是否记录失败项。
 pub(crate) fn transform_cashflow_record(
+    // 统一使用 Provider trait 的 `name()` 结果作为 metadata 命名空间。
+    provider_name: &str,
     options: CashflowTransformOptions,
     record: RawRecord,
     rule_engine: &RuleEngine,
@@ -105,11 +107,11 @@ pub(crate) fn transform_cashflow_record(
         tx = apply_income_postings(tx, &asset_account, &income_account, amount, &currency);
     }
 
-    tx = append_order_id(tx, options.provider_name, reference);
-    tx = append_extra_metadata(tx, options.provider_name, extra);
+    tx = append_order_id(tx, provider_name, reference);
+    tx = append_extra_metadata(tx, provider_name, extra);
     tx = apply_match_result(
         tx,
-        options.provider_name,
+        provider_name,
         &match_result,
         payee,
         config.name.as_deref(),
@@ -132,7 +134,6 @@ mod tests {
     use super::{CashflowTransformOptions, transform_cashflow_record};
 
     const TEST_OPTIONS: CashflowTransformOptions = CashflowTransformOptions {
-        provider_name: "ccb",
         default_asset_fallback: "Assets:CCB",
     };
 
@@ -150,7 +151,7 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record(TEST_OPTIONS, record, &rule_engine, &config)
+        let tx = transform_cashflow_record("ccb", TEST_OPTIONS, record, &rule_engine, &config)
             .expect("cashflow transform should succeed")
             .expect("record should not be ignored");
 
@@ -184,7 +185,7 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record(TEST_OPTIONS, record, &rule_engine, &config)
+        let tx = transform_cashflow_record("ccb", TEST_OPTIONS, record, &rule_engine, &config)
             .expect("cashflow transform should succeed")
             .expect("record should not be ignored");
 
@@ -216,7 +217,7 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record(TEST_OPTIONS, record, &rule_engine, &config)
+        let tx = transform_cashflow_record("ccb", TEST_OPTIONS, record, &rule_engine, &config)
             .expect("cashflow transform should succeed")
             .expect("record should not be ignored");
 

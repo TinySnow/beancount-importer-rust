@@ -23,8 +23,6 @@ pub(crate) use transform::transform_security_record;
 /// 每个证券类 Provider 在调用共享转换入口时提供该配置。
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SecurityTransformOptions {
-    /// 供应商标识（如 `futu`、`yinhe`），用于 metadata 规范化和来源标签。
-    pub(crate) provider_name: &'static str,
     /// 当原始记录缺少交易对手时使用的默认 payee。
     pub(crate) default_payee: &'static str,
 }

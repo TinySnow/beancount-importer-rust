@@ -34,6 +34,7 @@ use super::{
 /// 输入使用 `SecurityRecordContext` 承载，避免长参数链路。
 /// 函数会在必要字段缺失时返回 `ImporterError::Conversion`。
 pub(super) fn build_security_trade_transaction(
+    provider_name: &str,
     options: SecurityTransformOptions,
     match_result: &MatchResult,
     config: &ProviderConfig,
@@ -163,11 +164,11 @@ pub(super) fn build_security_trade_transaction(
         tx = tx.with_meta("tax", MetaValue::Number(tax));
     }
 
-    tx = append_order_id(tx, options.provider_name, reference);
-    tx = append_extra_metadata(tx, options.provider_name, extra);
+    tx = append_order_id(tx, provider_name, reference);
+    tx = append_extra_metadata(tx, provider_name, extra);
     tx = apply_match_result(
         tx,
-        options.provider_name,
+        provider_name,
         match_result,
         payee.or_else(|| Some(options.default_payee.to_string())),
         config.name.as_deref(),
