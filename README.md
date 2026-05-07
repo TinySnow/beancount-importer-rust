@@ -21,13 +21,28 @@
 
 ## 3. 快速开始
 
-### 3.1 编译
+### 3.1 下载 Release（二进制，推荐）
+
+发布页：
+- [GitHub Releases](https://github.com/TinySnow/beancount-importer-rust/releases)
+
+下载与你平台匹配的压缩包后，解压并进入目录，直接运行：
+
+```bash
+./beancount-importer-rust --help
+```
+
+说明：
+- 发布包会附带 `config/` 与 `mapping/`，可直接按示例命令运行。
+- Windows 下请使用 `beancount-importer-rust.exe`。
+
+### 3.2 从源码编译
 
 ```bash
 cargo build --release
 ```
 
-### 3.2 运行（支付宝示例）
+### 3.3 运行（支付宝示例）
 
 ```bash
 cargo run -- \
@@ -38,7 +53,7 @@ cargo run -- \
   --log-level info
 ```
 
-### 3.3 运行（银河证券示例）
+### 3.4 运行（银河证券示例）
 
 ```bash
 cargo run -- \
@@ -49,7 +64,7 @@ cargo run -- \
   --log-level info
 ```
 
-### 3.4 运行（达州银行示例）
+### 3.5 运行（达州银行示例）
 
 ```bash
 cargo run -- \
@@ -60,7 +75,7 @@ cargo run -- \
   --log-level info
 ```
 
-### 3.5 证券账户最小配置（推荐）
+### 3.6 证券账户最小配置（推荐）
 
 ```yaml
 default:
@@ -165,6 +180,7 @@ scripts/
 
 ## 8. 文档索引
 
+- [发布流程](docs/发布流程.md)
 - [架构设计](docs/架构设计.md)
 - [配置详解](docs/配置详解.md)
 - [配置最佳实践指南](docs/配置最佳实践指南.md)
@@ -176,7 +192,7 @@ scripts/
 ## 9. 质量检查
 
 ```bash
-cargo fmt
+cargo fmt --check
 cargo test --quiet
 ```
 
