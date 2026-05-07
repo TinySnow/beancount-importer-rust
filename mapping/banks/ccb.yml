@@ -17,9 +17,13 @@ date_formats:
 
 extra_fields:
   recordDate: "记账日"
-  balance: "账户余额"
-  item: "交易地点"
-  txType: "摘要"
-  peer: "对方户名"
-  peerAccount: "对方账号"
+  date: "交易日期"
   payTime: "交易时间"
+  debitAccount: "支出"
+  creditAccount: "收入"
+  balance: "账户余额"
+  currency: "币种"
+  txType: "摘要"
+  peerAccount: "对方账号"
+  peer: "对方户名"
+  item: "交易地点"

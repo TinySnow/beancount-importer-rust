@@ -18,13 +18,14 @@ date_formats:
   - "%Y/%m/%d %H:%M:%S"
 
 extra_fields:
+  payTime: "交易时间"
   txType: "交易类型"
-  method: "支付方式"
-  item: "商品"
   peer: "交易对方"
+  item: "商品"
   type: "收/支"
+  amount: "金额(元)"
+  method: "支付方式"
   status: "当前状态"
   orderId: "交易单号"
-  payTime: "交易时间"
   merchantId: "商户单号"
   note: "备注"
