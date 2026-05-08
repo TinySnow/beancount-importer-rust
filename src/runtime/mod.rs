@@ -79,10 +79,7 @@ pub fn run(cli: Cli) -> Result<()> {
     debug!("Source file: {}", cli.source.display());
     debug!("Config file: {}", cli.config.display());
 
-    // 加载配置文件
-    let loaded = load(&cli)?;
-
-    // 获取供应商实例
+    // 先验证供应商是否存在，避免后续 mapping 加载错误遮盖真实原因。
     let registry = ProviderRegistry::global();
     let provider = registry.get(&cli.provider).with_context(|| {
         format!(
@@ -91,6 +88,9 @@ pub fn run(cli: Cli) -> Result<()> {
             registry.list_providers()
         )
     })?;
+
+    // 加载配置文件
+    let loaded = load(&cli)?;
 
     // 输出使用的供应商信息
     info!(
