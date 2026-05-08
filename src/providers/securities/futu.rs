@@ -62,6 +62,10 @@ impl Provider for FutuProvider {
         "Futu securities statement importer"
     }
 
+    fn display_name(&self) -> &'static str {
+        "富途"
+    }
+
     /// 将一条富途原始记录转换为交易。
     ///
     /// 关键逻辑：富途侧不额外分叉业务判断，统一走共享证券转换流水线。
@@ -72,6 +76,6 @@ impl Provider for FutuProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 将富途标识与默认 payee 注入共享转换层，避免 Provider 间重复实现。
-        transform_security_record(self.name(), FUTU_OPTIONS, record, rule_engine, config)
+        transform_security_record(self.name(), self.display_name(), FUTU_OPTIONS, record, rule_engine, config)
     }
 }

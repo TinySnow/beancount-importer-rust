@@ -25,6 +25,7 @@ use super::{
 /// 若规则未覆盖，则使用 Provider 配置或模块默认账户。
 pub(super) fn build_cash_transfer_transaction(
     provider_name: &str,
+    display_name: &str,
     match_result: &MatchResult,
     config: &ProviderConfig,
     context: SecurityRecordContext,
@@ -110,13 +111,8 @@ pub(super) fn build_cash_transfer_transaction(
 
     tx = append_order_id(tx, provider_name, reference);
     tx = append_extra_metadata(tx, provider_name, extra);
-    tx = apply_match_result(
-        tx,
-        provider_name,
-        match_result,
-        payee.or(transaction_type),
-        config.name.as_deref(),
-    );
+    let source_label = config.name.as_deref().unwrap_or(display_name);
+    tx = apply_match_result(tx, provider_name, match_result, payee.or(transaction_type), source_label);
 
     Ok(tx)
 }
@@ -164,7 +160,7 @@ mod tests {
         };
 
         let tx =
-            build_cash_transfer_transaction("yinhe", &MatchResult::default(), &config, context)
+            build_cash_transfer_transaction("yinhe", "银河证券", &MatchResult::default(), &config, context)
                 .expect("cash transfer should build");
 
         let has_custom_cash_account = tx

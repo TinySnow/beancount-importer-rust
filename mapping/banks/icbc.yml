@@ -23,4 +23,3 @@ extra_fields:
   incomeAmount: "记账金额(收入)"
   expenseAmount: "记账金额(支出)"
   balance: "余额"
-  payTime: "交易日期"

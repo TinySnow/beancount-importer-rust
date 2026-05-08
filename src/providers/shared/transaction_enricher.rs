@@ -22,7 +22,7 @@ pub(crate) fn apply_match_result(
     provider_name: &str,
     match_result: &MatchResult,
     fallback_payee: Option<String>,
-    provider_display_name: Option<&str>,
+    source_label: &str,
 ) -> Transaction {
     if let Some(payee) = match_result.payee.clone().or(fallback_payee) {
         tx = tx.with_payee(payee);
@@ -47,10 +47,7 @@ pub(crate) fn apply_match_result(
 
     tx = tx.with_meta(
         "source",
-        MetaValue::String(resolve_provider_source(
-            provider_name,
-            provider_display_name,
-        )),
+        MetaValue::String(source_label.trim().to_string()),
     );
 
     tx
@@ -92,31 +89,4 @@ pub(crate) fn append_order_id(
     tx
 }
 
-/// 解析交易来源标签（`source`）。
-///
-/// 优先使用 `provider_display_name`，其次使用 `provider_name`。
-fn resolve_provider_source(provider_name: &str, provider_display_name: Option<&str>) -> String {
-    provider_display_name
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(provider_name)
-        .to_string()
-}
 
-#[cfg(test)]
-mod tests {
-    use super::resolve_provider_source;
-
-    #[test]
-    fn falls_back_to_provider_name_when_display_name_is_absent() {
-        assert_eq!(resolve_provider_source("wechat", None), "wechat");
-    }
-
-    #[test]
-    fn prefers_display_name_when_present() {
-        assert_eq!(
-            resolve_provider_source("wechat", Some("自定义来源")),
-            "自定义来源"
-        );
-    }
-}

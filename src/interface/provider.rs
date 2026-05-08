@@ -78,6 +78,14 @@ pub trait Provider: Send + Sync {
         "No description"
     }
 
+    /// 返回供应商显示名称（用于输出 `source` 元数据标签）。
+    ///
+    /// 默认回退到 [`name`](Self::name)，各实现应覆盖为中文等人类可读名称，
+    /// 确保无 `--config` 时也能生成一致的 source 标签。
+    fn display_name(&self) -> &'static str {
+        self.name()
+    }
+
     /// 将源数据文件解析为标准化原始记录列表。
     ///
     /// # 参数

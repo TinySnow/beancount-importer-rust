@@ -66,6 +66,10 @@ impl Provider for CcbProvider {
         "CCB statement importer"
     }
 
+    fn display_name(&self) -> &'static str {
+        "建设银行"
+    }
+
     /// 将一条标准化原始记录转换为交易。
     ///
     /// 关键逻辑：当前实现只负责注入 CCB 专属参数，
@@ -77,6 +81,6 @@ impl Provider for CcbProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 统一走共享现金流转换流程，保证银行类 Provider 行为一致。
-        transform_cashflow_record(self.name(), CCB_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(self.name(), self.display_name(), CCB_OPTIONS, record, rule_engine, config)
     }
 }

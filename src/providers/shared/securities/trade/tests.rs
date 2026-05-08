@@ -55,6 +55,7 @@ fn uses_broker_cash_account_as_fallback_in_security_trade() {
 
     let tx = build_security_trade_transaction(
         "yinhe",
+        "银河证券",
         options,
         &MatchResult::default(),
         &config,
@@ -85,6 +86,7 @@ fn uses_explicit_securities_cash_account_when_configured() {
 
     let tx = build_security_trade_transaction(
         "yinhe",
+        "银河证券",
         options,
         &MatchResult::default(),
         &config,
@@ -115,6 +117,7 @@ fn uses_nested_securities_cash_account_when_configured() {
 
     let tx = build_security_trade_transaction(
         "yinhe",
+        "银河证券",
         options,
         &MatchResult::default(),
         &config,
@@ -146,6 +149,7 @@ fn uses_explicit_repo_interest_account_when_configured() {
 
     let tx = build_security_trade_transaction(
         "yinhe",
+        "银河证券",
         options,
         &MatchResult::default(),
         &config,

@@ -22,7 +22,6 @@ extra_fields:
   debitAccount: "支出"
   creditAccount: "收入"
   balance: "账户余额"
-  currency: "币种"
   txType: "摘要"
   peerAccount: "对方账号"
   peer: "对方户名"

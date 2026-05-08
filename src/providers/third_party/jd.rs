@@ -63,6 +63,10 @@ impl Provider for JdProvider {
         "JD statement importer"
     }
 
+    fn display_name(&self) -> &'static str {
+        "京东"
+    }
+
     /// 将一条京东原始记录转换为交易。
     ///
     /// 关键逻辑：适配器仅提供平台参数，
@@ -74,6 +78,6 @@ impl Provider for JdProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 复用共享转换实现，保持第三方支付 Provider 行为一致。
-        transform_cashflow_record(self.name(), JD_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(self.name(), self.display_name(), JD_OPTIONS, record, rule_engine, config)
     }
 }

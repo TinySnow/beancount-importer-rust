@@ -30,7 +30,7 @@ use std::hash::{Hash, Hasher};
 /// ```rust
 /// use beancount_importer_rust::utils::metadata::normalize_metadata_key;
 ///
-/// assert_eq!(normalize_metadata_key("alipay", "交易分类"), "category");
+/// assert_eq!(normalize_metadata_key("alipay", "交易分类"), "txType");
 /// assert_eq!(normalize_metadata_key("futu", "交易分类"), "txType");
 /// ```
 pub fn normalize_metadata_key(provider: &str, raw_key: &str) -> String {
@@ -73,22 +73,12 @@ pub fn ensure_beancount_metadata_key(raw_key: &str) -> String {
     format!("meta_{:08x}", hasher.finish() as u32)
 }
 
-/// 对常见供应商字段进行语义映射。
-///
-/// `alipay` 在“交易分类”上使用 `category`，其余来源保持 `txType`。
-fn map_key(provider: &str, raw_key: &str) -> Option<&'static str> {
-    let provider_is_alipay = provider.eq_ignore_ascii_case("alipay");
-
+/// 对常见供应商字段进行语义映射，返回规范化的英文键名。
+fn map_key(_provider: &str, raw_key: &str) -> Option<&'static str> {
     match raw_key {
         "交易状态" | "状态" => return Some("status"),
         "来源" | "交易来源" => return Some("source"),
-        "交易分类" | "分类" => {
-            return Some(if provider_is_alipay {
-                "category"
-            } else {
-                "txType"
-            });
-        }
+        "交易分类" | "分类" => return Some("txType"),
         "收/支" | "收支" => return Some("type"),
         "交易时间" | "支付时间" | "付款时间" => return Some("payTime"),
         "收/付款方式" | "支付方式" | "付款方式" | "收款方式" => {
@@ -117,11 +107,7 @@ fn map_key(provider: &str, raw_key: &str) -> Option<&'static str> {
         | "transaction_type"
         | "transactioncategory"
         | "transaction_category"
-        | "category" => Some(if provider_is_alipay {
-            "category"
-        } else {
-            "txType"
-        }),
+        | "category" => Some("txType"),
         "type" | "inout" | "in_out" | "incomeexpense" | "income_expense" | "direction" => {
             Some("type")
         }
@@ -203,8 +189,8 @@ mod tests {
     }
 
     #[test]
-    fn maps_category_based_on_provider() {
-        assert_eq!(normalize_metadata_key("alipay", "交易分类"), "category");
+    fn maps_category_uniformly_across_providers() {
+        assert_eq!(normalize_metadata_key("alipay", "交易分类"), "txType");
         assert_eq!(normalize_metadata_key("futu", "交易分类"), "txType");
     }
 

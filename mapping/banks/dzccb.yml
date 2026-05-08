@@ -14,7 +14,6 @@ date_formats:
   - "%Y/%m/%d %H:%M:%S"
 
 extra_fields:
-  transaction_date: "交易日期"
   expenseAmount: "出账金额"
   incomeAmount: "入账金额"
   balance: "余额"

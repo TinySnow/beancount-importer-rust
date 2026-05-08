@@ -63,6 +63,10 @@ impl Provider for IcbcProvider {
         "ICBC statement importer"
     }
 
+    fn display_name(&self) -> &'static str {
+        "工商银行"
+    }
+
     /// 将一条原始账单记录转换为交易。
     ///
     /// 关键逻辑：适配器仅负责注入 ICBC 配置，具体转换步骤由共享现金流模块统一执行。
@@ -73,6 +77,6 @@ impl Provider for IcbcProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 复用共享转换实现，减少银行 Provider 之间的逻辑分叉。
-        transform_cashflow_record(self.name(), ICBC_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(self.name(), self.display_name(), ICBC_OPTIONS, record, rule_engine, config)
     }
 }

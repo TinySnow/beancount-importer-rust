@@ -168,6 +168,7 @@ fn resolve_fee_account(config: &ProviderConfig) -> String {
 /// 当记录缺失 `date` 或 `amount` 时返回 `ImporterError::Conversion`。
 fn build_yinhe_interest_rollover_transaction(
     provider_name: &str,
+    display_name: &str,
     mut record: RawRecord,
     rule_engine: &RuleEngine,
     config: &ProviderConfig,
@@ -240,15 +241,8 @@ fn build_yinhe_interest_rollover_transaction(
     // 对齐共享转换产物，统一补充订单号、扩展元数据与规则引擎动作结果。
     tx = append_order_id(tx, provider_name, record.reference.take());
     tx = append_extra_metadata(tx, provider_name, record.extra);
-    tx = apply_match_result(
-        tx,
-        provider_name,
-        &match_result,
-        record
-            .payee
-            .or_else(|| Some(YINHE_OPTIONS.default_payee.to_string())),
-        config.name.as_deref(),
-    );
+    let source_label = config.name.as_deref().unwrap_or(display_name);
+    tx = apply_match_result(tx, provider_name, &match_result, record.payee.or_else(|| Some(YINHE_OPTIONS.default_payee.to_string())), source_label);
 
     Ok(Some(tx))
 }
@@ -269,6 +263,10 @@ impl Provider for YinheProvider {
         "Yinhe securities statement importer"
     }
 
+    fn display_name(&self) -> &'static str {
+        "银河证券"
+    }
+
     /// 将一条银河原始记录转换为交易。
     ///
     /// 路由规则：
@@ -283,6 +281,7 @@ impl Provider for YinheProvider {
         if is_interest_rollover_without_symbol(&record) {
             return build_yinhe_interest_rollover_transaction(
                 self.name(),
+                self.display_name(),
                 record,
                 rule_engine,
                 config,
@@ -291,7 +290,7 @@ impl Provider for YinheProvider {
 
         // 常规证券流水在进入共享层前做一次银河术语归一化。
         let record = normalize_yinhe_record(record);
-        transform_security_record(self.name(), YINHE_OPTIONS, record, rule_engine, config)
+        transform_security_record(self.name(), self.display_name(), YINHE_OPTIONS, record, rule_engine, config)
     }
 }
 

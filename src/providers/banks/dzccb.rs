@@ -64,6 +64,10 @@ impl Provider for DzccbProvider {
         "DaZhou City Commercial Bank statement importer"
     }
 
+    fn display_name(&self) -> &'static str {
+        "达州银行"
+    }
+
     /// 将原始记录转换为标准交易。
     ///
     /// 关键逻辑：通过共享转换函数统一处理收支分类、账户选择和元数据注入，
@@ -75,6 +79,6 @@ impl Provider for DzccbProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 委托共享转换逻辑，避免不同银行重复实现现金流转换流程。
-        transform_cashflow_record(self.name(), DZCCB_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(self.name(), self.display_name(), DZCCB_OPTIONS, record, rule_engine, config)
     }
 }

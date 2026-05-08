@@ -31,6 +31,7 @@ use super::{
 pub(crate) fn transform_cashflow_record(
     // 统一使用 Provider trait 的 `name()` 结果作为 metadata 命名空间。
     provider_name: &str,
+    display_name: &str,
     options: CashflowTransformOptions,
     record: RawRecord,
     rule_engine: &RuleEngine,
@@ -109,13 +110,8 @@ pub(crate) fn transform_cashflow_record(
 
     tx = append_order_id(tx, provider_name, reference);
     tx = append_extra_metadata(tx, provider_name, extra);
-    tx = apply_match_result(
-        tx,
-        provider_name,
-        &match_result,
-        payee,
-        config.name.as_deref(),
-    );
+    let source_label = config.name.as_deref().unwrap_or(display_name);
+    tx = apply_match_result(tx, provider_name, &match_result, payee, source_label);
 
     Ok(Some(tx))
 }
@@ -151,7 +147,7 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record("ccb", TEST_OPTIONS, record, &rule_engine, &config)
+        let tx = transform_cashflow_record("ccb", "建设银行", TEST_OPTIONS, record, &rule_engine, &config)
             .expect("cashflow transform should succeed")
             .expect("record should not be ignored");
 
@@ -185,7 +181,7 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record("ccb", TEST_OPTIONS, record, &rule_engine, &config)
+        let tx = transform_cashflow_record("ccb", "建设银行", TEST_OPTIONS, record, &rule_engine, &config)
             .expect("cashflow transform should succeed")
             .expect("record should not be ignored");
 
@@ -217,7 +213,7 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record("ccb", TEST_OPTIONS, record, &rule_engine, &config)
+        let tx = transform_cashflow_record("ccb", "建设银行", TEST_OPTIONS, record, &rule_engine, &config)
             .expect("cashflow transform should succeed")
             .expect("record should not be ignored");
 
