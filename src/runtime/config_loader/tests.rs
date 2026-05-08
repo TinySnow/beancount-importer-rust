@@ -60,6 +60,7 @@ fn load_normalizes_provider_name_before_resolving_paths() {
         source: PathBuf::from("dummy.csv"),
         config: PathBuf::from("__missing__.yml"),
         global_config: None,
+        mapping: None,
         output: None,
         log_level: LogLevel::Warn,
         quiet: false,
@@ -96,6 +97,7 @@ fn load_field_mapping_falls_back_to_categorized_layout() {
     let provider = ProviderConfig::default();
 
     let mapping = load_field_mapping(
+        None,
         &provider,
         "wechat",
         Path::new("config/third_party/wechat.yml"),
@@ -105,21 +107,22 @@ fn load_field_mapping_falls_back_to_categorized_layout() {
 }
 
 #[test]
-fn load_field_mapping_does_not_support_flat_mapping_legacy_path() {
-    // 去兼容化后，旧平铺路径 mapping/<provider>.yml 不再自动扩展到分层目录。
+fn load_field_mapping_falls_back_to_embedded_when_file_missing() {
+    // mapping_file 指向的路径不存在时，应回退到内嵌 mapping 而非报错。
     let provider = ProviderConfig {
-        mapping_file: Some("mapping/wechat.yml".to_string()),
+        mapping_file: Some("mapping/nonexistent.yml".to_string()),
         ..ProviderConfig::default()
     };
 
     let result = load_field_mapping(
+        None,
         &provider,
         "wechat",
         Path::new("config/third_party/wechat.yml"),
     );
     assert!(
-        result.is_err(),
-        "legacy flat mapping path should no longer be accepted"
+        result.is_ok(),
+        "should fall back to embedded mapping when file is missing"
     );
 }
 
@@ -166,17 +169,17 @@ fn keeps_windows_unc_inventory_seed_paths_unchanged() {
 }
 
 #[test]
-fn load_field_mapping_does_not_support_legacy_src_mapping_prefix() {
-    // 去兼容化后，src/mapping/* 旧前缀不再自动替换为 mapping/*。
+fn load_field_mapping_falls_back_to_embedded_for_legacy_prefix() {
+    // 即使 mapping_file 使用旧 src/mapping/* 前缀，文件不存在时也应回退内嵌 mapping。
     let provider = ProviderConfig {
         mapping_file: Some("src/mapping/yinhe.yml".to_string()),
         ..ProviderConfig::default()
     };
 
-    let result = load_field_mapping(&provider, "yinhe", &PathBuf::from("config/galaxy.yml"));
+    let result = load_field_mapping(None, &provider, "yinhe", &PathBuf::from("config/galaxy.yml"));
     assert!(
-        result.is_err(),
-        "legacy src/mapping prefix should no longer be accepted"
+        result.is_ok(),
+        "should fall back to embedded mapping when legacy prefix file is missing"
     );
 }
 

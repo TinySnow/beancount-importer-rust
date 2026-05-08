@@ -1,5 +1,4 @@
 name: "微信"
-mapping_file: "mapping/third_party/wechat.yml"
 
 default:
   asset_account: "Assets:Wallet:WeChat:Balance"

@@ -1,5 +1,4 @@
 name: "美团"
-mapping_file: "mapping/third_party/mt.yml"
 
 default:
   asset_account: "Assets:Wallet:Meituan:Balance"

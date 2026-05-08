@@ -1,5 +1,4 @@
 name: "工商银行（基础示例）"
-mapping_file: "mapping/banks/icbc.yml"
 
 default:
   asset_account: "Assets:Bank:ICBC:Checking"

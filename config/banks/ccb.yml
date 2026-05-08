@@ -1,5 +1,4 @@
 name: "建设银行"
-mapping_file: "mapping/banks/ccb.yml"
 
 default:
   asset_account: "Assets:Bank:CCB:Checking"

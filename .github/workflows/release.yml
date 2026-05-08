@@ -58,7 +58,7 @@ jobs:
 
           cp "target/${TARGET}/release/${APP_NAME}${BINARY_EXT}" "dist/${BUNDLE}/"
           cp README.md LICENSE "dist/${BUNDLE}/"
-          cp -R config mapping "dist/${BUNDLE}/"
+          cp -R config "dist/${BUNDLE}/"
 
           tar -C dist -czf "dist/${BUNDLE}.tar.gz" "${BUNDLE}"
 
@@ -74,7 +74,6 @@ jobs:
           Copy-Item "target/$target/release/$env:APP_NAME.exe" "dist/$bundle/"
           Copy-Item README.md, LICENSE "dist/$bundle/"
           Copy-Item config -Destination "dist/$bundle/config" -Recurse
-          Copy-Item mapping -Destination "dist/$bundle/mapping" -Recurse
 
           Compress-Archive -Path "dist/$bundle/*" -DestinationPath "dist/$bundle.zip"
 

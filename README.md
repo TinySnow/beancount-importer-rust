@@ -112,6 +112,7 @@ output:
 - `-s, --source <SOURCE>`：账单文件路径（CSV/XLSX）。
 - `-c, --config <CONFIG>`：provider 配置路径。
 - `-g, --global-config <GLOBAL_CONFIG>`：全局配置路径。
+- `-m, --mapping <MAPPING>`：覆盖字段映射文件（可选；未设置时自动使用内嵌 mapping）。
 - `-o, --output <OUTPUT>`：输出文件路径（不填则输出到 stdout）。
 - `--log-level <LEVEL>`：`error/warn/info/debug/trace`。
 - `-q, --quiet`：等价 `--log-level error`。
@@ -123,9 +124,9 @@ output:
 运行时按以下顺序加载：
 1. 全局配置 `--global-config`（未显式指定时尝试 `config/global.yml`）。
 2. provider 配置 `--config`（不存在时优先尝试 `config/<category>/<provider>.yml`）。
-3. 字段映射 `mapping_file`（若是相对路径，优先相对 provider 配置文件所在目录解析）。
-4. 未指定 `mapping_file` 时，优先尝试 `mapping/<category>/<provider>.yml`。
-5. 若第 4 步仍未命中，且 provider 属于内置供应商，则回退到可执行文件内嵌的默认 mapping。
+3. 字段映射：优先检查 `--mapping`，其次检查 provider 配置中的 `mapping_file`，再次尝试分层路径 `mapping/<category>/<provider>.yml`。
+4. 若以上均未命中，回退到编译期内嵌 mapping（仅内置供应商）。
+5. 若仍找不到 mapping 文件，视为错误退出。
 
 补充：provider 默认值会覆盖 global；provider 未设置的字段回退到 global。
 

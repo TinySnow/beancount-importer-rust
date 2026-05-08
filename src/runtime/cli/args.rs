@@ -86,6 +86,13 @@ pub struct Cli {
     #[arg(short, long)]
     pub global_config: Option<PathBuf>,
 
+    /// 字段映射文件路径（可选）。
+    ///
+    /// 用于覆盖内置 mapping；未设置时自动使用编译期内嵌映射。
+    /// 支持 CSV 列名 -> 标准字段的显式映射配置。
+    #[arg(short = 'm', long)]
+    pub mapping: Option<PathBuf>,
+
     /// 输出文件路径（可选）。
     ///
     /// 未设置时默认输出到标准输出（stdout）。

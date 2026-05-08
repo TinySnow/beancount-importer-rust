@@ -1,5 +1,4 @@
 name: "银河证券"
-mapping_file: "mapping/securities/yinhe.yml"
 
 default:
   asset_account: "Assets:Broker:Galaxy:Securities"

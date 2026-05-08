@@ -1,5 +1,4 @@
 name: "富途"
-mapping_file: "mapping/securities/futu.yml"
 
 default:
   asset_account: "Assets:Broker:Futu:Securities"

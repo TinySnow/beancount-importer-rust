@@ -11,29 +11,41 @@ include!(concat!(env!("OUT_DIR"), "/embedded_mappings.rs"));
 
 /// 加载字段映射配置。
 ///
-/// 规则：
-/// - 若供应商显式配置 `mapping_file`，优先使用；
-/// - 否则按分层约定路径 `mapping/{banks|securities|third_party}/{provider}.yml` 尝试；
-/// - 支持以 `config_base_path` 为基准解析相对路径。
+/// 优先级（从高到低）：
+/// 1. CLI `--mapping` 显式指定；
+/// 2. provider 配置中的 `mapping_file` 字段；
+/// 3. 分层约定路径 `mapping/{banks|securities|third_party}/{provider}.yml`；
+/// 4. 编译期内嵌 mapping（仅内置供应商）。
+///
+/// 内嵌 mapping 始终作为最终回退，不受 `mapping_file` 是否设置影响。
 pub(super) fn load_field_mapping(
+    cli_mapping: Option<&Path>,
     provider_config: &ProviderConfig,
     provider_name: &str,
     config_base_path: &Path,
 ) -> Result<FieldMapping> {
+    // 1. CLI --mapping 最高优先级
+    if let Some(cli_path) = cli_mapping {
+        info!("Loading field mapping from CLI: {}", cli_path.display());
+        return load_yaml_file(cli_path, "field mapping");
+    }
+
+    // 2. 收集候选路径：provider 显式 mapping_file + 分层约定路径
     let mut candidate_paths = Vec::new();
 
     if let Some(mapping_file) = &provider_config.mapping_file {
         let configured_path = PathBuf::from(mapping_file);
         candidate_paths.extend(resolve_candidate_paths(&configured_path, config_base_path));
-    } else {
-        for candidate in provider_mapping_fallback_paths(provider_name) {
-            candidate_paths.extend(resolve_candidate_paths(&candidate, config_base_path));
-        }
+    }
+
+    for candidate in provider_mapping_fallback_paths(provider_name) {
+        candidate_paths.extend(resolve_candidate_paths(&candidate, config_base_path));
     }
 
     // 候选路径大小写不敏感去重，避免重复尝试。
     deduplicate_paths(&mut candidate_paths);
 
+    // 3. 尝试文件系统路径
     for path in &candidate_paths {
         if path.exists() {
             info!("Loading field mapping: {}", path.display());
@@ -41,14 +53,13 @@ pub(super) fn load_field_mapping(
         }
     }
 
-    if provider_config.mapping_file.is_none() {
-        if let Some(mapping) = load_embedded_field_mapping(provider_name)? {
-            info!(
-                "Loading embedded field mapping for provider '{}'",
-                provider_name
-            );
-            return Ok(mapping);
-        }
+    // 4. 内嵌 mapping 始终作为最终回退
+    if let Some(mapping) = load_embedded_field_mapping(provider_name)? {
+        info!(
+            "Loading embedded field mapping for provider '{}'",
+            provider_name
+        );
+        return Ok(mapping);
     }
 
     let tried_paths = candidate_paths

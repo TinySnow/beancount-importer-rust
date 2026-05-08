@@ -1,5 +1,4 @@
 name: "支付宝（高级示例）"
-mapping_file: "mapping/third_party/alipay.yml"
 
 default:
   asset_account: "Assets:Wallet:Alipay:Balance"

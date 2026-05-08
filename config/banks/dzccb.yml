@@ -1,5 +1,4 @@
 name: "达州银行"
-mapping_file: "mapping/banks/dzccb.yml"
 
 default:
   asset_account: "Assets:Bank:DZCCB:Checking"

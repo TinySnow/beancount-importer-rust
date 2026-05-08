@@ -1,5 +1,4 @@
 name: "京东（高级示例）"
-mapping_file: "mapping/third_party/jd.yml"
 
 default:
   asset_account: "Assets:Wallet:JD:Balance"
