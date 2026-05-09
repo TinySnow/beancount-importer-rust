@@ -33,13 +33,13 @@ use std::hash::{Hash, Hasher};
 /// assert_eq!(normalize_metadata_key("alipay", "交易分类"), "txType");
 /// assert_eq!(normalize_metadata_key("futu", "交易分类"), "txType");
 /// ```
-pub fn normalize_metadata_key(provider: &str, raw_key: &str) -> String {
+pub fn normalize_metadata_key(_provider: &str, raw_key: &str) -> String {
     let key = raw_key.trim();
     if key.is_empty() {
         return "meta".to_string();
     }
 
-    if let Some(mapped) = map_key(provider, key) {
+    if let Some(mapped) = map_key(key) {
         return mapped.to_string();
     }
 
@@ -74,7 +74,7 @@ pub fn ensure_beancount_metadata_key(raw_key: &str) -> String {
 }
 
 /// 对常见供应商字段进行语义映射，返回规范化的英文键名。
-fn map_key(_provider: &str, raw_key: &str) -> Option<&'static str> {
+fn map_key(raw_key: &str) -> Option<&'static str> {
     match raw_key {
         "交易状态" | "状态" => return Some("status"),
         "来源" | "交易来源" => return Some("source"),

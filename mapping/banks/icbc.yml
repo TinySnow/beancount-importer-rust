@@ -8,7 +8,6 @@ date: "交易日期"
 payee: "对方户名"
 narration: "交易场所"
 currency: "记账币种"
-reference: "对方账户"
 
 date_formats:
   - "%Y-%m-%d"

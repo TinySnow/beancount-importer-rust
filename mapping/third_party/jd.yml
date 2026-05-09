@@ -10,7 +10,7 @@ amount:
   transform: abs
 
 status: "交易状态"
-reference: "交易单号"
+reference: "交易订单号"
 
 date_formats:
   - "%Y-%m-%d %H:%M:%S"

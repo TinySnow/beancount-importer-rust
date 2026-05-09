@@ -6,7 +6,6 @@ date: "交易日期"
 payee: "对方户名"
 narration: "交易地点"
 currency: "币种"
-reference: "对方账号"
 
 date_formats:
   - "%Y-%m-%d %H:%M:%S"

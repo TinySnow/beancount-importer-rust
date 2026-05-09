@@ -43,10 +43,23 @@ impl TabularRecordReader {
         info!("Detected spreadsheet input, using workbook reader");
 
         let mut workbook = open_workbook_auto(path).map_err(|error| {
+            let hint = if path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("xls"))
+                .unwrap_or(false)
+            {
+                "\n  Hint: this file may be an HTML export disguised as .xls. \
+                 Try opening it in Excel/WPS and saving as .xlsx, \
+                 or use the .xlsx version if available."
+            } else {
+                ""
+            };
             ImporterError::Config(format!(
-                "Failed to open spreadsheet file '{}': {}",
+                "Failed to open spreadsheet file '{}': {}{}",
                 path.display(),
-                error
+                error,
+                hint
             ))
         })?;
 
@@ -202,16 +215,99 @@ impl TabularRecordReader {
         score
     }
 
+    /// 将科学计数法字符串中代表整数的值还原为完整数字。
+    ///
+    /// 仅对含 `E`/`e` 且解析后无小数部分的有限浮点数生效。
+    /// 常规字符串不受影响。
+    fn normalize_scientific_integer_string(s: &str) -> Option<String> {
+        if !s.contains(['E', 'e']) {
+            return None;
+        }
+        let value: f64 = s.parse().ok()?;
+        if value.is_finite() && value.fract() == 0.0 {
+            Some(format!("{:.0}", value))
+        } else {
+            None
+        }
+    }
+
     /// 规范化电子表格单元格文本。
     ///
     /// 对日期时间序列值会先转为可读字符串，避免后续映射阶段再感知底层类型。
+    /// 对整数型浮点值（如 11 位以上的产品账号）会用精确整数格式写出，
+    /// 避免默认 Display 产生的科学计数法导致精度丢失。
     fn normalize_spreadsheet_cell(cell: &Data) -> String {
         match cell {
             Data::DateTime(datetime) => format_excel_datetime_serial(datetime.as_f64()),
             Data::DateTimeIso(value) | Data::DurationIso(value) | Data::String(value) => {
-                value.trim().to_string()
+                let trimmed = value.trim();
+                // XLSX 中将大整数存为文本时可能以科学计数法写出
+                // （如 "2.40599E+11"），此处还原为完整整数格式。
+                if let Some(normalized) = Self::normalize_scientific_integer_string(trimmed) {
+                    return normalized;
+                }
+                trimmed.to_string()
             }
+            Data::Float(value) => {
+                let value = *value;
+                // 对无小数部分的有限浮点数按整数写出，避免“产品账号”等
+                // 大整数被 calamine 的默认 Display 以科学计数法截断。
+                if value.fract() == 0.0 && value.is_finite() {
+                    format!("{:.0}", value)
+                } else {
+                    value.to_string()
+                }
+            }
+            Data::Int(value) => value.to_string(),
             _ => cell.to_string().trim().to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use calamine::Data;
+
+    use super::TabularRecordReader;
+
+    #[test]
+    fn large_integer_float_formatted_without_scientific_notation() {
+        // 模拟产品账号/订单号等 12 位整数值
+        let cell = Data::Float(240599141221.0);
+        let result = TabularRecordReader::normalize_spreadsheet_cell(&cell);
+        assert_eq!(result, "240599141221");
+
+        // 更小的整数不受影响
+        let cell = Data::Float(100.0);
+        let result = TabularRecordReader::normalize_spreadsheet_cell(&cell);
+        assert_eq!(result, "100");
+    }
+
+    #[test]
+    fn fraction_float_keeps_decimal() {
+        let cell = Data::Float(3.14);
+        let result = TabularRecordReader::normalize_spreadsheet_cell(&cell);
+        assert_eq!(result, "3.14");
+    }
+
+    #[test]
+    fn string_scientific_notation_integer_normalized() {
+        let cell = Data::String("2.40599E+11".to_string());
+        let result = TabularRecordReader::normalize_spreadsheet_cell(&cell);
+        assert_eq!(result, "240599000000");
+    }
+
+    #[test]
+    fn string_without_scientific_notation_passes_through() {
+        let cell = Data::String("240599141221".to_string());
+        let result = TabularRecordReader::normalize_spreadsheet_cell(&cell);
+        assert_eq!(result, "240599141221");
+    }
+
+    #[test]
+    fn string_scientific_fraction_passes_through() {
+        let cell = Data::String("1.5E+2".to_string());
+        let result = TabularRecordReader::normalize_spreadsheet_cell(&cell);
+        assert_eq!(result, "150");
     }
 }
