@@ -111,8 +111,7 @@ pub(super) fn build_cash_transfer_transaction(
 
     tx = append_order_id(tx, provider_name, reference);
     tx = append_extra_metadata(tx, provider_name, extra);
-    let source_label = config.name.as_deref().unwrap_or(display_name);
-    tx = apply_match_result(tx, provider_name, match_result, payee.or(transaction_type), source_label);
+    tx = apply_match_result(tx, provider_name, match_result, payee.or(transaction_type), display_name);
 
     Ok(tx)
 }

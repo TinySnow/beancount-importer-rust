@@ -241,8 +241,7 @@ fn build_yinhe_interest_rollover_transaction(
     // 对齐共享转换产物，统一补充订单号、扩展元数据与规则引擎动作结果。
     tx = append_order_id(tx, provider_name, record.reference.take());
     tx = append_extra_metadata(tx, provider_name, record.extra);
-    let source_label = config.name.as_deref().unwrap_or(display_name);
-    tx = apply_match_result(tx, provider_name, &match_result, record.payee.or_else(|| Some(YINHE_OPTIONS.default_payee.to_string())), source_label);
+    tx = apply_match_result(tx, provider_name, &match_result, record.payee.or_else(|| Some(YINHE_OPTIONS.default_payee.to_string())), display_name);
 
     Ok(Some(tx))
 }

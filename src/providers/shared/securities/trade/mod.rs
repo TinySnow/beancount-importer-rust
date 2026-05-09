@@ -167,8 +167,7 @@ pub(super) fn build_security_trade_transaction(
 
     tx = append_order_id(tx, provider_name, reference);
     tx = append_extra_metadata(tx, provider_name, extra);
-    let source_label = config.name.as_deref().unwrap_or(display_name);
-    tx = apply_match_result(tx, provider_name, match_result, payee.or_else(|| Some(options.default_payee.to_string())), source_label);
+    tx = apply_match_result(tx, provider_name, match_result, payee.or_else(|| Some(options.default_payee.to_string())), display_name);
 
     Ok(tx)
 }
