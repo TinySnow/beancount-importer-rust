@@ -197,6 +197,25 @@ cargo fmt --check
 cargo test --quiet
 ```
 
-## 10. License
+## 10. 预算旁线（非侵入）
+
+项目提供独立二进制 `budget_report`，用于按月统计预算执行：
+
+```bash
+cargo run --bin budget_report -- \
+  --ledger tmp/output/out-alipay.beancount \
+  --month 2026-05 \
+  --budgets budget/budgets.yaml \
+  --mappings budget/mappings.yaml
+```
+
+预算归属优先级：
+1. 交易 metadata：`budget: "bucket"`
+2. 默认映射：`budget/mappings.yaml`（账户前缀，最长匹配）
+
+详情见：
+- [budget/README.md](budget/README.md)
+
+## 11. License
 
 MIT
