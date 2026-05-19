@@ -81,6 +81,13 @@ impl Provider for CcbProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 统一走共享现金流转换流程，保证银行类 Provider 行为一致。
-        transform_cashflow_record(self.name(), self.display_name(), CCB_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(
+            self.name(),
+            self.display_name(),
+            CCB_OPTIONS,
+            record,
+            rule_engine,
+            config,
+        )
     }
 }

@@ -241,7 +241,15 @@ fn build_yinhe_interest_rollover_transaction(
     // 对齐共享转换产物，统一补充订单号、扩展元数据与规则引擎动作结果。
     tx = append_order_id(tx, provider_name, record.reference.take());
     tx = append_extra_metadata(tx, provider_name, record.extra);
-    tx = apply_match_result(tx, provider_name, &match_result, record.payee.or_else(|| Some(YINHE_OPTIONS.default_payee.to_string())), display_name);
+    tx = apply_match_result(
+        tx,
+        provider_name,
+        &match_result,
+        record
+            .payee
+            .or_else(|| Some(YINHE_OPTIONS.default_payee.to_string())),
+        display_name,
+    );
 
     Ok(Some(tx))
 }
@@ -289,7 +297,14 @@ impl Provider for YinheProvider {
 
         // 常规证券流水在进入共享层前做一次银河术语归一化。
         let record = normalize_yinhe_record(record);
-        transform_security_record(self.name(), self.display_name(), YINHE_OPTIONS, record, rule_engine, config)
+        transform_security_record(
+            self.name(),
+            self.display_name(),
+            YINHE_OPTIONS,
+            record,
+            rule_engine,
+            config,
+        )
     }
 }
 

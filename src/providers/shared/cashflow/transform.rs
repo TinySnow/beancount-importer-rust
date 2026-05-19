@@ -146,9 +146,16 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record("ccb", "建设银行", TEST_OPTIONS, record, &rule_engine, &config)
-            .expect("cashflow transform should succeed")
-            .expect("record should not be ignored");
+        let tx = transform_cashflow_record(
+            "ccb",
+            "建设银行",
+            TEST_OPTIONS,
+            record,
+            &rule_engine,
+            &config,
+        )
+        .expect("cashflow transform should succeed")
+        .expect("record should not be ignored");
 
         let currencies: Vec<String> = tx
             .postings
@@ -180,9 +187,16 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record("ccb", "建设银行", TEST_OPTIONS, record, &rule_engine, &config)
-            .expect("cashflow transform should succeed")
-            .expect("record should not be ignored");
+        let tx = transform_cashflow_record(
+            "ccb",
+            "建设银行",
+            TEST_OPTIONS,
+            record,
+            &rule_engine,
+            &config,
+        )
+        .expect("cashflow transform should succeed")
+        .expect("record should not be ignored");
 
         let currencies: Vec<String> = tx
             .postings
@@ -212,9 +226,16 @@ mod tests {
         let provider_rules: [Rule; 0] = [];
         let rule_engine = RuleEngine::new(&provider_rules, &global);
 
-        let tx = transform_cashflow_record("ccb", "建设银行", TEST_OPTIONS, record, &rule_engine, &config)
-            .expect("cashflow transform should succeed")
-            .expect("record should not be ignored");
+        let tx = transform_cashflow_record(
+            "ccb",
+            "建设银行",
+            TEST_OPTIONS,
+            record,
+            &rule_engine,
+            &config,
+        )
+        .expect("cashflow transform should succeed")
+        .expect("record should not be ignored");
 
         let currencies: Vec<String> = tx
             .postings

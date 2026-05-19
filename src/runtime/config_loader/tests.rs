@@ -176,7 +176,12 @@ fn load_field_mapping_falls_back_to_embedded_for_legacy_prefix() {
         ..ProviderConfig::default()
     };
 
-    let result = load_field_mapping(None, &provider, "yinhe", &PathBuf::from("config/galaxy.yml"));
+    let result = load_field_mapping(
+        None,
+        &provider,
+        "yinhe",
+        &PathBuf::from("config/galaxy.yml"),
+    );
     assert!(
         result.is_ok(),
         "should fall back to embedded mapping when legacy prefix file is missing"

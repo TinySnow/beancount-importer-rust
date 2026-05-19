@@ -78,6 +78,13 @@ impl Provider for WechatProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 复用共享转换实现，保持第三方支付 Provider 行为一致。
-        transform_cashflow_record(self.name(), self.display_name(), WECHAT_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(
+            self.name(),
+            self.display_name(),
+            WECHAT_OPTIONS,
+            record,
+            rule_engine,
+            config,
+        )
     }
 }

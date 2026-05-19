@@ -81,8 +81,12 @@ pub fn load(cli: &Cli) -> Result<LoadedConfig> {
         .or(Some(cli.config.as_path()))
         .unwrap_or_else(|| Path::new("."));
 
-    let field_mapping =
-        mapping::load_field_mapping(cli.mapping.as_deref(), &provider_config, &normalized_provider, mapping_base_path)?;
+    let field_mapping = mapping::load_field_mapping(
+        cli.mapping.as_deref(),
+        &provider_config,
+        &normalized_provider,
+        mapping_base_path,
+    )?;
 
     Ok(LoadedConfig {
         global: global_config,

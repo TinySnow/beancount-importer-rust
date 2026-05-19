@@ -77,6 +77,13 @@ impl Provider for IcbcProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 复用共享转换实现，减少银行 Provider 之间的逻辑分叉。
-        transform_cashflow_record(self.name(), self.display_name(), ICBC_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(
+            self.name(),
+            self.display_name(),
+            ICBC_OPTIONS,
+            record,
+            rule_engine,
+            config,
+        )
     }
 }

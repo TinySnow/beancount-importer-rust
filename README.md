@@ -199,19 +199,24 @@ cargo test --quiet
 
 ## 10. 预算旁线（非侵入）
 
-项目提供独立二进制 `budget_report`，用于按月统计预算执行：
+项目提供独立二进制 `budget_report`，支持月度/累计预算统计、预算桶历史查询、资产类预算桶位置追踪：
 
 ```bash
 cargo run --bin budget_report -- \
   --ledger tmp/output/out-alipay.beancount \
-  --month 2026-05 \
-  --budgets budget/budgets.yaml \
-  --mappings budget/mappings.yaml
+  --month 2026-06 \
+  --scope month
 ```
 
+常用查询：
+1. 累计预算结余：`--scope cumulative`
+2. 指定预算桶历史：`--bucket 旅行 --bucket-view summary|monthly|detail`
+3. 资产类预算桶位置：`--bucket 储蓄 --show-locations`
+
 预算归属优先级：
-1. 交易 metadata：`budget: "bucket"`
-2. 默认映射：`budget/mappings.yaml`（账户前缀，最长匹配）
+1. 交易 metadata：`budget: "预算桶名"`
+2. 默认映射：`budget/mappings.yaml` 的 `defaults`（账户前缀，最长匹配）
+3. 未标注 `Expenses:*` 自动归入 `default_expense_bucket`（默认 `生活费`）
 
 详情见：
 - [budget/README.md](budget/README.md)

@@ -352,7 +352,10 @@ securities_accounts:
 "#;
 
         let result = serde_yaml::from_str::<ProviderConfig>(yaml);
-        assert!(result.is_err(), "legacy securities flat keys should be rejected");
+        assert!(
+            result.is_err(),
+            "legacy securities flat keys should be rejected"
+        );
 
         let legacy_only_yaml = r#"
 default_cash_account: "Assets:Legacy:Cash"
@@ -378,10 +381,7 @@ has_csv_header: false
 "#;
 
         let result = serde_yaml::from_str::<ProviderConfig>(yaml);
-        assert!(
-            result.is_err(),
-            "legacy tabular aliases should be rejected"
-        );
+        assert!(result.is_err(), "legacy tabular aliases should be rejected");
     }
 
     #[test]

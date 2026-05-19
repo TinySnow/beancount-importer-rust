@@ -79,6 +79,13 @@ impl Provider for DzccbProvider {
         config: &ProviderConfig,
     ) -> ImporterResult<Option<Transaction>> {
         // 委托共享转换逻辑，避免不同银行重复实现现金流转换流程。
-        transform_cashflow_record(self.name(), self.display_name(), DZCCB_OPTIONS, record, rule_engine, config)
+        transform_cashflow_record(
+            self.name(),
+            self.display_name(),
+            DZCCB_OPTIONS,
+            record,
+            rule_engine,
+            config,
+        )
     }
 }

@@ -45,10 +45,7 @@ pub(crate) fn apply_match_result(
         tx = tx.with_meta(normalized_key, MetaValue::String(value.clone()));
     }
 
-    tx = tx.with_meta(
-        "source",
-        MetaValue::String(source_label.trim().to_string()),
-    );
+    tx = tx.with_meta("source", MetaValue::String(source_label.trim().to_string()));
 
     tx
 }
@@ -88,5 +85,3 @@ pub(crate) fn append_order_id(
 
     tx
 }
-
-
