@@ -11,10 +11,10 @@
 //! # 示例
 //! ```bash
 //! # 基本使用
-//! beancount-importer-rust --config config.toml
+//! beancount-importer-rust --provider alipay --source statement.csv
 //!
 //! # 启用详细日志
-//! beancount-importer-rust --config config.toml --verbose
+//! beancount-importer-rust --provider alipay --source statement.csv --verbose
 //! ```
 //!
 

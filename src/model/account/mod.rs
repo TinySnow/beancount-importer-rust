@@ -1,8 +1,10 @@
-//! 模块说明：账户与分录相关基础模型（金额、成本、价格、过账项）。
+//! 账户与分录基础模型。
 //!
-//! 文件路径：src/model/account/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：amount、cost、posting、price。
+//! 本模块定义会计核心数据结构：
+//! - [`amount::Amount`]：金额（数值 + 币种）；
+//! - [`cost::Cost`]：成本基础（证券买入成本）；
+//! - [`price::Price`]：价格信息；
+//! - [`posting::Posting`]：过账项。
 
 pub mod amount;
 pub mod cost;

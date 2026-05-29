@@ -1,7 +1,5 @@
 //! `config_loader` 模块测试。
 //!
-//! 文件路径：`src/runtime/config_loader/tests.rs`。
-//!
 //! 本文件主要覆盖以下回归场景：
 //! - 供应商名称大小写归一化与配置回退顺序；
 //! - `inventory_seed_files` 的跨平台绝对/相对路径处理；

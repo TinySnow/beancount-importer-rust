@@ -1,8 +1,10 @@
-//! 模块说明：Provider 模块统一导出入口。
+//! Provider 适配器集合。
 //!
-//! 文件路径：src/providers/mod.rs。
-//! 该文件主要承担子模块声明与导出职责。
-//! 关键符号：banks、securities、third_party。
+//! 该模块聚合所有内置供应商实现：
+//! - [`banks`]：银行账单适配器；
+//! - [`securities`]：证券账单适配器；
+//! - [`third_party`]：第三方支付适配器；
+//! - [`shared`]：跨供应商转换逻辑（内部使用）。
 
 pub mod banks;
 pub mod securities;
@@ -13,6 +15,9 @@ use std::sync::Arc;
 
 use crate::interface::provider::Provider;
 
+/// 收集所有内置供应商实例。
+///
+/// 用于初始化全局注册表（`GLOBAL_REGISTRY`）。
 pub fn all_providers() -> Vec<Arc<dyn Provider>> {
     let mut providers = banks::all();
     providers.extend(securities::all());

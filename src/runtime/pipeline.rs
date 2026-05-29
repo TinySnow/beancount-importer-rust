@@ -136,6 +136,8 @@ impl Pipeline {
 }
 
 /// 转换迭代器：惰性遍历原始记录并逐条转换为交易。
+///
+/// 严格模式下，遇到第一个转换错误即停止迭代。
 struct TransformIter<'a> {
     provider: &'a dyn Provider,
     records: std::vec::IntoIter<RawRecord>,

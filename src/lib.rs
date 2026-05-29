@@ -24,7 +24,7 @@
 //!
 //! // 运行导入主流程
 //! if let Err(err) = app(cli) {
-//!     eprintln!("Error: {err:#}");
+//!     eprintln!("Error: {err}");
 //!     std::process::exit(1);
 //! }
 //! ```

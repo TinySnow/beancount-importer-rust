@@ -1,7 +1,5 @@
 //! 运行时配置加载模块。
 //!
-//! 文件路径：`src/runtime/config_loader/mod.rs`。
-//!
 //! 该模块负责在运行时加载并组装三类核心配置：
 //! - 全局配置（[`GlobalConfig`]）
 //! - 供应商配置（[`ProviderConfig`]）
