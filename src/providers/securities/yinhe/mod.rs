@@ -32,13 +32,16 @@
 //! # Ok::<(), beancount_importer_rust::error::ImporterError>(())
 //! ```
 
+use std::path::Path;
+
 use crate::{
     error::{ImporterError, ImporterResult},
-    interface::provider::Provider,
+    interface::provider::{Provider, parse_tabular_source},
     model::{
         account::{amount::Amount, posting::Posting},
         config::provider::ProviderConfig,
         data::raw_record::RawRecord,
+        mapping::field_mapping::FieldMapping,
         rule::rule_engine::RuleEngine,
         transaction::Transaction,
     },
@@ -272,6 +275,16 @@ impl Provider for YinheProvider {
 
     fn display_name(&self) -> &'static str {
         "银河证券"
+    }
+
+    fn parse(
+        &self,
+        path: &Path,
+        mapping: &FieldMapping,
+        config: &ProviderConfig,
+        strict_mode: bool,
+    ) -> ImporterResult<Vec<RawRecord>> {
+        parse_tabular_source(path, mapping, config, strict_mode)
     }
 
     /// 将一条银河原始记录转换为交易。

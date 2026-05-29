@@ -226,7 +226,7 @@ fn load_embedded_field_mapping_returns_none_for_unknown_provider() {
 }
 
 fn mapping_provider_names_on_disk() -> BTreeSet<String> {
-    let mapping_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("mapping");
+    let mapping_root = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/mapping"));
     let mut providers = BTreeSet::new();
 
     collect_provider_names(&mapping_root, &mut providers);

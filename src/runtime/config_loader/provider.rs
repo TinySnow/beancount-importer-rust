@@ -1,9 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
 use log::{info, warn};
 
-use crate::model::config::{global::GlobalConfig, provider::ProviderConfig};
+use crate::{
+    error::ImporterResult,
+    model::config::{global::GlobalConfig, provider::ProviderConfig},
+};
 
 use super::{layout::PROVIDER_CATEGORY_DIRS, yaml::load_yaml_file};
 
@@ -18,7 +20,7 @@ pub(super) fn load_provider_config(
     path: &Path,
     provider_name: &str,
     global_config: &GlobalConfig,
-) -> Result<(ProviderConfig, Option<PathBuf>)> {
+) -> ImporterResult<(ProviderConfig, Option<PathBuf>)> {
     if path.exists() {
         info!("Loading provider config: {}", path.display());
         let mut config: ProviderConfig = load_yaml_file(path, "provider config")?;

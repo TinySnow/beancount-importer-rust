@@ -128,6 +128,42 @@ pub enum ImporterError {
     /// 数值解析错误（通过 `?` 自动由 `rust_decimal::Error` 转换）
     #[error("Decimal parse error: {0}")]
     DecimalParse(#[from] rust_decimal::Error),
+
+    /// 未分类的内部错误，用于包裹带运行时上下文的既有错误。
+    #[error("{0}")]
+    Internal(String),
+}
+
+impl ImporterError {
+    /// 创建未分类的内部错误。
+    ///
+    /// 通常用于包裹带运行时上下文的既有错误，或在无法匹配
+    /// 具体业务变体时作为兜底。
+    pub fn internal(msg: impl Into<String>) -> Self {
+        ImporterError::Internal(msg.into())
+    }
+
+    /// 为当前错误附加一层上游上下文，包裹为 [`Internal`](ImporterError::Internal)。
+    ///
+    /// # 示例
+    /// ```rust
+    /// use beancount_importer_rust::error::ImporterError;
+    ///
+    /// let inner = ImporterError::Io(std::io::Error::new(
+    ///     std::io::ErrorKind::NotFound,
+    ///     "file missing",
+    /// ));
+    /// let wrapped = inner.with_context("Failed to load mapping");
+    ///
+    /// assert!(matches!(wrapped, ImporterError::Internal(_)));
+    /// assert_eq!(
+    ///     wrapped.to_string(),
+    ///     "Failed to load mapping: IO error: file missing"
+    /// );
+    /// ```
+    pub fn with_context(self, msg: impl Into<String>) -> Self {
+        ImporterError::Internal(format!("{}: {self}", msg.into()))
+    }
 }
 
 /**

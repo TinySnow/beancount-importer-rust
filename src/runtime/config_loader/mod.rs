@@ -18,9 +18,8 @@ mod yaml;
 
 use std::path::Path;
 
-use anyhow::Result;
-
 use crate::{
+    error::ImporterResult,
     model::{
         config::{global::GlobalConfig, provider::ProviderConfig},
         mapping::field_mapping::FieldMapping,
@@ -52,8 +51,8 @@ pub struct LoadedConfig {
 ///
 /// # 返回值
 /// - `Ok(LoadedConfig)`：配置全部解析成功。
-/// - `Err(anyhow::Error)`：任一步骤读取或解析失败。
-pub fn load(cli: &Cli) -> Result<LoadedConfig> {
+/// - `Err(ImporterError)`：任一步骤读取或解析失败。
+pub fn load(cli: &Cli) -> ImporterResult<LoadedConfig> {
     let normalized_provider = cli.provider.to_lowercase();
 
     // 先加载全局配置，后续配置合并需要它。

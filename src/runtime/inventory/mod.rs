@@ -6,7 +6,12 @@
 //! - 按 `(账户, 商品)` 维度维护库存 lot；
 //! - 买入分录会注册为可消费 lot；
 //! - 卖出分录按 FIFO 消费库存，并在可匹配时拆分为带明确成本的分录；
-//! - 可从 seed 文件预加载跨期库存状态。
+//! - 可从 seed 文件预加载跨期库存状态（[`seed`] 子模块）。
+//!
+//! # 模块结构
+//! - [`lot_matcher`]：核心 FIFO lot 匹配算法；
+//! - [`lot_apply`]：将匹配结果应用到交易分录；
+//! - [`seed`]：从外部 Beancount 文件回放历史库存。
 
 use std::collections::HashMap;
 
@@ -16,8 +21,7 @@ use crate::model::{account::cost::Cost, transaction::Transaction};
 
 mod lot_apply;
 mod lot_matcher;
-mod seed_loader;
-mod seed_parser;
+pub(crate) mod seed;
 
 #[cfg(test)]
 mod tests;
@@ -65,5 +69,5 @@ pub(crate) fn resolve_inferred_cost_postings_with_inventory(
 ///
 /// 解析失败的文件会被跳过并记录日志，不会中断主流程。
 pub(crate) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState {
-    seed_loader::load_seed_inventory_from_files(paths)
+    seed::load_seed_inventory_from_files(paths)
 }

@@ -38,9 +38,7 @@ pub mod utils;
 
 pub mod runtime;
 
-use anyhow::Result;
-
-use crate::runtime::cli::Cli;
+use crate::{error::ImporterResult, runtime::cli::Cli};
 
 /// 运行导入主流程
 ///
@@ -68,7 +66,7 @@ use crate::runtime::cli::Cli;
 ///     Err(err) => eprintln!("Import failed: {err}"),
 /// }
 /// ```
-pub fn app(cli: Cli) -> Result<()> {
+pub fn app(cli: Cli) -> ImporterResult<()> {
     // 调用内部运行时模块的 run 函数执行实际导入流程
     runtime::run(cli)
 }

@@ -54,7 +54,7 @@ fn main() {
     // 调用核心应用逻辑并处理错误
     if let Err(err) = app(cli) {
         // 打印错误信息到标准错误输出
-        eprintln!("Error: {err:#}");
+        eprintln!("Error: {err}");
         // 以非零退出码退出，指示执行失败
         process::exit(1);
     }

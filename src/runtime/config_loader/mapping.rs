@@ -1,9 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow};
 use log::info;
 
-use crate::model::{config::provider::ProviderConfig, mapping::field_mapping::FieldMapping};
+use crate::{
+    error::{ImporterError, ImporterResult},
+    model::{config::provider::ProviderConfig, mapping::field_mapping::FieldMapping},
+};
 
 use super::{layout::PROVIDER_CATEGORY_DIRS, yaml::load_yaml_file};
 
@@ -23,7 +25,7 @@ pub(super) fn load_field_mapping(
     provider_config: &ProviderConfig,
     provider_name: &str,
     config_base_path: &Path,
-) -> Result<FieldMapping> {
+) -> ImporterResult<FieldMapping> {
     // 1. CLI --mapping 最高优先级
     if let Some(cli_path) = cli_mapping {
         info!("Loading field mapping from CLI: {}", cli_path.display());
@@ -68,11 +70,10 @@ pub(super) fn load_field_mapping(
         .collect::<Vec<_>>()
         .join("\n");
 
-    Err(anyhow!(
+    Err(ImporterError::Config(format!(
         "No field mapping file found for provider '{}'. Tried:\n{}",
-        provider_name,
-        tried_paths
-    ))
+        provider_name, tried_paths
+    )))
 }
 
 /// 生成字段映射候选路径。
@@ -114,17 +115,19 @@ fn deduplicate_paths(paths: &mut Vec<PathBuf>) {
 }
 
 /// 加载内嵌字段映射（仅内置供应商）。
-pub(super) fn load_embedded_field_mapping(provider_name: &str) -> Result<Option<FieldMapping>> {
+pub(super) fn load_embedded_field_mapping(
+    provider_name: &str,
+) -> ImporterResult<Option<FieldMapping>> {
     let Some(yaml) = embedded_mapping_yaml(provider_name) else {
         return Ok(None);
     };
 
     let yaml = yaml.strip_prefix('\u{feff}').unwrap_or(yaml);
-    let mapping = serde_yaml::from_str::<FieldMapping>(yaml).with_context(|| {
-        format!(
+    let mapping = serde_yaml::from_str::<FieldMapping>(yaml).map_err(|e| {
+        ImporterError::Yaml(e).with_context(format!(
             "Failed to parse embedded field mapping for provider '{}'",
             provider_name
-        )
+        ))
     })?;
 
     Ok(Some(mapping))

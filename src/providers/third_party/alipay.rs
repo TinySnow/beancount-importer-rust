@@ -30,12 +30,15 @@
 //! # Ok::<(), beancount_importer_rust::error::ImporterError>(())
 //! ```
 
+use std::path::Path;
+
 use crate::{
     error::ImporterResult,
-    interface::provider::Provider,
+    interface::provider::{Provider, parse_tabular_source},
     model::{
         config::provider::ProviderConfig, data::raw_record::RawRecord,
-        rule::rule_engine::RuleEngine, transaction::Transaction,
+        mapping::field_mapping::FieldMapping, rule::rule_engine::RuleEngine,
+        transaction::Transaction,
     },
     providers::shared::{CashflowTransformOptions, transform_cashflow_record},
 };
@@ -65,6 +68,16 @@ impl Provider for AlipayProvider {
 
     fn display_name(&self) -> &'static str {
         "支付宝"
+    }
+
+    fn parse(
+        &self,
+        path: &Path,
+        mapping: &FieldMapping,
+        config: &ProviderConfig,
+        strict_mode: bool,
+    ) -> ImporterResult<Vec<RawRecord>> {
+        parse_tabular_source(path, mapping, config, strict_mode)
     }
 
     /// 将一条支付宝原始记录转换为交易。

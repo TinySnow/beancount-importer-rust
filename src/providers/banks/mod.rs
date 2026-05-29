@@ -29,3 +29,15 @@
 pub mod ccb;
 pub mod dzccb;
 pub mod icbc;
+
+use std::sync::Arc;
+
+use crate::interface::provider::Provider;
+
+pub fn all() -> Vec<Arc<dyn Provider>> {
+    vec![
+        Arc::new(ccb::CcbProvider),
+        Arc::new(icbc::IcbcProvider),
+        Arc::new(dzccb::DzccbProvider),
+    ]
+}

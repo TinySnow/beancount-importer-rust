@@ -8,3 +8,14 @@ pub mod banks;
 pub mod securities;
 pub(crate) mod shared;
 pub mod third_party;
+
+use std::sync::Arc;
+
+use crate::interface::provider::Provider;
+
+pub fn all_providers() -> Vec<Arc<dyn Provider>> {
+    let mut providers = banks::all();
+    providers.extend(securities::all());
+    providers.extend(third_party::all());
+    providers
+}

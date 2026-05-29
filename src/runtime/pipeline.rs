@@ -6,12 +6,13 @@
 //! - 基于库存种子补全卖出分录推断成本；
 //! - 逐笔收益元数据（PnL）写入。
 //!
-//! 该阶段是“解析输入”与“最终写出”之间的桥接层。
+//! 后处理步骤以可插拔的 `PipelineStage` 组织，可按需跳过（例如银行类供应商无需 PnL 阶段）。
+//! 转换步骤使用迭代器惰性求值，避免批量收集带来的额外内存开销。
 
-use anyhow::{Result, anyhow};
 use log::{debug, info, warn};
 
 use crate::{
+    error::{ImporterError, ImporterResult},
     interface::provider::Provider,
     model::{
         config::provider::ProviderConfig, data::raw_record::RawRecord,
@@ -25,89 +26,180 @@ use super::{
     sorting::sort_transactions_for_output,
 };
 
-/// 将供应商原始记录转换为 Beancount 交易，并执行后处理：
-/// 稳定排序、卖出 lot 成本补全、PnL 元数据标注。
-///
-/// # 参数
-/// - `provider`：当前供应商实现，负责单条记录转换；
-/// - `raw_records`：待转换原始记录列表；
-/// - `rule_engine`：规则引擎；
-/// - `provider_config`：供应商配置；
-/// - `strict_mode`：严格模式开关。
-///
-/// # 返回值
-/// - `Ok(Vec<Transaction>)`：转换成功并完成后处理的交易列表；
-/// - `Err`：严格模式下遇到首条转换错误时立即返回。
-///
-/// # 严格模式行为
-/// - `strict_mode = true`：任一记录转换失败即终止并返回错误；
-/// - `strict_mode = false`：失败记录记日志并跳过，其余记录继续处理。
+/// 后处理阶段函数签名：接收交易切片原地修改。
+pub type PipelineStage = fn(&mut Vec<Transaction>, &ProviderConfig);
+
+/// 导入流水线，持有可插拔的后处理阶段列表。
+pub struct Pipeline {
+    stages: Vec<PipelineStage>,
+}
+
+impl Pipeline {
+    /// 创建包含全部后处理阶段的默认流水线。
+    ///
+    /// 默认包含：稳定排序、库存补全（FIFO lot 匹配）、PnL 元数据标注。
+    #[allow(dead_code)]
+    pub fn default() -> Self {
+        Self {
+            stages: vec![
+                sort_stage,
+                inventory_stage,
+                pnl_stage,
+            ],
+        }
+    }
+
+    /// 创建仅包含排序阶段的轻量流水线（适用于银行/第三方支付类供应商）。
+    #[allow(dead_code)]
+    pub fn cashflow_only() -> Self {
+        Self {
+            stages: vec![sort_stage],
+        }
+    }
+
+    /// 添加一个后处理阶段。
+    #[allow(dead_code)]
+    pub fn add_stage(&mut self, stage: PipelineStage) {
+        self.stages.push(stage);
+    }
+
+    /// 移除匹配名称的阶段（用于禁用某个后处理）。
+    /// 此处通过比较函数指针地址判断，仅用于有条件跳过。
+    #[allow(dead_code)]
+    pub fn without(mut self, excluded: PipelineStage) -> Self {
+        self.stages.retain(|&s| s as usize != excluded as usize);
+        self
+    }
+
+    /// 执行流水线：转换原始记录 -> 应用后处理阶段 -> 返回交易列表。
+    ///
+    /// 转换步骤使用迭代器，惰性求值以避免中间分配。
+    pub fn run(
+        &self,
+        provider: &dyn Provider,
+        raw_records: Vec<RawRecord>,
+        rule_engine: &RuleEngine,
+        provider_config: &ProviderConfig,
+        strict_mode: bool,
+    ) -> ImporterResult<Vec<Transaction>> {
+        let transform_iter = TransformIter {
+            provider,
+            records: raw_records.into_iter(),
+            rule_engine,
+            config: provider_config,
+            strict_mode,
+            index: 0,
+            errored: false,
+        };
+
+        let mut success_count = 0usize;
+        let mut ignored_count = 0usize;
+        let mut error_count = 0usize;
+        let mut transactions = Vec::new();
+
+        for result in transform_iter {
+            match result {
+                Ok(Some(transaction)) => {
+                    success_count += 1;
+                    debug!(
+                        "Record {} transformed: {} {}",
+                        success_count,
+                        transaction.date,
+                        transaction.narration
+                    );
+                    transactions.push(transaction);
+                }
+                Ok(None) => {
+                    ignored_count += 1;
+                }
+                Err(error) => {
+                    error_count += 1;
+                    if strict_mode {
+                        return Err(error);
+                    }
+                    warn!("Record skipped with error: {}", error);
+                }
+            }
+        }
+
+        for stage in &self.stages {
+            stage(&mut transactions, provider_config);
+        }
+
+        info!(
+            "Transformation complete: {} success, {} ignored, {} failed",
+            success_count, ignored_count, error_count
+        );
+
+        Ok(transactions)
+    }
+}
+
+/// 转换迭代器：惰性遍历原始记录并逐条转换为交易。
+struct TransformIter<'a> {
+    provider: &'a dyn Provider,
+    records: std::vec::IntoIter<RawRecord>,
+    rule_engine: &'a RuleEngine<'a>,
+    config: &'a ProviderConfig,
+    strict_mode: bool,
+    index: usize,
+    errored: bool,
+}
+
+impl<'a> Iterator for TransformIter<'a> {
+    type Item = ImporterResult<Option<Transaction>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.errored && self.strict_mode {
+            return None;
+        }
+        self.records.next().map(|raw_record| {
+            self.index += 1;
+            self.provider.transform(raw_record, self.rule_engine, self.config)
+                .map_err(|error| {
+                    self.errored = true;
+                    ImporterError::Conversion(format!(
+                        "Record {} transformation failed in strict mode: {}",
+                        self.index,
+                        error
+                    ))
+                })
+        })
+    }
+}
+
+fn sort_stage(transactions: &mut Vec<Transaction>, _config: &ProviderConfig) {
+    sort_transactions_for_output(transactions);
+}
+
+fn inventory_stage(transactions: &mut Vec<Transaction>, config: &ProviderConfig) {
+    if config.inventory_seed_files.is_empty() {
+        return;
+    }
+    let mut seed_inventory = load_seed_inventory_from_files(&config.inventory_seed_files);
+    resolve_inferred_cost_postings_with_inventory(transactions, &mut seed_inventory);
+}
+
+fn pnl_stage(transactions: &mut Vec<Transaction>, _config: &ProviderConfig) {
+    annotate_trade_profit_metadata(transactions);
+}
+
+/// 便捷入口：创建默认流水线并运行。
 pub(crate) fn transform_records(
     provider: &dyn Provider,
     raw_records: Vec<RawRecord>,
     rule_engine: &RuleEngine,
     provider_config: &ProviderConfig,
     strict_mode: bool,
-) -> Result<Vec<Transaction>> {
-    let mut success_count = 0usize;
-    let mut ignored_count = 0usize;
-    let mut error_count = 0usize;
-    let mut transactions = Vec::new();
-
-    for (index, raw_record) in raw_records.into_iter().enumerate() {
-        match provider.transform(raw_record, rule_engine, provider_config) {
-            Ok(Some(transaction)) => {
-                success_count += 1;
-                debug!(
-                    "Record {} transformed: {} {}",
-                    index + 1,
-                    transaction.date,
-                    transaction.narration
-                );
-                transactions.push(transaction);
-            }
-            Ok(None) => {
-                ignored_count += 1;
-                debug!("Record {} ignored by rule", index + 1);
-            }
-            Err(error) => {
-                error_count += 1;
-
-                if strict_mode {
-                    // 严格模式下保留首个失败上下文，避免继续处理掩盖问题根因。
-                    return Err(anyhow!(
-                        "Record {} transformation failed in strict mode: {}",
-                        index + 1,
-                        error
-                    ));
-                }
-
-                warn!("Record {} skipped with error: {}", index + 1, error);
-            }
-        }
-    }
-
-    // 先做稳定排序，保证多次导入结果顺序一致，便于对账与比对。
-    sort_transactions_for_output(&mut transactions);
-
-    // 写出前补全推断成本（`{}`），避免 Beancount 卖出 lot 匹配产生歧义。
-    let mut seed_inventory = load_seed_inventory_from_files(&provider_config.inventory_seed_files);
-    resolve_inferred_cost_postings_with_inventory(&mut transactions, &mut seed_inventory);
-
-    // 在 lot 补全后写入逐笔收益元数据：grossPnl / feeTotal / netPnl。
-    annotate_trade_profit_metadata(&mut transactions);
-
-    info!(
-        "Transformation complete: {} success, {} ignored, {} failed",
-        success_count, ignored_count, error_count
-    );
-
-    Ok(transactions)
+) -> ImporterResult<Vec<Transaction>> {
+    let pipeline = Pipeline::default();
+    pipeline.run(provider, raw_records, rule_engine, provider_config, strict_mode)
 }
 
 #[cfg(test)]
 mod tests {
     use chrono::NaiveDate;
+    use std::path::Path;
 
     use crate::{
         error::{ImporterError, ImporterResult},
@@ -133,7 +225,7 @@ mod tests {
 
         fn parse(
             &self,
-            _path: &std::path::Path,
+            _path: &Path,
             _mapping: &FieldMapping,
             _config: &ProviderConfig,
             _strict_mode: bool,
@@ -161,7 +253,7 @@ mod tests {
 
         fn parse(
             &self,
-            _path: &std::path::Path,
+            _path: &Path,
             _mapping: &FieldMapping,
             _config: &ProviderConfig,
             _strict_mode: bool,

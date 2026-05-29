@@ -22,3 +22,11 @@
 pub mod futu;
 /// 银河证券账单 Provider。
 pub mod yinhe;
+
+use std::sync::Arc;
+
+use crate::interface::provider::Provider;
+
+pub fn all() -> Vec<Arc<dyn Provider>> {
+    vec![Arc::new(futu::FutuProvider), Arc::new(yinhe::YinheProvider)]
+}

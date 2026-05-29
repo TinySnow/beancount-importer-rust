@@ -32,11 +32,11 @@ use std::{
     io::{self, Write},
 };
 
-use anyhow::{Context, Result};
 use log::{debug, info};
 
 use self::cli::Cli;
 use crate::{
+    error::{ImporterError, ImporterResult},
     model::rule::rule_engine::RuleEngine,
     runtime::{
         config_loader::load, pipeline::transform_records, provider_registry::ProviderRegistry,
@@ -72,7 +72,7 @@ use crate::{
 /// - 解析的记录数量
 /// - 生成的交易数量
 /// - 调试信息（供应商、文件路径等）
-pub fn run(cli: Cli) -> Result<()> {
+pub fn run(cli: Cli) -> ImporterResult<()> {
     // 输出启动信息
     info!("Starting beancount-importer");
     debug!("Provider: {}", cli.provider);
@@ -81,13 +81,15 @@ pub fn run(cli: Cli) -> Result<()> {
 
     // 先验证供应商是否存在，避免后续 mapping 加载错误遮盖真实原因。
     let registry = ProviderRegistry::global();
-    let provider = registry.get(&cli.provider).with_context(|| {
-        format!(
-            "Unknown provider '{}'. Available providers: {:?}",
-            cli.provider,
-            registry.list_providers()
-        )
-    })?;
+    let provider = registry
+        .get(&cli.provider)
+        .ok_or_else(|| {
+            ImporterError::ProviderNotFound(format!(
+                "Unknown provider '{}'. Available providers: {:?}",
+                cli.provider,
+                registry.list_providers()
+            ))
+        })?;
 
     // 加载配置文件
     let loaded = load(&cli)?;
@@ -102,7 +104,7 @@ pub fn run(cli: Cli) -> Result<()> {
     // 解析源文件记录
     let raw_records = provider
         .parse(&cli.source, &loaded.mapping, &loaded.provider, cli.strict)
-        .with_context(|| format!("Failed to parse source file: {}", cli.source.display()))?;
+        .map_err(|e| e.with_context(format!("Failed to parse source file: {}", cli.source.display())))?;
 
     // 输出解析的记录数量
     info!("Parsed {} records", raw_records.len());
@@ -123,8 +125,10 @@ pub fn run(cli: Cli) -> Result<()> {
         Some(path) => {
             info!("Writing output to file: {}", path.display());
             Box::new(
-                fs::File::create(&path)
-                    .with_context(|| format!("Failed to create output file: {}", path.display()))?,
+                fs::File::create(&path).map_err(|e| {
+                    ImporterError::Io(e)
+                        .with_context(format!("Failed to create output file: {}", path.display()))
+                })?,
             )
         }
         None => {

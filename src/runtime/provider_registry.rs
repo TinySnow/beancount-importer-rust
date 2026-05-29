@@ -12,7 +12,7 @@
 //!
 //! # 示例
 //! ```rust
-//! use std::sync::Arc;
+//! use std::{path::Path, sync::Arc};
 //!
 //! use beancount_importer_rust::{
 //!     error::ImporterResult,
@@ -20,6 +20,7 @@
 //!     model::{
 //!         config::provider::ProviderConfig,
 //!         data::raw_record::RawRecord,
+//!         mapping::field_mapping::FieldMapping,
 //!         rule::rule_engine::RuleEngine,
 //!         transaction::Transaction,
 //!     },
@@ -31,6 +32,16 @@
 //! impl Provider for DemoProvider {
 //!     fn name(&self) -> &'static str {
 //!         "demo"
+//!     }
+//!
+//!     fn parse(
+//!         &self,
+//!         _path: &Path,
+//!         _mapping: &FieldMapping,
+//!         _config: &ProviderConfig,
+//!         _strict_mode: bool,
+//!     ) -> ImporterResult<Vec<RawRecord>> {
+//!         Ok(vec![])
 //!     }
 //!
 //!     fn transform(
@@ -57,7 +68,7 @@ use once_cell::sync::Lazy;
 
 use crate::{
     interface::provider::Provider,
-    providers::{banks, securities, third_party},
+    providers,
 };
 
 /// 运行时供应商注册表。
@@ -76,17 +87,9 @@ pub struct ProviderRegistry {
 /// 首次访问时完成惰性初始化，并注册所有内置供应商实现。
 pub static GLOBAL_REGISTRY: Lazy<ProviderRegistry> = Lazy::new(|| {
     let mut registry = ProviderRegistry::new();
-
-    registry.register(Arc::new(third_party::alipay::AlipayProvider));
-    registry.register(Arc::new(third_party::wechat::WechatProvider));
-    registry.register(Arc::new(third_party::jd::JdProvider));
-    registry.register(Arc::new(third_party::mt::MtProvider));
-    registry.register(Arc::new(banks::icbc::IcbcProvider));
-    registry.register(Arc::new(banks::ccb::CcbProvider));
-    registry.register(Arc::new(banks::dzccb::DzccbProvider));
-    registry.register(Arc::new(securities::futu::FutuProvider));
-    registry.register(Arc::new(securities::yinhe::YinheProvider));
-
+    for provider in providers::all_providers() {
+        registry.register(provider);
+    }
     registry
 });
 
@@ -133,7 +136,7 @@ impl ProviderRegistry {
     ///
     /// # 示例
     /// ```rust
-    /// use std::sync::Arc;
+    /// use std::{path::Path, sync::Arc};
     ///
     /// use beancount_importer_rust::{
     ///     error::ImporterResult,
@@ -141,6 +144,7 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
+    ///         mapping::field_mapping::FieldMapping,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
@@ -152,6 +156,16 @@ impl ProviderRegistry {
     /// impl Provider for DemoProvider {
     ///     fn name(&self) -> &'static str {
     ///         "demo"
+    ///     }
+    ///
+    ///     fn parse(
+    ///         &self,
+    ///         _path: &Path,
+    ///         _mapping: &FieldMapping,
+    ///         _config: &ProviderConfig,
+    ///         _strict_mode: bool,
+    ///     ) -> ImporterResult<Vec<RawRecord>> {
+    ///         Ok(vec![])
     ///     }
     ///
     ///     fn transform(
@@ -187,7 +201,7 @@ impl ProviderRegistry {
     ///
     /// # 示例
     /// ```rust
-    /// use std::sync::Arc;
+    /// use std::{path::Path, sync::Arc};
     ///
     /// use beancount_importer_rust::{
     ///     error::ImporterResult,
@@ -195,6 +209,7 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
+    ///         mapping::field_mapping::FieldMapping,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
@@ -206,6 +221,16 @@ impl ProviderRegistry {
     /// impl Provider for DemoProvider {
     ///     fn name(&self) -> &'static str {
     ///         "demo"
+    ///     }
+    ///
+    ///     fn parse(
+    ///         &self,
+    ///         _path: &Path,
+    ///         _mapping: &FieldMapping,
+    ///         _config: &ProviderConfig,
+    ///         _strict_mode: bool,
+    ///     ) -> ImporterResult<Vec<RawRecord>> {
+    ///         Ok(vec![])
     ///     }
     ///
     ///     fn transform(
@@ -240,7 +265,7 @@ impl ProviderRegistry {
     ///
     /// # 示例
     /// ```rust
-    /// use std::sync::Arc;
+    /// use std::{path::Path, sync::Arc};
     ///
     /// use beancount_importer_rust::{
     ///     error::ImporterResult,
@@ -248,6 +273,7 @@ impl ProviderRegistry {
     ///     model::{
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
+    ///         mapping::field_mapping::FieldMapping,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
@@ -260,6 +286,16 @@ impl ProviderRegistry {
     /// impl Provider for BProvider {
     ///     fn name(&self) -> &'static str {
     ///         "B"
+    ///     }
+    ///
+    ///     fn parse(
+    ///         &self,
+    ///         _path: &Path,
+    ///         _mapping: &FieldMapping,
+    ///         _config: &ProviderConfig,
+    ///         _strict_mode: bool,
+    ///     ) -> ImporterResult<Vec<RawRecord>> {
+    ///         Ok(vec![])
     ///     }
     ///
     ///     fn transform(
@@ -275,6 +311,16 @@ impl ProviderRegistry {
     /// impl Provider for AProvider {
     ///     fn name(&self) -> &'static str {
     ///         "a"
+    ///     }
+    ///
+    ///     fn parse(
+    ///         &self,
+    ///         _path: &Path,
+    ///         _mapping: &FieldMapping,
+    ///         _config: &ProviderConfig,
+    ///         _strict_mode: bool,
+    ///     ) -> ImporterResult<Vec<RawRecord>> {
+    ///         Ok(vec![])
     ///     }
     ///
     ///     fn transform(

@@ -5,13 +5,16 @@
 
 use std::{fs, path::Path};
 
-use crate::utils::currency_kind::is_fiat_currency;
-use anyhow::{Context, Result};
 use log::{debug, warn};
 
-use super::lot_matcher::consume_lots;
-use super::seed_parser::{parse_seed_posting_line, parse_seed_transaction_date};
-use super::{InventoryLot, InventoryState};
+use crate::{
+    error::{ImporterError, ImporterResult},
+    utils::currency_kind::is_fiat_currency,
+};
+
+use super::super::lot_matcher::consume_lots;
+use super::parser::{parse_seed_posting_line, parse_seed_transaction_date};
+use super::super::{InventoryLot, InventoryState};
 
 /// 从给定 seed 文件列表加载库存状态。
 ///
@@ -19,7 +22,7 @@ use super::{InventoryLot, InventoryState};
 /// - 某个文件读取或解析失败仅记录 warning；
 /// - 其余文件仍继续处理；
 /// - 最终返回已成功回放得到的库存状态。
-pub(super) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState {
+pub(crate) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState {
     if paths.is_empty() {
         return InventoryState::default();
     }
@@ -46,9 +49,13 @@ pub(super) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState
 /// - 买入（正数量）会新增 lot；
 /// - 卖出（负数量）会按成本约束消费 lot；
 /// - 法币分录与无效分录会被忽略。
-fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> Result<()> {
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read inventory seed file: {}", path.display()))?;
+fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> ImporterResult<()> {
+    let content = fs::read_to_string(path).map_err(|e| {
+        ImporterError::Io(e).with_context(format!(
+            "Failed to read inventory seed file: {}",
+            path.display()
+        ))
+    })?;
 
     let mut current_date: Option<chrono::NaiveDate> = None;
 

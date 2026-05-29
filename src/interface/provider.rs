@@ -5,8 +5,8 @@
 //! 1. `parse`: 输入文件 -> 标准化 [`RawRecord`](crate::model::data::raw_record::RawRecord) 列表。
 //! 2. `transform`: `RawRecord` -> 领域交易 [`Transaction`](crate::model::transaction::Transaction)。
 //!
-//! 默认 `parse` 实现已经封装了 `TabularRecordReader` 的初始化与读取逻辑，
-//! 因此大多数供应商仅需实现 `name` 与 `transform`。
+//! 大多数供应商基于表格文件（CSV/XLSX），可直接调用 [`parse_tabular_source`]
+//! 完成 `parse` 阶段的读取与字段映射。
 //!
 //! # 示例
 //! ```rust,no_run
@@ -14,7 +14,7 @@
 //!
 //! use beancount_importer_rust::{
 //!     error::ImporterResult,
-//!     interface::provider::Provider,
+//!     interface::provider::{Provider, parse_tabular_source},
 //!     model::{
 //!         config::provider::ProviderConfig,
 //!         data::raw_record::RawRecord,
@@ -31,6 +31,16 @@
 //!         "demo"
 //!     }
 //!
+//!     fn parse(
+//!         &self,
+//!         path: &Path,
+//!         mapping: &FieldMapping,
+//!         config: &ProviderConfig,
+//!         strict_mode: bool,
+//!     ) -> ImporterResult<Vec<RawRecord>> {
+//!         parse_tabular_source(path, mapping, config, strict_mode)
+//!     }
+//!
 //!     fn transform(
 //!         &self,
 //!         _record: RawRecord,
@@ -40,12 +50,6 @@
 //!         Ok(None)
 //!     }
 //! }
-//!
-//! # let provider = DemoProvider;
-//! # let mapping = FieldMapping::default();
-//! # let config = ProviderConfig::default();
-//! // 复用 trait 提供的默认 parse 实现。
-//! let _records = provider.parse(Path::new("statement.csv"), &mapping, &config, false)?;
 //! # Ok::<(), beancount_importer_rust::error::ImporterError>(())
 //! ```
 
@@ -60,6 +64,32 @@ use crate::{
     },
     runtime::reader::tabular::TabularRecordReader,
 };
+
+/// 使用表格读取器解析源文件，供基于 CSV/XLSX 的供应商在 `parse()` 中复用。
+///
+/// 该函数封装了 `TabularRecordReader` 的初始化和读取逻辑，
+/// 避免每个供应商重复实现相同的表格解析代码。
+///
+/// # 参数
+/// - `path`: 输入文件路径（CSV/XLS/XLSX 等）。
+/// - `mapping`: 字段映射规则。
+/// - `config`: 供应商配置（含 tabular_options、skip_header_lines 等）。
+/// - `strict_mode`: 严格模式开关。
+pub fn parse_tabular_source(
+    path: &Path,
+    mapping: &FieldMapping,
+    config: &ProviderConfig,
+    strict_mode: bool,
+) -> ImporterResult<Vec<RawRecord>> {
+    let reader = TabularRecordReader::new(
+        config.tabular_options.clone(),
+        config.skip_header_lines,
+        config.has_header_row,
+        strict_mode,
+    );
+
+    reader.read_file(path, Some(mapping))
+}
 
 /// 供应商抽象接口。
 ///
@@ -89,79 +119,23 @@ pub trait Provider: Send + Sync {
     /// 将源数据文件解析为标准化原始记录列表。
     ///
     /// # 参数
-    /// - `path`: 输入文件路径（CSV/XLS/XLSX 等）。
+    /// - `path`: 输入文件路径。
     /// - `mapping`: 字段映射规则，用于将源列映射到标准字段。
-    /// - `config`: 供应商配置（包含表格读取参数、跳过行数等）。
-    /// - `strict_mode`: 严格模式开关，控制读取与映射过程的容错策略。
+    /// - `config`: 供应商配置（含表格读取参数等）。
+    /// - `strict_mode`: 严格模式开关。
     ///
     /// # 返回值
     /// 成功时返回 `Vec<RawRecord>`；失败时返回 `ImporterError`。
     ///
-    /// # 默认实现
-    /// - 根据 `config` 构造 `TabularRecordReader`。
-    /// - 调用 `read_file` 读取并应用 `mapping`。
-    ///
     /// # Errors
-    /// 当文件读取、编码解析、表格解析或字段映射失败时返回错误。
-    ///
-    /// # 示例
-    /// ```rust,no_run
-    /// use std::path::Path;
-    ///
-    /// use beancount_importer_rust::{
-    ///     error::ImporterResult,
-    ///     interface::provider::Provider,
-    ///     model::{
-    ///         config::provider::ProviderConfig,
-    ///         data::raw_record::RawRecord,
-    ///         mapping::field_mapping::FieldMapping,
-    ///         rule::rule_engine::RuleEngine,
-    ///         transaction::Transaction,
-    ///     },
-    /// };
-    ///
-    /// struct DemoProvider;
-    ///
-    /// impl Provider for DemoProvider {
-    ///     fn name(&self) -> &'static str {
-    ///         "demo"
-    ///     }
-    ///
-    ///     fn transform(
-    ///         &self,
-    ///         _record: RawRecord,
-    ///         _rule_engine: &RuleEngine,
-    ///         _config: &ProviderConfig,
-    ///     ) -> ImporterResult<Option<Transaction>> {
-    ///         Ok(None)
-    ///     }
-    /// }
-    ///
-    /// let provider = DemoProvider;
-    /// let mapping = FieldMapping::default();
-    /// let config = ProviderConfig::default();
-    ///
-    /// let _records = provider.parse(Path::new("statement.csv"), &mapping, &config, true)?;
-    /// # Ok::<(), beancount_importer_rust::error::ImporterError>(())
-    /// ```
+    /// 当文件读取、格式解析或字段映射失败时返回错误。
     fn parse(
         &self,
         path: &Path,
         mapping: &FieldMapping,
         config: &ProviderConfig,
         strict_mode: bool,
-    ) -> ImporterResult<Vec<RawRecord>> {
-        // 解析器参数统一从 ProviderConfig 注入，避免不同供应商重复构造读取逻辑。
-        let reader = TabularRecordReader::new(
-            config.tabular_options.clone(),
-            config.skip_header_lines,
-            config.has_header_row,
-            strict_mode,
-        );
-
-        // 传入映射并执行读取：输出统一的 RawRecord，供后续规则与交易转换阶段消费。
-        reader.read_file(path, Some(mapping))
-    }
+    ) -> ImporterResult<Vec<RawRecord>>;
 
     /// 将一条标准化原始记录转换为一笔 Beancount 交易。
     ///
@@ -179,23 +153,35 @@ pub trait Provider: Send + Sync {
     /// ```rust
     /// use beancount_importer_rust::{
     ///     error::ImporterResult,
-    ///     interface::provider::Provider,
+    ///     interface::provider::{Provider, parse_tabular_source},
     ///     model::{
     ///         account::{amount::Amount, posting::Posting},
     ///         config::provider::ProviderConfig,
     ///         data::raw_record::RawRecord,
+    ///         mapping::field_mapping::FieldMapping,
     ///         rule::rule_engine::RuleEngine,
     ///         transaction::Transaction,
     ///     },
     /// };
     /// use chrono::NaiveDate;
     /// use rust_decimal::Decimal;
+    /// use std::path::Path;
     ///
     /// struct DemoProvider;
     ///
     /// impl Provider for DemoProvider {
     ///     fn name(&self) -> &'static str {
     ///         "demo"
+    ///     }
+    ///
+    ///     fn parse(
+    ///         &self,
+    ///         path: &Path,
+    ///         mapping: &FieldMapping,
+    ///         config: &ProviderConfig,
+    ///         strict_mode: bool,
+    ///     ) -> ImporterResult<Vec<RawRecord>> {
+    ///         parse_tabular_source(path, mapping, config, strict_mode)
     ///     }
     ///
     ///     fn transform(

@@ -1,19 +1,26 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Result, anyhow};
 use log::{info, warn};
 
-use crate::model::config::global::GlobalConfig;
+use crate::{
+    error::{ImporterError, ImporterResult},
+    model::config::global::GlobalConfig,
+};
 
 use super::yaml::load_yaml_file;
 
 /// 加载全局配置。
 ///
 /// 当未显式指定路径时，按固定候选路径查找；找不到则使用默认值。
-pub(super) fn load_global_config(path: Option<&Path>) -> Result<(GlobalConfig, Option<PathBuf>)> {
+pub(super) fn load_global_config(
+    path: Option<&Path>,
+) -> ImporterResult<(GlobalConfig, Option<PathBuf>)> {
     if let Some(path) = path {
         if !path.exists() {
-            return Err(anyhow!("Global config path not found: {}", path.display()));
+            return Err(ImporterError::Config(format!(
+                "Global config path not found: {}",
+                path.display()
+            )));
         }
 
         info!("Loading global config: {}", path.display());

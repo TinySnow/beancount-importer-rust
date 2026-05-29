@@ -36,3 +36,16 @@ pub mod alipay;
 pub mod jd;
 pub mod mt;
 pub mod wechat;
+
+use std::sync::Arc;
+
+use crate::interface::provider::Provider;
+
+pub fn all() -> Vec<Arc<dyn Provider>> {
+    vec![
+        Arc::new(alipay::AlipayProvider),
+        Arc::new(wechat::WechatProvider),
+        Arc::new(jd::JdProvider),
+        Arc::new(mt::MtProvider),
+    ]
+}
