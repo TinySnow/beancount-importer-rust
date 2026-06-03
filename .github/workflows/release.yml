@@ -26,10 +26,7 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary_ext: ".exe"
-          - os: macos-13
-            target: x86_64-apple-darwin
-            binary_ext: ""
-          - os: macos-14
+          - os: macos-latest
             target: aarch64-apple-darwin
             binary_ext: ""
 
