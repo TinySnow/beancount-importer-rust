@@ -34,20 +34,11 @@ PRODUCT_PATTERNS = [
 
 
 def clean_product_name(raw: str) -> str:
+    """仅做路径安全替换和英文括号转中文，保留完整的基金产品原名。"""
     name = raw.strip()
-    suffixes = [
-        '联接', '发起式', 'A', 'B', 'C', 'D', 'E',
-        '（QDII）', '(QDII)', '（LOF）', '(LOF)', '（ETF）', '(ETF)',
-        '-卖出至余额宝', '-买入', '-分红', '-转出',
-        '-活动赠送',
-    ]
-    for s in sorted(suffixes, key=len, reverse=True):
-        name = name.replace(s, '')
-    name = name.strip()
-    name = name.replace('/', '-').replace('\\', '-').replace(':', '-').replace('（', '(').replace('）', ')')
-    if len(name) > 30:
-        name = name[:30]
-    return name.strip() or raw[:30]
+    name = name.replace('(', '（').replace(')', '）')
+    name = name.replace('/', '-').replace('\\', '-').replace(':', '-')
+    return name
 
 
 def extract_product(narration: str) -> Optional[str]:
