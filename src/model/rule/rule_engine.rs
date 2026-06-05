@@ -25,7 +25,8 @@
 //! let global_rule = Rule {
 //!     name: Some("global-coffee".to_string()),
 //!     conditions: vec![Condition {
-//!         field: "payee".to_string(),
+//!         field: Some("payee".to_string()),
+//!         fields: None,
 //!         operator: ConditionOperator::Contains("coffee".to_string()),
 //!     }],
 //!     match_mode: Default::default(),
@@ -40,7 +41,8 @@
 //! let provider_rule = Rule {
 //!     name: Some("provider-coffee".to_string()),
 //!     conditions: vec![Condition {
-//!         field: "payee".to_string(),
+//!         field: Some("payee".to_string()),
+//!         fields: None,
 //!         operator: ConditionOperator::Contains("coffee".to_string()),
 //!     }],
 //!     match_mode: Default::default(),
@@ -190,10 +192,10 @@ mod tests {
     fn provider_rules_override_global_rules() {
         let global_rule = Rule {
             name: Some("global".to_string()),
-            conditions: vec![Condition {
-                field: "payee".to_string(),
-                operator: ConditionOperator::Contains("coffee".to_string()),
-            }],
+            conditions: vec![Condition::new_single(
+                "payee",
+                ConditionOperator::Contains("coffee".to_string()),
+            )],
             match_mode: Default::default(),
             action: RuleAction {
                 debit_account: Some("Expenses:Food:Coffee".to_string()),
@@ -205,10 +207,10 @@ mod tests {
 
         let provider_rule = Rule {
             name: Some("provider".to_string()),
-            conditions: vec![Condition {
-                field: "payee".to_string(),
-                operator: ConditionOperator::Contains("coffee".to_string()),
-            }],
+            conditions: vec![Condition::new_single(
+                "payee",
+                ConditionOperator::Contains("coffee".to_string()),
+            )],
             match_mode: Default::default(),
             action: RuleAction {
                 debit_account: Some("Expenses:Coffee:Specialty".to_string()),
@@ -238,12 +240,10 @@ mod tests {
     fn regex_capture_groups_substituted_in_account_fields() {
         let rule = Rule {
             name: Some("fund-product".to_string()),
-            conditions: vec![Condition {
-                field: "item".to_string(),
-                operator: ConditionOperator::Regex(
-                    Regex::new(r"蚂蚁财富-(.+)-买入").expect("valid regex"),
-                ),
-            }],
+            conditions: vec![Condition::new_single(
+                "item",
+                ConditionOperator::Regex(Regex::new(r"蚂蚁财富-(.+)-买入").expect("valid regex")),
+            )],
             match_mode: Default::default(),
             action: RuleAction {
                 debit_account: Some("Assets:Invest:基金:支付宝:{1}".to_string()),

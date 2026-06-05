@@ -5,6 +5,9 @@
 //! - `RawRecord` 的标准强类型字段（如 `amount`、`date`）
 //! - 供应商扩展字段（`RawRecord::extra`）
 //!
+//! 当 `Condition` 通过 `fields` 配置了多个字段时，匹配器会逐字段尝试，
+//! 任一匹配即返回 `true`，正则捕获组取自第一个命中的字段。
+//!
 //! 对数值比较操作符，匹配器优先读取强类型十进制字段，
 //! 并在必要时回退到字符串清洗后解析，提升跨供应商数据兼容性。
 //!
@@ -24,14 +27,8 @@
 //! record.payee = Some("Coffee Shop".to_string());
 //! record.amount = Some(Decimal::from_str_exact("32.50").unwrap());
 //!
-//! let payee_condition = Condition {
-//!     field: "payee".to_string(),
-//!     operator: ConditionOperator::Contains("Coffee".to_string()),
-//! };
-//! let amount_condition = Condition {
-//!     field: "amount".to_string(),
-//!     operator: ConditionOperator::GreaterThan(Decimal::from_str_exact("20").unwrap()),
-//! };
+//! let payee_condition = Condition::new_single("payee", ConditionOperator::Contains("Coffee".to_string()));
+//! let amount_condition = Condition::new_single("amount", ConditionOperator::GreaterThan(Decimal::from_str_exact("20").unwrap()));
 //!
 //! assert!(Matcher::matches(&payee_condition, &record));
 //! assert!(Matcher::matches(&amount_condition, &record));
@@ -61,83 +58,92 @@ impl Matcher {
 
     /// 判断一条记录是否命中一个条件，并收集正则捕获组。
     ///
-    /// 当操作符为 [`ConditionOperator::Regex`] 且命中时，
-    /// 会将所有捕获组（跳过 group 0）按顺序追加到 `captures` 中。
+    /// 当 `Condition` 配置了多个字段时，逐字段尝试，任一命中即返回 `true`。
+    /// 正则捕获组取自第一个命中的字段。
     pub fn matches_with_captures(
         condition: &Condition,
         record: &RawRecord,
         captures: &mut Vec<String>,
     ) -> bool {
-        let field_name = condition.field.as_str();
-        let field_value = Self::field_value(record, field_name);
+        let field_names = condition.field_names();
 
-        match &condition.operator {
-            ConditionOperator::Equals(expected) => field_value
-                .as_deref()
-                .map(|value| value == expected)
-                .unwrap_or(false),
+        for field_name in field_names {
+            let field_value = Self::field_value(record, field_name);
 
-            ConditionOperator::Contains(pattern) => field_value
-                .as_deref()
-                .map(|value| value.contains(pattern))
-                .unwrap_or(false),
+            let matched = match &condition.operator {
+                ConditionOperator::Equals(expected) => field_value
+                    .as_deref()
+                    .map(|value| value == expected)
+                    .unwrap_or(false),
 
-            ConditionOperator::Regex(regex) => match field_value.as_deref() {
-                Some(value) => match regex.captures(value) {
-                    Some(caps) => {
-                        for cap in caps.iter().skip(1).flatten() {
-                            captures.push(cap.as_str().to_string());
+                ConditionOperator::Contains(pattern) => field_value
+                    .as_deref()
+                    .map(|value| value.contains(pattern))
+                    .unwrap_or(false),
+
+                ConditionOperator::Regex(regex) => match field_value.as_deref() {
+                    Some(value) => match regex.captures(value) {
+                        Some(caps) => {
+                            for cap in caps.iter().skip(1).flatten() {
+                                captures.push(cap.as_str().to_string());
+                            }
+                            true
                         }
-                        true
-                    }
+                        None => false,
+                    },
                     None => false,
                 },
-                None => false,
-            },
 
-            ConditionOperator::StartsWith(prefix) => field_value
-                .as_deref()
-                .map(|value| value.starts_with(prefix))
-                .unwrap_or(false),
+                ConditionOperator::StartsWith(prefix) => field_value
+                    .as_deref()
+                    .map(|value| value.starts_with(prefix))
+                    .unwrap_or(false),
 
-            ConditionOperator::EndsWith(suffix) => field_value
-                .as_deref()
-                .map(|value| value.ends_with(suffix))
-                .unwrap_or(false),
+                ConditionOperator::EndsWith(suffix) => field_value
+                    .as_deref()
+                    .map(|value| value.ends_with(suffix))
+                    .unwrap_or(false),
 
-            ConditionOperator::GreaterThan(threshold) => {
-                Self::parse_decimal_field(record, field_name, field_value.as_deref())
-                    .map(|value| value > *threshold)
-                    .unwrap_or(false)
+                ConditionOperator::GreaterThan(threshold) => {
+                    Self::parse_decimal_field(record, field_name, field_value.as_deref())
+                        .map(|value| value > *threshold)
+                        .unwrap_or(false)
+                }
+
+                ConditionOperator::LessThan(threshold) => {
+                    Self::parse_decimal_field(record, field_name, field_value.as_deref())
+                        .map(|value| value < *threshold)
+                        .unwrap_or(false)
+                }
+
+                ConditionOperator::Between { min, max } => {
+                    Self::parse_decimal_field(record, field_name, field_value.as_deref())
+                        .map(|value| value >= *min && value <= *max)
+                        .unwrap_or(false)
+                }
+
+                ConditionOperator::In(values) => field_value
+                    .as_deref()
+                    .map(|value| values.iter().any(|candidate| candidate == value))
+                    .unwrap_or(false),
+
+                ConditionOperator::NotEmpty => field_value
+                    .as_deref()
+                    .map(|value| !value.is_empty())
+                    .unwrap_or(false),
+
+                ConditionOperator::IsEmpty => field_value
+                    .as_deref()
+                    .map(|value| value.is_empty())
+                    .unwrap_or(true),
+            };
+
+            if matched {
+                return true;
             }
-
-            ConditionOperator::LessThan(threshold) => {
-                Self::parse_decimal_field(record, field_name, field_value.as_deref())
-                    .map(|value| value < *threshold)
-                    .unwrap_or(false)
-            }
-
-            ConditionOperator::Between { min, max } => {
-                Self::parse_decimal_field(record, field_name, field_value.as_deref())
-                    .map(|value| value >= *min && value <= *max)
-                    .unwrap_or(false)
-            }
-
-            ConditionOperator::In(values) => field_value
-                .as_deref()
-                .map(|value| values.iter().any(|candidate| candidate == value))
-                .unwrap_or(false),
-
-            ConditionOperator::NotEmpty => field_value
-                .as_deref()
-                .map(|value| !value.is_empty())
-                .unwrap_or(false),
-
-            ConditionOperator::IsEmpty => field_value
-                .as_deref()
-                .map(|value| value.is_empty())
-                .unwrap_or(true),
         }
+
+        false
     }
 
     /// 读取字段值并统一成字符串视图。
@@ -219,11 +225,7 @@ mod tests {
 
     #[test]
     fn test_equals_match() {
-        let condition = Condition {
-            field: "payee".to_string(),
-            operator: ConditionOperator::Equals("Starbucks".to_string()),
-        };
-
+        let condition = Condition::new_single("payee", ConditionOperator::Equals("Starbucks".to_string()));
         assert!(Matcher::matches(
             &condition,
             &make_record("Starbucks", dec!(10.00))
@@ -236,11 +238,7 @@ mod tests {
 
     #[test]
     fn test_regex_match() {
-        let condition = Condition {
-            field: "payee".to_string(),
-            operator: ConditionOperator::Regex(Regex::new(r"(?i)coffee").expect("valid regex")),
-        };
-
+        let condition = Condition::new_single("payee", ConditionOperator::Regex(Regex::new(r"(?i)coffee").expect("valid regex")));
         assert!(Matcher::matches(
             &condition,
             &make_record("Starbucks Coffee", dec!(10.00))
@@ -257,11 +255,7 @@ mod tests {
 
     #[test]
     fn test_greater_than_match() {
-        let condition = Condition {
-            field: "amount".to_string(),
-            operator: ConditionOperator::GreaterThan(Decimal::from(100)),
-        };
-
+        let condition = Condition::new_single("amount", ConditionOperator::GreaterThan(Decimal::from(100)));
         assert!(Matcher::matches(
             &condition,
             &make_record("Test", dec!(150.00))
@@ -270,5 +264,56 @@ mod tests {
             &condition,
             &make_record("Test", dec!(50.00))
         ));
+    }
+
+    #[test]
+    fn test_multi_field_in_match() {
+        let mut record = RawRecord::new();
+        record.set_extra("peer", "满尚科技");
+        record.set_extra("item", "骑行订单");
+        record.set_extra("type", "支出");
+
+        let condition = Condition {
+            field: Some("type".to_string()),
+            fields: Some(vec!["peer".to_string(), "item".to_string()]),
+            operator: ConditionOperator::In(vec![
+                "满尚科技".to_string(),
+                "骑行订单".to_string(),
+            ]),
+        };
+        assert!(Matcher::matches(&condition, &record));
+
+        let mut record2 = RawRecord::new();
+        record2.set_extra("peer", "餐饮美食");
+        record2.set_extra("item", "外卖配送");
+        assert!(!Matcher::matches(&condition, &record2));
+    }
+
+    #[test]
+    fn test_multi_field_regex_captures() {
+        let mut record = RawRecord::new();
+        record.set_extra("type", "不计收支");
+        record.set_extra("peer", "蚂蚁财富");
+        record.set_extra("item", "蚂蚁财富-天弘沪深300ETF联接C-买入");
+
+        let condition = Condition {
+            field: None,
+            fields: Some(vec!["peer".to_string(), "item".to_string()]),
+            operator: ConditionOperator::Regex(Regex::new(r"蚂蚁财富-(.+)-买入").expect("valid regex")),
+        };
+
+        let mut captures = Vec::new();
+        assert!(Matcher::matches_with_captures(&condition, &record, &mut captures));
+        assert_eq!(captures, vec!["天弘沪深300ETF联接C"]);
+    }
+
+    #[test]
+    fn test_fields_only_config() {
+        let condition = Condition {
+            field: None,
+            fields: Some(vec!["peer".to_string(), "item".to_string()]),
+            operator: ConditionOperator::Contains("餐饮".to_string()),
+        };
+        assert_eq!(condition.field_names(), vec!["peer", "item"]);
     }
 }

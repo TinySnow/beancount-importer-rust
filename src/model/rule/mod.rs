@@ -28,7 +28,8 @@
 //! let provider_rule = Rule {
 //!     name: Some("coffee".to_string()),
 //!     conditions: vec![Condition {
-//!         field: "payee".to_string(),
+//!         field: Some("payee".to_string()),
+//!         fields: None,
 //!         operator: ConditionOperator::Contains("Coffee".to_string()),
 //!     }],
 //!     match_mode: Default::default(),

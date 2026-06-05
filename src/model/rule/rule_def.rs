@@ -21,11 +21,13 @@
 //!     name: Some("coffee".to_string()),
 //!     conditions: vec![
 //!         Condition {
-//!             field: "payee".to_string(),
+//!             field: Some("payee".to_string()),
+//!             fields: None,
 //!             operator: ConditionOperator::Contains("coffee".to_string()),
 //!         },
 //!         Condition {
-//!             field: "amount".to_string(),
+//!             field: Some("amount".to_string()),
+//!             fields: None,
 //!             operator: ConditionOperator::GreaterThan(0.into()),
 //!         },
 //!     ],
