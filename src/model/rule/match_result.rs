@@ -70,40 +70,56 @@ impl MatchResult {
     /// # 参数
     /// - `action`：命中的规则动作。
     pub fn apply_action(&mut self, action: &RuleAction) {
+        self.apply_action_with_captures(action, &[]);
+    }
+
+    /// 将一条规则动作合并到当前聚合结果，支持正则捕获组替换。
+    ///
+    /// 行为与 [`apply_action`](Self::apply_action) 一致，但在写入标量字符串字段前，
+    /// 会将字段值中的 `{1}` / `{2}` / ... 替换为 `captures` 中的对应元素。
+    pub fn apply_action_with_captures(&mut self, action: &RuleAction, captures: &[String]) {
         if let Some(ref account) = action.debit_account {
-            self.debit_account = Some(account.clone());
+            self.debit_account = Some(substitute_captures(account, captures));
         }
         if let Some(ref account) = action.credit_account {
-            self.credit_account = Some(account.clone());
+            self.credit_account = Some(substitute_captures(account, captures));
         }
         if let Some(ref account) = action.fee_account {
-            self.fee_account = Some(account.clone());
+            self.fee_account = Some(substitute_captures(account, captures));
         }
         if let Some(ref account) = action.pnl_account {
-            self.pnl_account = Some(account.clone());
+            self.pnl_account = Some(substitute_captures(account, captures));
         }
         if let Some(ref account) = action.rounding_account {
-            self.rounding_account = Some(account.clone());
+            self.rounding_account = Some(substitute_captures(account, captures));
         }
         if let Some(ref payee) = action.payee {
-            self.payee = Some(payee.clone());
+            self.payee = Some(substitute_captures(payee, captures));
         }
         if let Some(ref narration) = action.narration {
-            self.narration = Some(narration.clone());
+            self.narration = Some(substitute_captures(narration, captures));
         }
         if let Some(flag) = action.flag {
             self.flag = Some(flag);
         }
 
-        // 集合字段采用追加，保留每条命中规则的信息。
         self.tags.extend(action.tags.iter().cloned());
         self.links.extend(action.links.iter().cloned());
-        // 元数据按键覆盖，后命中的同名键优先。
         self.metadata.extend(action.metadata.clone());
 
-        // ignore 是累积开关，任意规则要求忽略时即保持 true。
         if action.ignore {
             self.ignore = true;
         }
     }
+}
+
+fn substitute_captures(s: &str, captures: &[String]) -> String {
+    if captures.is_empty() {
+        return s.to_string();
+    }
+    let mut result = s.to_string();
+    for (i, cap) in captures.iter().enumerate() {
+        result = result.replace(&format!("{{{}}}", i + 1), cap);
+    }
+    result
 }

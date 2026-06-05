@@ -103,16 +103,14 @@ impl<'a> RuleEngine<'a> {
 
     /// 匹配一条记录并聚合所有命中动作。
     pub fn match_record(&self, record: &RawRecord) -> MatchResult {
-        // 采用“累积覆盖”策略：先应用低优先级规则，后命中的规则覆盖前值。
         let mut result = MatchResult::default();
 
-        // 全局规则先执行，供应商规则后执行；后者可覆盖前者。
         for indexed in self.global_rules.iter().chain(self.provider_rules.iter()) {
             let rule = indexed.rule;
-            if self.rule_matches(rule, record) {
-                result.apply_action(&rule.action);
+            let mut captures = Vec::new();
+            if self.rule_matches(rule, record, &mut captures) {
+                result.apply_action_with_captures(&rule.action, &captures);
 
-                // `terminal = true` 时立即停止后续匹配。
                 if rule.terminal {
                     break;
                 }
@@ -141,21 +139,33 @@ impl<'a> RuleEngine<'a> {
         indexed_rules
     }
 
-    /// 判断一条规则是否命中当前记录。
-    fn rule_matches(&self, rule: &Rule, record: &RawRecord) -> bool {
+    /// 判断一条规则是否命中当前记录，并收集正则捕获组。
+    fn rule_matches(&self, rule: &Rule, record: &RawRecord, captures: &mut Vec<String>) -> bool {
         if rule.conditions.is_empty() {
             return false;
         }
 
         match rule.match_mode {
-            MatchMode::And => rule
-                .conditions
-                .iter()
-                .all(|cond| Matcher::matches(cond, record)),
-            MatchMode::Or => rule
-                .conditions
-                .iter()
-                .any(|cond| Matcher::matches(cond, record)),
+            MatchMode::And => {
+                let mut cond_caps = Vec::new();
+                for cond in &rule.conditions {
+                    if !Matcher::matches_with_captures(cond, record, &mut cond_caps) {
+                        return false;
+                    }
+                }
+                captures.extend(cond_caps);
+                true
+            }
+            MatchMode::Or => {
+                for cond in &rule.conditions {
+                    let mut cond_caps = Vec::new();
+                    if Matcher::matches_with_captures(cond, record, &mut cond_caps) {
+                        captures.extend(cond_caps);
+                        return true;
+                    }
+                }
+                false
+            }
         }
     }
 }
@@ -172,6 +182,7 @@ mod tests {
             rule_action::RuleAction,
         },
     };
+    use regex::Regex;
 
     use super::RuleEngine;
 
@@ -220,6 +231,44 @@ mod tests {
         assert_eq!(
             result.debit_account.as_deref(),
             Some("Expenses:Coffee:Specialty")
+        );
+    }
+
+    #[test]
+    fn regex_capture_groups_substituted_in_account_fields() {
+        let rule = Rule {
+            name: Some("fund-product".to_string()),
+            conditions: vec![Condition {
+                field: "item".to_string(),
+                operator: ConditionOperator::Regex(
+                    Regex::new(r"蚂蚁财富-(.+)-买入").expect("valid regex"),
+                ),
+            }],
+            match_mode: Default::default(),
+            action: RuleAction {
+                debit_account: Some("Assets:Invest:基金:支付宝:{1}".to_string()),
+                credit_account: Some("Assets:Wallet:支付宝:余额".to_string()),
+                ..Default::default()
+            },
+            priority: 0,
+            terminal: false,
+        };
+
+        let global_config = GlobalConfig::default();
+        let provider_rules = [rule];
+        let rule_engine = RuleEngine::new(&provider_rules, &global_config);
+
+        let mut record = RawRecord::new();
+        record.set_extra("item", "蚂蚁财富-天弘沪深300ETF联接C-买入");
+
+        let result = rule_engine.match_record(&record);
+        assert_eq!(
+            result.debit_account.as_deref(),
+            Some("Assets:Invest:基金:支付宝:天弘沪深300ETF联接C")
+        );
+        assert_eq!(
+            result.credit_account.as_deref(),
+            Some("Assets:Wallet:支付宝:余额")
         );
     }
 }

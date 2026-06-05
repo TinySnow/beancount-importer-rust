@@ -55,6 +55,19 @@ impl Matcher {
     /// 对于不存在的字段，大多操作符返回 `false`；
     /// 唯一例外是 [`ConditionOperator::IsEmpty`]，其在字段缺失时返回 `true`。
     pub fn matches(condition: &Condition, record: &RawRecord) -> bool {
+        let mut _ignored = Vec::new();
+        Self::matches_with_captures(condition, record, &mut _ignored)
+    }
+
+    /// 判断一条记录是否命中一个条件，并收集正则捕获组。
+    ///
+    /// 当操作符为 [`ConditionOperator::Regex`] 且命中时，
+    /// 会将所有捕获组（跳过 group 0）按顺序追加到 `captures` 中。
+    pub fn matches_with_captures(
+        condition: &Condition,
+        record: &RawRecord,
+        captures: &mut Vec<String>,
+    ) -> bool {
         let field_name = condition.field.as_str();
         let field_value = Self::field_value(record, field_name);
 
@@ -69,10 +82,18 @@ impl Matcher {
                 .map(|value| value.contains(pattern))
                 .unwrap_or(false),
 
-            ConditionOperator::Regex(regex) => field_value
-                .as_deref()
-                .map(|value| regex.is_match(value))
-                .unwrap_or(false),
+            ConditionOperator::Regex(regex) => match field_value.as_deref() {
+                Some(value) => match regex.captures(value) {
+                    Some(caps) => {
+                        for cap in caps.iter().skip(1).flatten() {
+                            captures.push(cap.as_str().to_string());
+                        }
+                        true
+                    }
+                    None => false,
+                },
+                None => false,
+            },
 
             ConditionOperator::StartsWith(prefix) => field_value
                 .as_deref()
