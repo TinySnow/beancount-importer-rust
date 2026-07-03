@@ -18,10 +18,44 @@
 - 证券场景支持：普通买卖、逆回购、银证转账；通过 `securities_accounts` 子结构统一配置 `cash/fee/pnl/rounding/repo_interest`。
 - Writer 支持自动输出 `commodity`，可选自动输出 `open` 指令。
 - metadata key 自动归一化为 Beancount 合法键。
+- **批量导入模式**：`--batch batch.yml` 一次跑完当月全部 provider，取代逐条手写命令。
 
-## 3. 快速开始
+## 3. 批量导入（月度一键导入）
 
-### 3.1 下载 Release（二进制，推荐）
+`--batch` 接受一个 YAML 配置文件，列出当月所有待导入的数据源，一次运行全部搞定：
+
+```yaml
+# batch-2026-06.yml
+imports:
+  - provider: icbc
+    source: icbc-202606.csv
+    config: config/icbc.yml
+    output: 2026/06/icbc.bean
+
+  - provider: alipay
+    source: alipay-202606.csv
+    config: config/alipay.yml
+    output: 2026/06/alipay.bean
+
+  - provider: wechat
+    source: wechat-202606.csv
+    output: 2026/06/wechat.bean
+    # config 省略时默认取 batch 文件同目录的 config.yml
+```
+
+运行：
+
+```bash
+beancount-importer-rust --batch batch-2026-06.yml
+```
+
+所有相对路径基于 batch 文件所在目录解析。完整示例见 `assets/batch.example.yml`。
+
+支持逐任务覆写 `strict`，及 batch 级 `log_level`。
+
+## 4. 快速开始
+
+### 4.1 下载 Release（二进制，推荐）
 
 发布页：
 - [GitHub Releases](https://github.com/TinySnow/beancount-importer-rust/releases)
@@ -36,13 +70,13 @@
 - 发布包会附带 `config/` 与 `mapping/`，可直接按示例命令运行。
 - Windows 下请使用 `beancount-importer-rust.exe`。
 
-### 3.2 从源码编译
+### 4.2 从源码编译
 
 ```bash
 cargo build --release
 ```
 
-### 3.3 运行（支付宝示例）
+### 4.3 运行（支付宝示例）
 
 ```bash
 cargo run -- \
@@ -53,7 +87,7 @@ cargo run -- \
   --log-level info
 ```
 
-### 3.4 运行（银河证券示例）
+### 4.4 运行（银河证券示例）
 
 ```bash
 cargo run -- \
@@ -64,7 +98,7 @@ cargo run -- \
   --log-level info
 ```
 
-### 3.5 运行（达州银行示例）
+### 4.5 运行（达州银行示例）
 
 ```bash
 cargo run -- \
@@ -75,7 +109,7 @@ cargo run -- \
   --log-level info
 ```
 
-### 3.6 证券账户最小配置（推荐）
+### 4.6 证券账户最小配置（推荐）
 
 ```yaml
 default:
@@ -106,7 +140,7 @@ output:
 - 历史平铺字段 `default_asset_account/default_expense_account/default_income_account/default_currency` 已移除；继续使用会在加载配置时报错。
 - `inventory_seed_files` 可选；用于跨账期导入时预加载历史 lot，减少早期卖出（本期无买入）的二义性。
 
-## 4. CLI 参数
+## 5. CLI 参数
 
 - `-p, --provider <PROVIDER>`：供应商标识。
 - `-s, --source <SOURCE>`：账单文件路径（CSV/XLSX）。
@@ -119,7 +153,7 @@ output:
 - `-v, --verbose`：等价 `--log-level debug`。
 - `--strict`：严格模式；任意一条记录解析或转换失败即立即退出。
 
-## 5. 配置加载顺序
+## 6. 配置加载顺序
 
 运行时按以下顺序加载：
 1. 全局配置 `--global-config`（未显式指定时尝试 `config/global.yml`）。
@@ -130,7 +164,7 @@ output:
 
 补充：provider 默认值会覆盖 global；provider 未设置的字段回退到 global。
 
-## 6. 目录结构（与当前代码一致）
+## 7. 目录结构（与当前代码一致）
 
 ```text
 src/
@@ -169,7 +203,7 @@ scripts/
   autopush.sh
 ```
 
-## 7. 已验证的数据集
+## 8. 已验证的数据集
 
 已用分层配置（`config/<category>/*.yml + mapping/<category>/*.yml`）跑通以下 6 份白盒数据集：
 - `testsets/支付宝交易明细测试数据集.csv`（23）
@@ -179,7 +213,7 @@ scripts/
 - `testsets/工商银行交易明细测试数据集.csv`（23）
 - `testsets/建设银行交易明细测试数据集.csv`（23）
 
-## 8. 文档索引
+## 9. 文档索引
 
 - [发布流程](docs/发布流程.md)
 - [架构设计](docs/架构设计.md)
@@ -190,13 +224,13 @@ scripts/
 - [示例配置说明](examples/README.md)
 - [白盒测试数据集说明](testsets/白盒测试数据集说明.md)
 
-## 9. 质量检查
+## 10. 质量检查
 
 ```bash
 cargo fmt --check
 cargo test --quiet
 ```
 
-## 10. License
+## 11. License
 
 MIT

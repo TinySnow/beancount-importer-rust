@@ -30,9 +30,11 @@ pub mod writer;
 use std::{
     fs,
     io::{self, Write},
+    path::{Path, PathBuf},
 };
 
-use log::{debug, info};
+use log::{debug, info, warn};
+use serde::Deserialize;
 
 use self::cli::Cli;
 use crate::{
@@ -44,7 +46,118 @@ use crate::{
     },
 };
 
-/// 执行端到端导入流程
+// ---------------------------------------------------------------------------
+// 批量导入模式
+// ---------------------------------------------------------------------------
+
+/// 批量导入任务配置（对应 `batch.yml` 顶层结构）。
+#[derive(Debug, Deserialize)]
+struct BatchConfig {
+    /// 任务列表
+    #[serde(default)]
+    imports: Vec<BatchItem>,
+    /// 全局日志级别覆盖（可选，等同于 --log-level）
+    #[serde(default)]
+    log_level: Option<String>,
+    /// 全局严格模式覆盖（可选，等同于 --strict）
+    #[serde(default)]
+    strict: bool,
+}
+
+/// 批量导入中的单条任务。
+#[derive(Debug, Deserialize)]
+struct BatchItem {
+    /// 数据提供方标识
+    provider: String,
+    /// 数据源文件路径（相对于 batch 文件所在目录）
+    source: PathBuf,
+    /// 供应商配置文件路径（相对于 batch 文件所在目录，可选）
+    config: Option<PathBuf>,
+    /// 字段映射文件路径（相对于 batch 文件所在目录，可选）
+    #[serde(alias = "mapping")]
+    mapping_file: Option<PathBuf>,
+    /// 输出文件路径（相对于 batch 文件所在目录，可选）
+    output: Option<PathBuf>,
+    /// 全局配置文件路径（可选）
+    global_config: Option<PathBuf>,
+    /// 逐任务严格模式覆盖（可选）
+    #[serde(default)]
+    strict: Option<bool>,
+}
+
+/// 批量导入入口。
+///
+/// 读取 `batch.yml`，依次执行每个导入任务。
+/// 路径在 batch 文件所在目录下解析。
+pub fn run_batch(batch_path: &Path) -> ImporterResult<()> {
+    let batch_dir = batch_path.parent().unwrap_or_else(|| Path::new("."));
+    let content = fs::read_to_string(batch_path).map_err(|e| {
+        ImporterError::Io(e).with_context(format!("Failed to read batch file: {}", batch_path.display()))
+    })?;
+    let batch: BatchConfig = serde_yaml::from_str(&content).map_err(|e| {
+        ImporterError::Yaml(e).with_context("Invalid batch YAML".to_string())
+    })?;
+
+    let batch_strict = batch.strict;
+    let total = batch.imports.len();
+    info!("Batch mode: {} import(s)", total);
+
+    // Batch 级 log_level 覆盖
+    let log_level = match batch.log_level.as_deref() {
+        Some("error") => crate::runtime::cli::log_level::LogLevel::Error,
+        Some("info")  => crate::runtime::cli::log_level::LogLevel::Info,
+        Some("debug") => crate::runtime::cli::log_level::LogLevel::Debug,
+        Some("trace") => crate::runtime::cli::log_level::LogLevel::Trace,
+        _             => crate::runtime::cli::log_level::LogLevel::Warn,
+    };
+
+    for (i, item) in batch.imports.iter().enumerate() {
+        info!("[{}/{}] provider={} source={}", i + 1, total, item.provider, item.source.display());
+
+        let resolve = |p: &Path| -> PathBuf {
+            if p.is_absolute() { p.to_path_buf() } else { batch_dir.join(p) }
+        };
+
+        let source = resolve(&item.source);
+
+        // config: 优先显式路径，否则默认 batch_dir/config.yml
+        let config = item.config.as_ref()
+            .map(|p| resolve(p))
+            .unwrap_or_else(|| batch_dir.join("config.yml"));
+
+        let global_config = item.global_config.as_ref().map(|p| resolve(p));
+        let mapping = item.mapping_file.as_ref().map(|p| resolve(p));
+        let output = item.output.as_ref().map(|p| resolve(p));
+        let strict = item.strict.unwrap_or(batch_strict);
+
+        let cli = Cli {
+            provider: item.provider.clone(),
+            source,
+            config,
+            global_config,
+            mapping,
+            output,
+            log_level,
+            quiet: false,
+            verbose: false,
+            strict,
+            batch: None,
+        };
+
+        if let Err(e) = run(cli) {
+            warn!("[{}/{}] {}: FAILED — {}", i + 1, total, item.provider, e);
+            return Err(e);
+        }
+        info!("[{}/{}] {}: OK", i + 1, total, item.provider);
+    }
+
+    info!("Batch complete: {} import(s)", total);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// 单次导入
+// ---------------------------------------------------------------------------
 ///
 /// 该函数是整个导入流程的主入口，负责协调各个模块完成从源文件到 Beancount 格式的转换。
 ///

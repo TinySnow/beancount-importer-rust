@@ -20,7 +20,7 @@
 
 use std::process;
 
-use beancount_importer_rust::{app, runtime::cli::Cli, utils::init::init_logger};
+use beancount_importer_rust::{app, runtime::{self, cli::Cli}, utils::init::init_logger};
 use clap::Parser;
 use log::{debug, info};
 
@@ -52,7 +52,13 @@ fn main() {
     debug!("CLI args: {:?}", cli);
 
     // 调用核心应用逻辑并处理错误
-    if let Err(err) = app(cli) {
+    let result = if let Some(batch_path) = &cli.batch {
+        runtime::run_batch(batch_path)
+    } else {
+        app(cli)
+    };
+
+    if let Err(err) = result {
         // 打印错误信息到标准错误输出
         eprintln!("Error: {err}");
         // 以非零退出码退出，指示执行失败

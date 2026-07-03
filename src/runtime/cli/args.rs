@@ -122,6 +122,13 @@ pub struct Cli {
     /// 开启后只要出现一条记录解析或转换失败，流程立即返回错误并退出。
     #[arg(long)]
     pub strict: bool,
+
+    /// 批量导入模式（YAML 配置文件路径）。
+    ///
+    /// 指定后忽略 --provider/--source，从 batch 文件中读取多个导入任务并依次执行。
+    /// 适用于月度多 provider 批量导入场景。
+    #[arg(short, long, verbatim_doc_comment)]
+    pub batch: Option<PathBuf>,
 }
 
 impl Cli {
