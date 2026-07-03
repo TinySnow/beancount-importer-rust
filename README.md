@@ -8,6 +8,8 @@
 - 银行：`icbc`、`ccb`、`dzccb`
 - 证券：`futu`、`yinhe`
 
+> 导入账单后通常配合 [beancount-budget-tool](https://github.com/TinySnow/beancount-budget-tool) 做月度预算分析。
+
 ## 2. 核心能力
 
 - 统一读取 `CSV` / `XLSX`，支持编码自动识别（如 UTF-8、GBK）。
@@ -20,125 +22,82 @@
 - metadata key 自动归一化为 Beancount 合法键。
 - **批量导入模式**：`--batch batch.yml` 一次跑完当月全部 provider，取代逐条手写命令。
 
-## 3. 批量导入（月度一键导入）
+## 3. 快速开始（5 分钟上手）
 
-`--batch` 接受一个 YAML 配置文件，列出当月所有待导入的数据源，一次运行全部搞定：
+### 3.1 下载二进制（推荐）
 
-```yaml
-# batch-2026-06.yml
-imports:
-  - provider: icbc
-    source: icbc-202606.csv
-    config: config/icbc.yml
-    output: 2026/06/icbc.bean
-
-  - provider: alipay
-    source: alipay-202606.csv
-    config: config/alipay.yml
-    output: 2026/06/alipay.bean
-
-  - provider: wechat
-    source: wechat-202606.csv
-    output: 2026/06/wechat.bean
-    # config 省略时默认取 batch 文件同目录的 config.yml
-```
-
-运行：
-
-```bash
-beancount-importer-rust --batch batch-2026-06.yml
-```
-
-所有相对路径基于 batch 文件所在目录解析。完整示例见 `assets/batch.example.yml`。
-
-支持逐任务覆写 `strict`，及 batch 级 `log_level`。
-
-## 4. 快速开始
-
-### 4.1 下载 Release（二进制，推荐）
-
-发布页：
-- [GitHub Releases](https://github.com/TinySnow/beancount-importer-rust/releases)
-
-下载与你平台匹配的压缩包后，解压并进入目录，直接运行：
+从 [GitHub Releases](https://github.com/TinySnow/beancount-importer-rust/releases) 下载对应平台的压缩包，解压后直接运行：
 
 ```bash
 ./beancount-importer-rust --help
 ```
 
-说明：
-- 发布包会附带 `config/` 与 `mapping/`，可直接按示例命令运行。
-- Windows 下请使用 `beancount-importer-rust.exe`。
+发布包自带 `config/` 和 `mapping/` 目录，可直接使用。Windows 下二进制名为 `beancount-importer-rust.exe`。
 
-### 4.2 从源码编译
+### 3.2 从源码编译
 
 ```bash
 cargo build --release
 ```
 
-### 4.3 运行（支付宝示例）
+### 3.3 运行第一条导入（支付宝示例）
 
 ```bash
-cargo run -- \
-  --provider alipay \
-  --source testsets/支付宝交易明细测试数据集.csv \
-  --config config/third_party/alipay.yml \
-  --output tmp/output/out-alipay.beancount \
+```bash
+# 1. 从支付宝 App 导出账单 → 得到 alipay_2026.csv
+# 2. 运行
+./beancount-importer-rust \
+  -p alipay \
+  -s ~/Downloads/alipay_2026.csv \
+  -c config/third_party/alipay.yml \
+  -o alipay.bean \
   --log-level info
 ```
 
-### 4.4 运行（银河证券示例）
+### 3.4 运行证券导入（银河证券示例）
 
 ```bash
-cargo run -- \
-  --provider yinhe \
-  --source <your-yinhe-statement.xls> \
-  --config config/securities/yinhe.yml \
-  --output tmp/output/out-yinhe.beancount \
+./beancount-importer-rust \
+  -p yinhe \
+  -s ~/Downloads/yinhe_2026.xls \
+  -c config/securities/yinhe.yml \
+  -o galaxy.bean \
   --log-level info
 ```
 
-### 4.5 运行（达州银行示例）
+### 3.5 账单导出位置
 
-```bash
-cargo run -- \
-  --provider dzccb \
-  --source <your-dzccb-statement.xls> \
-  --config config/banks/dzccb.yml \
-  --output tmp/output/out-dzccb.beancount \
-  --log-level info
-```
+| 供应商 | 导出方式 |
+|--------|---------|
+| 支付宝 | App → 我的 → 账单 → 右上角 ··· → 开具交易流水证明 |
+| 微信 | App → 我 → 服务 → 钱包 → 账单 → 右上角 ··· → 开具交易流水证明 |
+| 京东 | App → 我的 → 我的钱包 → 账单 → 导出 |
+| 美团 | App → 我的 → 钱包 → 账单 → 导出 |
+| 工商银行 | 手机银行 → 我的账户 → 交易明细 → 导出 |
+| 建设银行 | 手机银行 → 账户详情 → 交易明细 → 导出 |
+| 达州银行 | 手机银行 → 交易明细 → 导出 |
+| 银河证券 | 双子星/海王星 → 历史成交 → 导出为 XLS |
 
-### 4.6 证券账户最小配置（推荐）
+## 4. 批量导入（月度一键导入）
+
+配置写好后，每月只用一条命令。更多示例见 `docs/配置最佳实践指南.md`。
 
 ```yaml
-default:
-  asset_account: "Assets:Broker:Galaxy:Securities"
-  expense_account: "Expenses:Investing:Fees"
-  income_account: "Income:Investing:Capital-Gains"
-  currency: "CNY"
-
-securities_accounts:
-  cash_account: "Assets:Broker:Galaxy:Cash"
-  # 可选：仅在需要细分时再加
-  # fee_account: "Expenses:Broker:Galaxy:Fee"
-  # pnl_account: "Income:Broker:Galaxy:PnL"
-  # rounding_account: "Expenses:Broker:Galaxy:Rounding"
-  # repo_interest_account: "Income:Broker:Galaxy:RepoInterest"
-# inventory_seed_files:
-#   - "C:/Users/<you>/Desktop/Beancount/transactions/2025/12/galaxy.bean"
-
-output:
-  emit_open_directives: true
-  booking_method: "FIFO"  # 建议：跨账期导入时可避免 `{}` lot 二义性
+# batch-2026-06.yml
+imports:
+  - provider: icbc
+    source: ~/Downloads/icbc-202606.csv
+    config: config/banks/icbc.yml
+    output: 2026/06/icbc.bean
+  - provider: alipay
+    source: ~/Downloads/alipay-202606.csv
+    config: config/third_party/alipay.yml
+    output: 2026/06/alipay.bean
 ```
 
-说明：
-- 通用默认项推荐写在 `default:` 分组下（如 `asset_account/expense_account/income_account/currency`）。
-- 证券账户字段统一写在 `securities_accounts` 下（`cash/fee/pnl/rounding/repo_interest`）。
-- 旧平铺证券账户字段（如 `default_cash_account/default_fee_account` 等）不再生效。
-- 历史平铺字段 `default_asset_account/default_expense_account/default_income_account/default_currency` 已移除；继续使用会在加载配置时报错。
-- `inventory_seed_files` 可选；用于跨账期导入时预加载历史 lot，减少早期卖出（本期无买入）的二义性。
+```bash
+./beancount-importer-rust --batch batch-2026-06.yml
+```
 
 ## 5. CLI 参数
 
