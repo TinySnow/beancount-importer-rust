@@ -166,7 +166,12 @@ pub(super) fn infer_trade_direction(
     }
 }
 
-/// 判断是否属于逆回购交易。
+/// 判断是否属于 ETF 份额分拆交易。
+pub(super) fn is_split_trade(transaction_type: Option<&str>) -> bool {
+    transaction_type
+        .map(|value| value.contains("分拆"))
+        .unwrap_or(false)
+}
 ///
 /// 通过常见逆回购代码和交易类型关键词双重识别。
 pub(super) fn is_repo_trade(symbol: &str, transaction_type: Option<&str>) -> bool {

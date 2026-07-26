@@ -10,6 +10,7 @@ mod spot;
 use crate::{
     error::{ImporterError, ImporterResult},
     model::{
+        account::{amount::Amount, cost::Cost, posting::Posting, price::Price},
         config::{meta_value::MetaValue, provider::ProviderConfig},
         rule::match_result::MatchResult,
         transaction::Transaction,
@@ -25,7 +26,7 @@ use self::{
 use super::{
     SecurityTransformOptions,
     context::SecurityRecordContext,
-    logic::{TradeDirection, infer_trade_direction, is_repo_trade},
+    logic::{TradeDirection, infer_trade_direction, is_repo_trade, is_split_trade},
     normalize::normalize_security_commodity,
 };
 
@@ -41,6 +42,13 @@ pub(super) fn build_security_trade_transaction(
     config: &ProviderConfig,
     context: SecurityRecordContext,
 ) -> ImporterResult<Transaction> {
+    // ETF 份额分拆：同时移除旧份额和添加新份额，无现金无 PnL
+    if is_split_trade(context.transaction_type.as_deref()) {
+        return build_split_transaction(
+            provider_name, display_name, options, match_result, config, context,
+        );
+    }
+
     let SecurityRecordContext {
         date,
         amount,
@@ -172,6 +180,89 @@ pub(super) fn build_security_trade_transaction(
         provider_name,
         match_result,
         payee.or_else(|| Some(options.default_payee.to_string())),
+        display_name,
+    );
+
+    Ok(tx)
+}
+
+/// 构建 ETF 份额分拆交易：移除旧份额 + 添加新份额，无现金无 PnL。
+fn build_split_transaction(
+    provider_name: &str,
+    display_name: &str,
+    options: SecurityTransformOptions,
+    match_result: &MatchResult,
+    config: &ProviderConfig,
+    context: SecurityRecordContext,
+) -> ImporterResult<Transaction> {
+    let date = context.date;
+    let cash_currency = context.cash_currency;
+    let symbol = context.symbol.as_deref().unwrap_or("").to_string();
+    let security_name = context.security_name.clone();
+    let quantity = context.quantity.unwrap_or_default();
+    let narration = match_result.narration.clone()
+        .or(context.narration)
+        .unwrap_or_else(|| format!("Split {}", symbol));
+
+    let commodity_symbol = normalize_security_commodity(
+        &symbol,
+        context.transaction_type.as_deref(),
+        security_name.as_deref(),
+    );
+
+    let account_plan = build_trade_account_plan(match_result, config, false);
+
+    // 从 netPnl 获取总成本：netPnl 一般为负值，绝对值 = 原始 lot 总成本
+    let total_cost = context.extra.get("netPnl")
+        .and_then(|v| rust_decimal::Decimal::from_str_exact(v).ok())
+        .map(|v| v.abs())
+        .unwrap_or_default();
+
+    // 新份额数 = position（分拆后持仓量）
+    let new_quantity = context.extra.get("position")
+        .and_then(|v| rust_decimal::Decimal::from_str_exact(v).ok())
+        .unwrap_or(quantity);
+
+    // 新成本价 = 总成本 / 新份额数
+    let new_unit_cost = if !new_quantity.is_zero() && !total_cost.is_zero() {
+        (total_cost / new_quantity).round_dp(4)
+    } else {
+        rust_decimal::Decimal::ZERO
+    };
+
+    let mut tx = Transaction::new(date, narration);
+
+    // 移除旧份额（用 {} 让 inventory 系统匹配原始 lot）
+    tx = tx.with_posting(
+        Posting::new(&account_plan.holdings_account)
+            .with_amount(Amount::new(-quantity.abs(), commodity_symbol.clone()))
+            .with_inferred_cost(),
+    );
+
+    // 添加新份额（调整后成本）
+    if !new_unit_cost.is_zero() {
+        tx = tx.with_posting(
+            Posting::new(&account_plan.holdings_account)
+                .with_amount(Amount::new(new_quantity, commodity_symbol.clone()))
+                .with_cost(Cost::new(new_unit_cost, cash_currency.clone())),
+        );
+    } else {
+        tx = tx.with_posting(
+            Posting::new(&account_plan.holdings_account)
+                .with_amount(Amount::new(new_quantity, commodity_symbol)),
+        );
+    }
+
+    tx = tx.with_meta("symbol", MetaValue::String(symbol));
+    if let Some(name) = security_name {
+        tx = tx.with_meta("securityName", MetaValue::String(name));
+    }
+
+    tx = append_order_id(tx, provider_name, context.reference);
+    tx = append_extra_metadata(tx, provider_name, context.extra);
+    tx = apply_match_result(
+        tx, provider_name, match_result,
+        context.payee.or_else(|| Some(options.default_payee.to_string())),
         display_name,
     );
 
