@@ -102,7 +102,7 @@ pub fn run_batch(batch_path: &Path) -> ImporterResult<()> {
     let total = batch.imports.len();
     info!("Batch mode: {} import(s)", total);
 
-    // Batch 级 log_level 覆盖
+    // Batch 级 log_level 覆盖 CLI 默认值
     let log_level = match batch.log_level.as_deref() {
         Some("error") => crate::runtime::cli::log_level::LogLevel::Error,
         Some("info")  => crate::runtime::cli::log_level::LogLevel::Info,
@@ -110,6 +110,7 @@ pub fn run_batch(batch_path: &Path) -> ImporterResult<()> {
         Some("trace") => crate::runtime::cli::log_level::LogLevel::Trace,
         _             => crate::runtime::cli::log_level::LogLevel::Warn,
     };
+    crate::utils::init::init_logger(log_level.to_level_filter());
 
     for (i, item) in batch.imports.iter().enumerate() {
         info!("[{}/{}] provider={} source={}", i + 1, total, item.provider, item.source.display());
