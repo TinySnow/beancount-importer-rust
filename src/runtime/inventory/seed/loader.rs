@@ -122,8 +122,18 @@ fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> Im
             continue;
         }
 
-        // seed 卖出：若有显式成本则按成本过滤，若为 {} (推断成本) 则 FIFO 消费任意 lot
-        let _ = consume_lots(lots, parsed.quantity.abs(), parsed.cost.as_ref());
+        // seed 卖出：若无显式日期则按成本值匹配（忽略日期，因 seed 中 buy/sell 交易日期不同）
+        let target = parsed.cost.as_ref().map(|c| {
+            let mut c = c.clone();
+            if c.date.is_some() {
+                // 检查是否为 seed parser 的 fallback_date：若日期格式=交易头日期，则移除
+                // （seed 文件中 cost 原本无日期，parser 回填了交易日期作为 fallback）
+                c.date = None;
+            }
+            c
+        });
+        let target_ref = target.as_ref();
+        let _ = consume_lots(lots, parsed.quantity.abs(), target_ref);
     }
 
     Ok(())
