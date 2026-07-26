@@ -14,7 +14,7 @@ securities_accounts:
   rounding_account: "Expenses:Broker:Galaxy:Rounding"
   repo_interest_account: "Income:Investing:Interest"
 # 可选：跨账期 lot 预加载（相对本配置文件路径）
-# inventory_seed_files:
+# inventory_seed_files: 历史交易文件/目录，用于跨期 lot 匹配（支持目录，自动扫描 .bean）
 #   - "../../Beancount/transactions/2025/12/galaxy.bean"
 inventory_seed_files: []
 

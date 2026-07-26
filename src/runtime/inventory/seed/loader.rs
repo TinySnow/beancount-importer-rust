@@ -30,17 +30,42 @@ pub(crate) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState
     let mut inventory = InventoryState::default();
     for path in paths {
         let seed_path = Path::new(path);
-        match ingest_seed_inventory_file(seed_path, &mut inventory) {
-            Ok(()) => debug!("Loaded inventory seed file: {}", seed_path.display()),
-            Err(error) => warn!(
-                "Failed to load inventory seed file '{}': {}",
-                seed_path.display(),
-                error
-            ),
+        // 支持目录：自动扫描其中所有 .bean / .beancount 文件
+        if seed_path.is_dir() {
+            collect_bean_files(seed_path, &mut inventory);
+        } else {
+            ingest_one(seed_path, &mut inventory);
         }
     }
 
     inventory
+}
+
+/// 递归扫描目录中的 .bean / .beancount 文件并回放库存。
+fn collect_bean_files(dir: &Path, inventory: &mut InventoryState) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                collect_bean_files(&path, inventory);
+            } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if ext.eq_ignore_ascii_case("bean") || ext.eq_ignore_ascii_case("beancount") {
+                    ingest_one(&path, inventory);
+                }
+            }
+        }
+    }
+}
+
+fn ingest_one(path: &Path, inventory: &mut InventoryState) {
+    match ingest_seed_inventory_file(path, inventory) {
+        Ok(()) => debug!("Loaded inventory seed file: {}", path.display()),
+        Err(error) => warn!(
+            "Failed to load inventory seed file '{}': {}",
+            path.display(),
+            error
+        ),
+    }
 }
 
 /// 解析单个 seed 文件，并把分录变化应用到库存状态。
