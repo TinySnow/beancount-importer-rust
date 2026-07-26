@@ -122,12 +122,8 @@ fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> Im
             continue;
         }
 
-        let Some(target_cost) = parsed.cost else {
-            continue;
-        };
-
-        // seed 卖出仅用于回放库存变化：消费匹配 lot，不生成残余分录。
-        let _ = consume_lots(lots, parsed.quantity.abs(), Some(&target_cost));
+        // seed 卖出：若有显式成本则按成本过滤，若为 {} (推断成本) 则 FIFO 消费任意 lot
+        let _ = consume_lots(lots, parsed.quantity.abs(), parsed.cost.as_ref());
     }
 
     Ok(())
