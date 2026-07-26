@@ -7,11 +7,23 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-17
+
 ### Added
-- GitHub Actions release workflow (`.github/workflows/release.yml`) for tagged builds.
-- Release packaging now includes binary + `config/` + `mapping/` + `README.md` + `LICENSE`.
-- Auto-generated `SHA256SUMS` for release asset integrity checks.
-- Release operation guide: `docs/发布流程.md`.
+- `--batch` 批量导入模式，一次跑完当月全部 provider
+- 规则引擎 `fields` 数组语法，一条条件匹配多个字段
+- 规则引擎正则捕获组替换 `{1}` `{2}`
+- extract_fund_product.py 从 budget-tool 迁移，支持 `--prefix` 参数
+
+### Changed
+- 架构重构：消除双轨错误、Pipeline 流水线化、Provider 解耦
+- 规则分层策略：payment method → category 两层分离
+- Mapping 加载回退链：CLI `--mapping` → `mapping_file` → 分层路径 → 内嵌
+- `source` metadata 统一使用 `display_name()`
+
+### Docs
+- 重写 README + 新增 QUICKSTART.md + CONTRIBUTING.md
+- 精简 docs/，1850 行 → 500 行核心文档
 
 ## [0.1.0] - 2026-05-07
 

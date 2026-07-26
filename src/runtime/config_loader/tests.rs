@@ -64,6 +64,7 @@ fn load_normalizes_provider_name_before_resolving_paths() {
         quiet: false,
         verbose: false,
         strict: false,
+        batch: None,
     };
 
     let loaded =
