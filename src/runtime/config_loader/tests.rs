@@ -54,8 +54,8 @@ fn load_provider_config_matches_global_key_case_insensitively() {
 fn load_normalizes_provider_name_before_resolving_paths() {
     // 验证入口 `load` 会先把 provider 名标准化为小写，再参与路径查找。
     let cli = Cli {
-        provider: "WECHAT".to_string(),
-        source: PathBuf::from("dummy.csv"),
+        provider: Some("WECHAT".to_string()),
+        source: Some(PathBuf::from("dummy.csv")),
         config: PathBuf::from("__missing__.yml"),
         global_config: None,
         mapping: None,

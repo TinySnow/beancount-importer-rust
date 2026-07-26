@@ -131,8 +131,8 @@ pub fn run_batch(batch_path: &Path) -> ImporterResult<()> {
         let strict = item.strict.unwrap_or(batch_strict);
 
         let cli = Cli {
-            provider: item.provider.clone(),
-            source,
+            provider: Some(item.provider.clone()),
+            source: Some(source),
             config,
             global_config,
             mapping,
@@ -186,20 +186,22 @@ pub fn run_batch(batch_path: &Path) -> ImporterResult<()> {
 /// - 生成的交易数量
 /// - 调试信息（供应商、文件路径等）
 pub fn run(cli: Cli) -> ImporterResult<()> {
-    // 输出启动信息
+    // clap 的 required_unless_present 保证非 batch 模式下 provider 和 source 必有值
+    let provider_name = cli.provider.as_deref().unwrap_or("");
+    let source = cli.source.as_deref().unwrap_or(Path::new(""));
+
     info!("Starting beancount-importer");
-    debug!("Provider: {}", cli.provider);
-    debug!("Source file: {}", cli.source.display());
+    debug!("Provider: {}", provider_name);
+    debug!("Source file: {}", source.display());
     debug!("Config file: {}", cli.config.display());
 
-    // 先验证供应商是否存在，避免后续 mapping 加载错误遮盖真实原因。
     let registry = ProviderRegistry::global();
     let provider = registry
-        .get(&cli.provider)
+        .get(provider_name)
         .ok_or_else(|| {
             ImporterError::ProviderNotFound(format!(
                 "Unknown provider '{}'. Available providers: {:?}",
-                cli.provider,
+                provider_name,
                 registry.list_providers()
             ))
         })?;
@@ -216,8 +218,8 @@ pub fn run(cli: Cli) -> ImporterResult<()> {
 
     // 解析源文件记录
     let raw_records = provider
-        .parse(&cli.source, &loaded.mapping, &loaded.provider, cli.strict)
-        .map_err(|e| e.with_context(format!("Failed to parse source file: {}", cli.source.display())))?;
+        .parse(source, &loaded.mapping, &loaded.provider, cli.strict)
+        .map_err(|e| e.with_context(format!("Failed to parse source file: {}", source.display())))?;
 
     // 输出解析的记录数量
     info!("Parsed {} records", raw_records.len());

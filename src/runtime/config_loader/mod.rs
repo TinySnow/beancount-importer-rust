@@ -51,7 +51,7 @@ pub struct LoadedConfig {
 /// - `Ok(LoadedConfig)`：配置全部解析成功。
 /// - `Err(ImporterError)`：任一步骤读取或解析失败。
 pub fn load(cli: &Cli) -> ImporterResult<LoadedConfig> {
-    let normalized_provider = cli.provider.to_lowercase();
+    let normalized_provider = cli.provider.as_deref().unwrap_or("").to_lowercase();
 
     // 先加载全局配置，后续配置合并需要它。
     let (global_config, global_config_path) =

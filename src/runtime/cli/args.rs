@@ -22,8 +22,8 @@
 //!     "records.csv",
 //! ]);
 //!
-//! assert_eq!(cli.provider, "wechat");
-//! assert_eq!(cli.source.to_string_lossy(), "records.csv");
+//! assert_eq!(cli.provider.as_deref(), Some("wechat"));
+//! assert_eq!(cli.source.as_deref().unwrap().to_string_lossy(), "records.csv");
 //! assert_eq!(cli.config.to_string_lossy(), "config.yml");
 //! ```
 
@@ -54,8 +54,8 @@ use crate::runtime::cli::log_level::LogLevel;
 ///     "info",
 /// ]);
 ///
-/// assert_eq!(cli.provider, "alipay");
-/// assert_eq!(cli.source.to_string_lossy(), "input.csv");
+/// assert_eq!(cli.provider.as_deref(), Some("alipay"));
+/// assert_eq!(cli.source.as_deref().unwrap().to_string_lossy(), "input.csv");
 /// assert_eq!(cli.output.as_ref().unwrap().to_string_lossy(), "output.beancount");
 /// ```
 #[derive(Parser, Debug)]
@@ -64,15 +64,15 @@ use crate::runtime::cli::log_level::LogLevel;
 pub struct Cli {
     /// 数据提供方标识（例如：`alipay`、`wechat`、`futu`、`icbc`）。
     ///
-    /// 该值通常用于在运行时选择对应的 provider 与映射规则。
-    #[arg(short, long)]
-    pub provider: String,
+    /// 批量模式下无需提供。
+    #[arg(short, long, required_unless_present = "batch")]
+    pub provider: Option<String>,
 
     /// 数据源文件路径（CSV/Excel）。
     ///
-    /// 该路径会被传入具体 provider 的读取器进行解析。
-    #[arg(short, long)]
-    pub source: PathBuf,
+    /// 批量模式下无需提供。
+    #[arg(short, long, required_unless_present = "batch")]
+    pub source: Option<PathBuf>,
 
     /// 供应商配置文件路径。
     ///
