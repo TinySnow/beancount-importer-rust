@@ -7,6 +7,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-31
+
+### Fixed
+- 份额分拆新份额成本从已移除旧份额推算，不再依赖数据源缺失的 netPnl 字段（银河证券对账单无此列）
+
 ## [0.2.1] - 2026-08-31
 
 ### Fixed
