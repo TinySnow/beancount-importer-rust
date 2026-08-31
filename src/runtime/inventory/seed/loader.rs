@@ -65,11 +65,18 @@ fn collect_bean_files(dir: &Path, inventory: &mut InventoryState, cutoff: Option
 }
 
 /// 递归收集目录中所有 .bean / .beancount 文件路径。
+///
+/// 跳过名为 `tmp` 的目录：它是导入器的输出暂存目录（batch 模式写入
+/// `src/transactions/tmp/`），其内容只是最终月账单的副本，作为 seed 回放会
+/// 造成 lot 重复注册，进而导致卖出匹配到错误（重复）的 lot。
 fn collect_bean_paths(dir: &Path, files: &mut Vec<PathBuf>) {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
+                if is_staging_dir(&path) {
+                    continue;
+                }
                 collect_bean_paths(&path, files);
             } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                 if ext.eq_ignore_ascii_case("bean") || ext.eq_ignore_ascii_case("beancount") {
@@ -78,6 +85,14 @@ fn collect_bean_paths(dir: &Path, files: &mut Vec<PathBuf>) {
             }
         }
     }
+}
+
+/// 判断目录是否为导入器的输出暂存目录（如 `tmp`）。
+fn is_staging_dir(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("tmp"))
+        .unwrap_or(false)
 }
 
 fn ingest_one(path: &Path, inventory: &mut InventoryState, cutoff: Option<NaiveDate>) {

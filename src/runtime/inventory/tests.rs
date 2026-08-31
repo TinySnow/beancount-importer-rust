@@ -404,3 +404,41 @@ fn assigns_split_new_share_cost_from_removed_lots() {
         Some("CNY")
     );
 }
+
+#[test]
+fn skips_tmp_staging_dir_in_seed_scan() {
+    let base = std::env::temp_dir().join(format!(
+        "beancount-seed-tmp-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be monotonic")
+            .as_nanos()
+    ));
+    let month_dir = base.join("2026/07");
+    let tmp_dir = base.join("tmp");
+    fs::create_dir_all(&month_dir).expect("create month dir");
+    fs::create_dir_all(&tmp_dir).expect("create tmp dir");
+
+    let seed_content = r#"
+2026-07-23 * "buy" "buy"
+  Assets:Invest:Broker:Securities  910 SEC_204001 {100 CNY}
+  Assets:Invest:Broker:Cash  -91000 CNY
+"#;
+    fs::write(month_dir.join("galaxy.bean"), seed_content).expect("write month file");
+    fs::write(tmp_dir.join("galaxy.bean"), seed_content).expect("write tmp file");
+
+    let seed_files = vec![base.to_string_lossy().to_string()];
+    let inventory = load_seed_inventory_from_files(&seed_files, None);
+
+    let key = (
+        "Assets:Invest:Broker:Securities".to_string(),
+        "SEC_204001".to_string(),
+    );
+    let lots = &inventory.lots[&key];
+    // tmp 目录被跳过，只有 month 目录的一份 lot，避免重复注册。
+    assert_eq!(lots.len(), 1);
+    assert_eq!(lots[0].remaining, dec!(910));
+
+    let _ = fs::remove_dir_all(&base);
+}
