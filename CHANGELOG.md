@@ -7,6 +7,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-31
+
+### Fixed
+- seed 库存按当前批次最早交易日截断，避免扫描到当前批次自身输出文件造成自引用与 FIFO lot 错配
+- seed 目录扫描按路径排序，保证跨月 lot 按时间序回放
+
 ## [0.2.0] - 2026-07-17
 
 ### Added
