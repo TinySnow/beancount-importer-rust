@@ -7,6 +7,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-31
+
+### Added
+- `inventory_seed_exclude_dirs` 配置项：seed 目录扫描时跳过的目录名列表（默认 `["tmp"]`），替代硬编码的 tmp 排除
+
 ## [0.2.3] - 2026-08-31
 
 ### Fixed
