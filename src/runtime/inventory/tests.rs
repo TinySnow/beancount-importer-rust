@@ -340,3 +340,67 @@ fn skips_seed_transactions_at_or_after_cutoff() {
 
     let _ = fs::remove_file(seed_path);
 }
+
+#[test]
+fn assigns_split_new_share_cost_from_removed_lots() {
+    let buy = Transaction::new(
+        NaiveDate::from_ymd_opt(2026, 1, 14).expect("valid date"),
+        "buy before split",
+    )
+    .with_posting(
+        Posting::new("Assets:Invest:Broker:Securities")
+            .with_amount(Amount::new(dec!(200), "SEC_159516"))
+            .with_cost(Cost::new(dec!(1.771), "CNY")),
+    );
+
+    let split = Transaction::new(
+        NaiveDate::from_ymd_opt(2026, 1, 15).expect("valid date"),
+        "ETF share split",
+    )
+    .with_posting(
+        Posting::new("Assets:Invest:Broker:Securities")
+            .with_amount(Amount::new(dec!(-200), "SEC_159516"))
+            .with_inferred_cost(),
+    )
+    .with_posting(
+        Posting::new("Assets:Invest:Broker:Securities")
+            .with_amount(Amount::new(dec!(400), "SEC_159516")),
+    );
+
+    let mut transactions = vec![buy, split];
+    resolve_inferred_cost_postings(&mut transactions);
+
+    let split_tx = &transactions[1];
+    let postings = split_tx
+        .postings
+        .iter()
+        .filter(|posting| posting.account == "Assets:Invest:Broker:Securities")
+        .collect::<Vec<_>>();
+
+    // 移除 200 + 新增 400 共两条腿
+    assert_eq!(postings.len(), 2);
+
+    // 新份额 400 股，成本 = 200 * 1.771 / 400 = 0.8855
+    let new_posting = postings
+        .iter()
+        .find(|posting| {
+            posting
+                .amount
+                .as_ref()
+                .map(|amount| amount.number.is_sign_positive())
+                .unwrap_or(false)
+        })
+        .expect("split should have a positive posting");
+    assert_eq!(
+        new_posting.amount.as_ref().map(|amount| amount.number),
+        Some(dec!(400))
+    );
+    assert_eq!(
+        new_posting.cost.as_ref().map(|cost| cost.number),
+        Some(dec!(0.8855))
+    );
+    assert_eq!(
+        new_posting.cost.as_ref().map(|cost| cost.currency.as_str()),
+        Some("CNY")
+    );
+}

@@ -5,6 +5,8 @@
 //! - 卖出分录在可匹配时按 lot 拆分为多条带明确成本的分录；
 //! - 匹配不足时保留残余分录，维持原始语义。
 
+use std::collections::HashMap;
+
 use rust_decimal::Decimal;
 
 use crate::model::{
@@ -28,6 +30,8 @@ pub(super) fn resolve_inferred_cost_postings_with_inventory(
 ) {
     for tx in transactions {
         let mut rewritten = Vec::with_capacity(tx.postings.len());
+        // 同一账户/商品在本次交易内被移除的旧份额总成本，供分拆新份额推算单位成本。
+        let mut removed_cost: HashMap<(String, String), (Decimal, String)> = HashMap::new();
 
         for posting in tx.postings.drain(..) {
             // 无金额分录无法参与库存增减，直接透传。
@@ -48,8 +52,18 @@ pub(super) fn resolve_inferred_cost_postings_with_inventory(
 
             // 买入侧：把 lot 记入库存，供后续卖出匹配。
             if amount_number.is_sign_positive() {
-                register_buy_lot(inventory, key, &posting, tx.date);
-                rewritten.push(posting);
+                let mut p = posting;
+                // 分拆新份额：无成本的正向分录，用同一账户/商品已移除的旧份额成本推算单位成本。
+                if p.cost.is_none()
+                    && let Some((total_removed, cost_currency)) = removed_cost.get(&key)
+                    && !total_removed.is_zero()
+                {
+                    let unit_cost = (*total_removed / amount_number).round_dp(4);
+                    p.cost = Some(Cost::new(unit_cost, cost_currency.clone()));
+                    p.inferred_cost = false;
+                }
+                register_buy_lot(inventory, key, &p, tx.date);
+                rewritten.push(p);
                 continue;
             }
 
@@ -66,7 +80,7 @@ pub(super) fn resolve_inferred_cost_postings_with_inventory(
                 posting.cost.as_ref()
             };
 
-            let lots = inventory.lots.entry(key).or_default();
+            let lots = inventory.lots.entry(key.clone()).or_default();
             let (matched_lots, remaining) = consume_lots(lots, amount_number.abs(), target_cost);
 
             if matched_lots.is_empty() {
@@ -76,6 +90,14 @@ pub(super) fn resolve_inferred_cost_postings_with_inventory(
             }
 
             for matched_lot in matched_lots {
+                // 记录被移除旧份额的总成本，供后续分拆新份额推算单位成本。
+                let removed = matched_lot.quantity * matched_lot.cost.number;
+                let cost_currency = matched_lot.cost.currency.clone();
+                removed_cost
+                    .entry(key.clone())
+                    .or_insert((Decimal::ZERO, cost_currency))
+                    .0 += removed;
+
                 if let Some(split) =
                     build_sell_split_posting(&posting, matched_lot.quantity, matched_lot.cost)
                 {
