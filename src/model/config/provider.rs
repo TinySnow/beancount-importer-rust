@@ -145,6 +145,14 @@ pub struct ProviderConfig {
     #[serde(default)]
     pub inventory_seed_files: Vec<String>,
 
+    /// 库存 seed 目录扫描时跳过的目录名列表（大小写不敏感）。
+    ///
+    /// batch 模式的输出暂存目录（如 `tmp`）默认被排除，避免其副本
+    /// 与最终月账单重复注册 lot。默认值为 `["tmp"]`，可用空数组 `[]`
+    /// 关闭排除。
+    #[serde(default = "default_seed_exclude_dirs")]
+    pub inventory_seed_exclude_dirs: Vec<String>,
+
     /// 表格解析选项（CSV/电子表格共用）。
     #[serde(default)]
     pub tabular_options: TabularOptions,
@@ -173,6 +181,11 @@ fn default_true() -> bool {
     true
 }
 
+/// `inventory_seed_exclude_dirs` 字段默认值：跳过 `tmp` 暂存目录。
+fn default_seed_exclude_dirs() -> Vec<String> {
+    vec!["tmp".to_string()]
+}
+
 /// 返回有效（非空白）字符串引用。
 fn non_empty(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|v| !v.is_empty())
@@ -191,6 +204,7 @@ impl Default for ProviderConfig {
             defaults: CommonDefaultsConfig::default(),
             securities_accounts: SecuritiesAccountsConfig::default(),
             inventory_seed_files: Vec::new(),
+            inventory_seed_exclude_dirs: default_seed_exclude_dirs(),
             tabular_options: TabularOptions::default(),
             rules: Vec::new(),
             output: OutputConfig::default(),
@@ -340,6 +354,35 @@ inventory_seed_files:
                 "transactions/2025/11/galaxy.bean".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn deserializes_inventory_seed_exclude_dirs() {
+        let yaml = r#"
+inventory_seed_exclude_dirs:
+  - "tmp"
+  - "backup"
+"#;
+
+        let config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+
+        assert_eq!(
+            config.inventory_seed_exclude_dirs,
+            vec!["tmp".to_string(), "backup".to_string()]
+        );
+    }
+
+    #[test]
+    fn inventory_seed_exclude_dirs_defaults_to_tmp() {
+        let yaml = r#"
+name: "银河证券"
+"#;
+
+        let config: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("provider config should deserialize");
+
+        assert_eq!(config.inventory_seed_exclude_dirs, vec!["tmp".to_string()]);
     }
 
     #[test]

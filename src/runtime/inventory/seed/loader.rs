@@ -29,8 +29,11 @@ use super::super::{InventoryLot, InventoryState};
 ///
 /// `cutoff` 为可选截止日期：日期达到或超过该截止点的 seed 交易会被跳过，
 /// 用于排除当前批次自身的历史记录（自引用）。
+///
+/// `exclude_dirs` 为目录扫描时跳过的目录名列表（大小写不敏感）。
 pub(crate) fn load_seed_inventory_from_files(
     paths: &[String],
+    exclude_dirs: &[String],
     cutoff: Option<NaiveDate>,
 ) -> InventoryState {
     if paths.is_empty() {
@@ -42,7 +45,7 @@ pub(crate) fn load_seed_inventory_from_files(
         let seed_path = Path::new(path);
         // 支持目录：自动扫描其中所有 .bean / .beancount 文件
         if seed_path.is_dir() {
-            collect_bean_files(seed_path, &mut inventory, cutoff);
+            collect_bean_files(seed_path, &mut inventory, cutoff, exclude_dirs);
         } else {
             ingest_one(seed_path, &mut inventory, cutoff);
         }
@@ -55,9 +58,14 @@ pub(crate) fn load_seed_inventory_from_files(
 ///
 /// `transactions/YYYY/MM/*.bean` 的目录结构使路径排序天然等价于时间序，
 /// 避免 `read_dir` 无序导致跨月 lot 被错误地先消费。
-fn collect_bean_files(dir: &Path, inventory: &mut InventoryState, cutoff: Option<NaiveDate>) {
+fn collect_bean_files(
+    dir: &Path,
+    inventory: &mut InventoryState,
+    cutoff: Option<NaiveDate>,
+    exclude_dirs: &[String],
+) {
     let mut files = Vec::new();
-    collect_bean_paths(dir, &mut files);
+    collect_bean_paths(dir, &mut files, exclude_dirs);
     files.sort();
     for file in files {
         ingest_one(&file, inventory, cutoff);
@@ -66,18 +74,18 @@ fn collect_bean_files(dir: &Path, inventory: &mut InventoryState, cutoff: Option
 
 /// 递归收集目录中所有 .bean / .beancount 文件路径。
 ///
-/// 跳过名为 `tmp` 的目录：它是导入器的输出暂存目录（batch 模式写入
-/// `src/transactions/tmp/`），其内容只是最终月账单的副本，作为 seed 回放会
-/// 造成 lot 重复注册，进而导致卖出匹配到错误（重复）的 lot。
-fn collect_bean_paths(dir: &Path, files: &mut Vec<PathBuf>) {
+/// 跳过 `exclude_dirs` 中列出的目录（如 batch 模式输出暂存目录 `tmp`）：
+/// 其内容只是最终月账单的副本，作为 seed 回放会造成 lot 重复注册，
+/// 进而导致卖出匹配到错误（重复）的 lot。
+fn collect_bean_paths(dir: &Path, files: &mut Vec<PathBuf>, exclude_dirs: &[String]) {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                if is_staging_dir(&path) {
+                if is_excluded_dir(&path, exclude_dirs) {
                     continue;
                 }
-                collect_bean_paths(&path, files);
+                collect_bean_paths(&path, files, exclude_dirs);
             } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                 if ext.eq_ignore_ascii_case("bean") || ext.eq_ignore_ascii_case("beancount") {
                     files.push(path);
@@ -87,12 +95,14 @@ fn collect_bean_paths(dir: &Path, files: &mut Vec<PathBuf>) {
     }
 }
 
-/// 判断目录是否为导入器的输出暂存目录（如 `tmp`）。
-fn is_staging_dir(path: &Path) -> bool {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| name.eq_ignore_ascii_case("tmp"))
-        .unwrap_or(false)
+/// 判断目录名是否命中排除列表（大小写不敏感）。
+fn is_excluded_dir(path: &Path, exclude_dirs: &[String]) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    exclude_dirs
+        .iter()
+        .any(|excluded| excluded.eq_ignore_ascii_case(name))
 }
 
 fn ingest_one(path: &Path, inventory: &mut InventoryState, cutoff: Option<NaiveDate>) {

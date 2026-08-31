@@ -277,7 +277,7 @@ fn resolves_sell_with_cross_period_seed_inventory() {
     let seed_files = vec![seed_path.to_string_lossy().to_string()];
     // cutoff 取当前批次卖出日期（2026-01-06），seed 买入（2025-12-26）早于截止点，仍应被回放。
     let cutoff = NaiveDate::from_ymd_opt(2026, 1, 6);
-    let mut inventory = load_seed_inventory_from_files(&seed_files, cutoff);
+    let mut inventory = load_seed_inventory_from_files(&seed_files, &[], cutoff);
     resolve_inferred_cost_postings_with_inventory(&mut transactions, &mut inventory);
 
     let sell_postings = transactions[0]
@@ -326,7 +326,7 @@ fn skips_seed_transactions_at_or_after_cutoff() {
 
     let cutoff = NaiveDate::from_ymd_opt(2026, 1, 6);
     let seed_files = vec![seed_path.to_string_lossy().to_string()];
-    let inventory = load_seed_inventory_from_files(&seed_files, cutoff);
+    let inventory = load_seed_inventory_from_files(&seed_files, &[], cutoff);
 
     // 只有早于截止点的 lot 被回放，达到或超过截止点的交易被跳过。
     let key = (
@@ -429,7 +429,7 @@ fn skips_tmp_staging_dir_in_seed_scan() {
     fs::write(tmp_dir.join("galaxy.bean"), seed_content).expect("write tmp file");
 
     let seed_files = vec![base.to_string_lossy().to_string()];
-    let inventory = load_seed_inventory_from_files(&seed_files, None);
+    let inventory = load_seed_inventory_from_files(&seed_files, &["tmp".to_string()], None);
 
     let key = (
         "Assets:Invest:Broker:Securities".to_string(),

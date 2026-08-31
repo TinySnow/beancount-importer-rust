@@ -71,10 +71,13 @@ pub(crate) fn resolve_inferred_cost_postings_with_inventory(
 /// `cutoff` 为可选截止日期：日期达到或超过该截止点的 seed 交易会被跳过，
 /// 用于排除当前批次自身的历史记录（自引用）并保持 FIFO 时间序正确。
 ///
+/// `exclude_dirs` 为目录扫描时跳过的目录名列表（大小写不敏感）。
+///
 /// 解析失败的文件会被跳过并记录日志，不会中断主流程。
 pub(crate) fn load_seed_inventory_from_files(
     paths: &[String],
+    exclude_dirs: &[String],
     cutoff: Option<NaiveDate>,
 ) -> InventoryState {
-    seed::load_seed_inventory_from_files(paths, cutoff)
+    seed::load_seed_inventory_from_files(paths, exclude_dirs, cutoff)
 }
