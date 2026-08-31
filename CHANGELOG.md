@@ -7,6 +7,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-31
+
+### Fixed
+- seed 扫描跳过 tmp 暂存目录，避免输出副本导致 lot 重复注册（逆回购赎回匹配到错误日期）
+
 ## [0.2.2] - 2026-08-31
 
 ### Fixed
