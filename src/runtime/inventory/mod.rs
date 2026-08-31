@@ -15,6 +15,7 @@
 
 use std::collections::HashMap;
 
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use crate::model::{account::cost::Cost, transaction::Transaction};
@@ -67,7 +68,13 @@ pub(crate) fn resolve_inferred_cost_postings_with_inventory(
 
 /// 从 seed 文件批量加载库存状态。
 ///
+/// `cutoff` 为可选截止日期：日期达到或超过该截止点的 seed 交易会被跳过，
+/// 用于排除当前批次自身的历史记录（自引用）并保持 FIFO 时间序正确。
+///
 /// 解析失败的文件会被跳过并记录日志，不会中断主流程。
-pub(crate) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState {
-    seed::load_seed_inventory_from_files(paths)
+pub(crate) fn load_seed_inventory_from_files(
+    paths: &[String],
+    cutoff: Option<NaiveDate>,
+) -> InventoryState {
+    seed::load_seed_inventory_from_files(paths, cutoff)
 }

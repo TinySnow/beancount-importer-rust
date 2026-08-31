@@ -275,7 +275,9 @@ fn resolves_sell_with_cross_period_seed_inventory() {
     ];
 
     let seed_files = vec![seed_path.to_string_lossy().to_string()];
-    let mut inventory = load_seed_inventory_from_files(&seed_files);
+    // cutoff 取当前批次卖出日期（2026-01-06），seed 买入（2025-12-26）早于截止点，仍应被回放。
+    let cutoff = NaiveDate::from_ymd_opt(2026, 1, 6);
+    let mut inventory = load_seed_inventory_from_files(&seed_files, cutoff);
     resolve_inferred_cost_postings_with_inventory(&mut transactions, &mut inventory);
 
     let sell_postings = transactions[0]
@@ -293,6 +295,48 @@ fn resolves_sell_with_cross_period_seed_inventory() {
         sell_postings[0].cost.as_ref().and_then(|cost| cost.date),
         NaiveDate::from_ymd_opt(2025, 12, 26)
     );
+
+    let _ = fs::remove_file(seed_path);
+}
+
+#[test]
+fn skips_seed_transactions_at_or_after_cutoff() {
+    let mut seed_path = std::env::temp_dir();
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock should be monotonic")
+        .as_nanos();
+    seed_path.push(format!(
+        "beancount-seed-cutoff-{}-{}.bean",
+        std::process::id(),
+        unique
+    ));
+
+    // 两笔交易：一笔早于截止点，一笔晚于截止点。
+    let seed_content = r#"
+2026-01-05 * "past buy" "past buy"
+  Assets:Invest:Broker:Securities  100 SEC_161226 {1.5 CNY}
+  Assets:Invest:Broker:Cash  -150 CNY
+
+2026-01-07 * "future buy" "future buy"
+  Assets:Invest:Broker:Securities  200 SEC_161226 {2.0 CNY}
+  Assets:Invest:Broker:Cash  -400 CNY
+"#;
+    fs::write(&seed_path, seed_content).expect("seed file should be writable");
+
+    let cutoff = NaiveDate::from_ymd_opt(2026, 1, 6);
+    let seed_files = vec![seed_path.to_string_lossy().to_string()];
+    let inventory = load_seed_inventory_from_files(&seed_files, cutoff);
+
+    // 只有早于截止点的 lot 被回放，达到或超过截止点的交易被跳过。
+    let key = (
+        "Assets:Invest:Broker:Securities".to_string(),
+        "SEC_161226".to_string(),
+    );
+    let lots = &inventory.lots[&key];
+    assert_eq!(lots.len(), 1);
+    assert_eq!(lots[0].remaining, dec!(100));
+    assert_eq!(lots[0].cost.number, dec!(1.5));
 
     let _ = fs::remove_file(seed_path);
 }

@@ -178,7 +178,10 @@ fn inventory_stage(transactions: &mut Vec<Transaction>, config: &ProviderConfig)
     if config.inventory_seed_files.is_empty() {
         return;
     }
-    let mut seed_inventory = load_seed_inventory_from_files(&config.inventory_seed_files);
+    // 以当前批次最早交易日作为 seed 截止点：只回放该日期之前的历史交易，
+    // 避免 seed 扫描到本批次自己的输出文件，造成自引用与 FIFO lot 错配。
+    let cutoff = transactions.iter().map(|tx| tx.date).min();
+    let mut seed_inventory = load_seed_inventory_from_files(&config.inventory_seed_files, cutoff);
     resolve_inferred_cost_postings_with_inventory(transactions, &mut seed_inventory);
 }
 

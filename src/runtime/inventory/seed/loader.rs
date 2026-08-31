@@ -3,8 +3,12 @@
 //! 本模块负责从外部 seed 文件回放历史持仓变化，构建初始库存状态，
 //! 以支持当前批次交易进行跨期 lot 匹配。
 
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
+use chrono::NaiveDate;
 use log::{debug, warn};
 
 use crate::{
@@ -22,7 +26,13 @@ use super::super::{InventoryLot, InventoryState};
 /// - 某个文件读取或解析失败仅记录 warning；
 /// - 其余文件仍继续处理；
 /// - 最终返回已成功回放得到的库存状态。
-pub(crate) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState {
+///
+/// `cutoff` 为可选截止日期：日期达到或超过该截止点的 seed 交易会被跳过，
+/// 用于排除当前批次自身的历史记录（自引用）。
+pub(crate) fn load_seed_inventory_from_files(
+    paths: &[String],
+    cutoff: Option<NaiveDate>,
+) -> InventoryState {
     if paths.is_empty() {
         return InventoryState::default();
     }
@@ -32,33 +42,46 @@ pub(crate) fn load_seed_inventory_from_files(paths: &[String]) -> InventoryState
         let seed_path = Path::new(path);
         // 支持目录：自动扫描其中所有 .bean / .beancount 文件
         if seed_path.is_dir() {
-            collect_bean_files(seed_path, &mut inventory);
+            collect_bean_files(seed_path, &mut inventory, cutoff);
         } else {
-            ingest_one(seed_path, &mut inventory);
+            ingest_one(seed_path, &mut inventory, cutoff);
         }
     }
 
     inventory
 }
 
-/// 递归扫描目录中的 .bean / .beancount 文件并回放库存。
-fn collect_bean_files(dir: &Path, inventory: &mut InventoryState) {
+/// 递归扫描目录中的 .bean / .beancount 文件，按路径排序后回放库存。
+///
+/// `transactions/YYYY/MM/*.bean` 的目录结构使路径排序天然等价于时间序，
+/// 避免 `read_dir` 无序导致跨月 lot 被错误地先消费。
+fn collect_bean_files(dir: &Path, inventory: &mut InventoryState, cutoff: Option<NaiveDate>) {
+    let mut files = Vec::new();
+    collect_bean_paths(dir, &mut files);
+    files.sort();
+    for file in files {
+        ingest_one(&file, inventory, cutoff);
+    }
+}
+
+/// 递归收集目录中所有 .bean / .beancount 文件路径。
+fn collect_bean_paths(dir: &Path, files: &mut Vec<PathBuf>) {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                collect_bean_files(&path, inventory);
+                collect_bean_paths(&path, files);
             } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                 if ext.eq_ignore_ascii_case("bean") || ext.eq_ignore_ascii_case("beancount") {
-                    ingest_one(&path, inventory);
+                    files.push(path);
                 }
             }
         }
     }
 }
 
-fn ingest_one(path: &Path, inventory: &mut InventoryState) {
-    match ingest_seed_inventory_file(path, inventory) {
+fn ingest_one(path: &Path, inventory: &mut InventoryState, cutoff: Option<NaiveDate>) {
+    match ingest_seed_inventory_file(path, inventory, cutoff) {
         Ok(()) => debug!("Loaded inventory seed file: {}", path.display()),
         Err(error) => warn!(
             "Failed to load inventory seed file '{}': {}",
@@ -73,8 +96,13 @@ fn ingest_one(path: &Path, inventory: &mut InventoryState) {
 /// 支持的回放行为：
 /// - 买入（正数量）会新增 lot；
 /// - 卖出（负数量）会按成本约束消费 lot；
-/// - 法币分录与无效分录会被忽略。
-fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> ImporterResult<()> {
+/// - 法币分录与无效分录会被忽略；
+/// - 日期达到或超过 `cutoff` 的交易会被整体跳过。
+fn ingest_seed_inventory_file(
+    path: &Path,
+    inventory: &mut InventoryState,
+    cutoff: Option<NaiveDate>,
+) -> ImporterResult<()> {
     let content = fs::read_to_string(path).map_err(|e| {
         ImporterError::Io(e).with_context(format!(
             "Failed to read inventory seed file: {}",
@@ -82,12 +110,19 @@ fn ingest_seed_inventory_file(path: &Path, inventory: &mut InventoryState) -> Im
         ))
     })?;
 
-    let mut current_date: Option<chrono::NaiveDate> = None;
+    let mut current_date: Option<NaiveDate> = None;
+    let mut skip_current = false;
 
     for line in content.lines() {
-        // 交易头用于刷新 fallback 日期，供后续成本缺日期时回填。
+        // 交易头用于刷新 fallback 日期，并据此判断是否达到截止点。
         if let Some(tx_date) = parse_seed_transaction_date(line) {
             current_date = Some(tx_date);
+            skip_current = cutoff.map(|c| tx_date >= c).unwrap_or(false);
+            continue;
+        }
+
+        // 达到或超过截止点的交易视为当前批次内容，跳过以避免自引用。
+        if skip_current {
             continue;
         }
 
