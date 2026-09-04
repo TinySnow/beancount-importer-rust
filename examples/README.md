@@ -21,7 +21,7 @@
 
 ## 详细语义
 
-完整语义说明见：[docs/配置详解.md](../docs/配置详解.md)
+完整语义说明见：[CONFIGURATION.md](../CONFIGURATION.md)
 
 ## 验证命令（基础版）
 

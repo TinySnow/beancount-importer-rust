@@ -1,6 +1,6 @@
-# 配置详解
+# CONFIGURATION
 
-本文档覆盖所有配置字段、规则语义、账户回退逻辑。需要看场景决策和完整样例，见[配置最佳实践指南](./配置最佳实践指南.md)。
+本文档覆盖所有配置字段、规则语义、账户回退逻辑，以及从零开始写配置的最佳实践。
 
 ## 1. 配置加载顺序
 
@@ -9,6 +9,7 @@
 3. `mapping_file` → 否则 `mapping/<category>/<provider>.yml` → 否则内嵌映射
 
 补充规则：
+
 - provider 配置覆盖 global 默认值；未设定的字段回退 global
 - `mapping_file` 相对路径优先按 provider 配置文件目录解析，其次按当前工作目录
 - 内嵌 mapping 仅覆盖内置供应商
@@ -54,9 +55,10 @@ rules: []
 ```
 
 关键要点：
+
 - `inventory_seed_files`：相对路径按 provider 配置目录解析，用于跨账期导入时预加载历史 lot
 - `inventory_seed_exclude_dirs`：目录扫描时跳过的目录名列表（大小写不敏感），默认 `["tmp"]` 用于排除 batch 输出暂存目录
-- 证券最小必填 4 项：`default.asset_account`、`securities_accounts.cash_account`、`default.expense_account`、`default.income_account`。`fee/pnl/rounding` 未配时自动回退（见 §5）
+- 证券最小必填 4 项：`default.asset_account`、`securities_accounts.cash_account`、`default.expense_account`、`default.income_account`。`fee/pnl/rounding` 未配时自动回退（见 §7）
 - 旧平铺字段（`default_cash_account` 等）已移除
 
 ## 3. tabular_options
@@ -68,6 +70,8 @@ rules: []
 | `flexible` | `false` | 允许行列不齐 |
 | `encoding` | `auto` | `UTF-8`/`GBK`/`auto` |
 | `comment` | — | 注释行前缀 |
+| `income_column` | — | 收入分列列名（银行类） |
+| `expense_column` | — | 支出分列列名（银行类） |
 
 `flexible` 与 `--strict` 的交互：`flexible=false` 时列数异常直接报错；`flexible=true` 时非 strict 下跳过坏行并记 warning，strict 下仍失败。
 
@@ -216,11 +220,19 @@ payee:
 
 ### 6.2 其他 mapping 规则
 
-- `extra_fields` 兼容旧 `csv_column -> metadata_key` 格式
+- `extra_fields` 兼容旧 `csv_column -> metadata_key` 格式（新写法为 `metadata_key -> source_column`）
 - XLSX 输入时 reader 自动按列名匹配得分选择表头行
 - metadata key 输出前自动归一化（中→英、非法→哈希）
+- 无表头文件（`has_header_row: false`）时，读取层自动生成位置列名 `col_0` ~ `col_255`，mapping 里用这些列名
 
-### 6.3 Provider 基线参数
+### 6.3 标准字段
+
+现金流通用：`date` `amount` `currency` `payee` `narration` `transaction_type` `status` `reference`
+证券通用：`symbol` `security_name` `quantity` `unit_price` `fee` `tax`
+
+规则引擎可匹配的字段键：标准键 + `type`（优先读 `extra.type`，否则回退 `transaction_type`）+ 你在 `extra_fields` 里定义的任意 key + 保留扩展键 `peer`/`peerAccount`。
+
+### 6.4 Provider 基线参数
 
 | Provider | skip_header | encoding | delimiter | 货币 | 源列名（关键字段） |
 |----------|------------|----------|-----------|------|-------------------|
@@ -234,7 +246,7 @@ payee:
 | 银河 | 0 | GBK | `\t` | CNY | 交易日期/摘要/发生金额/余额/交易类型 |
 | futu | 0 | auto | `,` | USD | 交易日期/交易类型/证券代码/数量/成交价格/成交金额 |
 
-### 6.4 收入/支出分列银行账单
+### 6.5 收入/支出分列银行账单
 
 银行账单通常收入金额和支出金额在不同列（非单一金额列）。映射时：
 
@@ -245,27 +257,36 @@ expense_amount: { column: "支出金额", transform: abs }
 
 工具自动合并为单一 `amount` 字段（收入为正，支出为负）。
 
+### 6.6 金额与方向的三种映射模式
+
+**模式 A：单金额列 + 明确方向列（最稳）**
+
+```yaml
+amount:
+  column: "金额"
+  transform: abs
+transaction_type: "收支类型"
+```
+
+**模式 B：收入/支出分列（常见银行格式）** — 可不显式映射 `amount`，由读取层按常见键自动推断（见 §6.5）。
+
+**模式 C：金额永远为正，方向靠文本描述** — 必须映射 `transaction_type` 或 `extra.type`，否则只靠金额符号会误判。
+
 ## 7. 账户回退优先级
 
 ### 7.1 现金流
 
-**支出借方：** `rules[].debit_account` → `default.expense_account` → `Expenses:Unknown`
-
-**支出贷方：** `rules[].credit_account` → `default.asset_account` → 内置兜底
-
-**收入贷方：** `rules[].credit_account` → `default.income_account` → `Income:Unknown`
+- **支出借方：** `rules[].debit_account` → `default.expense_account` → `Expenses:Unknown`
+- **支出贷方：** `rules[].credit_account` → `default.asset_account` → 内置兜底
+- **收入贷方：** `rules[].credit_account` → `default.income_account` → `Income:Unknown`
 
 ### 7.2 证券（完整回退链）
 
-**券商现金账户：** `rules[].debit/credit_account` → `securities_accounts.cash_account` → 从 `default.asset_account` 推导（`:Securities → :Cash`）→ `Assets:Broker:Cash`
-
-**fee_account：** `rules[].fee_account` → `securities_accounts.fee_account` → `default.expense_account` → `Expenses:Investing:Fees`
-
-**pnl_account：** `rules[].pnl_account` → `securities_accounts.pnl_account` → `default.income_account` → `Income:Investing:Capital-Gains`
-
-**rounding_account：** `rules[].rounding_account` → `securities_accounts.rounding_account` → 从 fee_account 推导 → `Expenses:Investing:Rounding`
-
-**repo_interest_account：** `securities_accounts.repo_interest_account` → `Income:Investing:Interest`
+- **券商现金账户：** `rules[].debit/credit_account` → `securities_accounts.cash_account` → 从 `default.asset_account` 推导（`:Securities → :Cash`）→ `Assets:Broker:Cash`
+- **fee_account：** `rules[].fee_account` → `securities_accounts.fee_account` → `default.expense_account` → `Expenses:Investing:Fees`
+- **pnl_account：** `rules[].pnl_account` → `securities_accounts.pnl_account` → `default.income_account` → `Income:Investing:Capital-Gains`
+- **rounding_account：** `rules[].rounding_account` → `securities_accounts.rounding_account` → 从 fee_account 推导 → `Expenses:Investing:Rounding`
+- **repo_interest_account：** `securities_accounts.repo_interest_account` → `Income:Investing:Interest`
 
 ### 7.3 证券场景速查
 
@@ -293,13 +314,86 @@ expense_amount: { column: "支出金额", transform: abs }
 | `Transformation complete: X success / Y ignored / Z failed` | 存在失败或忽略记录 | 非 strict 下 Y/Z 不为 0 需人工检查 |
 
 调试命令：
+
 ```bash
 cargo run -- -p alipay -s data.csv -c config.yml --log-level info
 ```
 
-## 10. 附录
+## 10. 最佳实践
 
-### 10.1 旧→新字段迁移
+### 10.1 选场景
+
+| 场景 | 特征 | 需要的文件 |
+|------|------|----------|
+| A. 银行 / 第三方支付 | CSV，消费+收入流水 | `provider.yml` + `mapping.yml` |
+| B. 证券（券商） | XLSX/CSV，有买卖持仓 | A 全部 + `securities_accounts` |
+
+### 10.2 最小可用配置
+
+现金流（场景 A）：
+
+```yaml
+# config/alipay.yml
+name: alipay
+mapping_file: mapping/third_party/alipay.yml
+
+default:
+  asset_account: Assets:Digital:Alipay:Balance
+  expense_account: Expenses:Unknown
+  income_account: Income:Unknown
+  currency: CNY
+
+tabular_options: { delimiter: ",", flexible: true, encoding: auto }
+skip_header_lines: 23
+has_header_row: true
+rules: []
+```
+
+```yaml
+# mapping/third_party/alipay.yml（最小必填 4 列）
+date: "交易时间"
+payee: "交易对方"
+narration: "商品"
+amount: { column: "金额(元)", transform: abs }
+```
+
+证券（场景 B）在 A 的基础上增加：
+
+```yaml
+securities_accounts:
+  cash_account: Assets:Broker:Galaxy:Cash
+  fee_account: Expenses:Broker:Fee
+  pnl_account: Income:Broker:PnL
+  rounding_account: Expenses:Broker:Rounding
+```
+
+### 10.3 规则调试策略
+
+- 新规则从高 priority 开始，确认正确后调低
+- 用 `terminal: true` 精确拦截特殊交易，防止被后续规则污染
+- 用 `--log-level debug` 看每条规则命中情况
+- 用 `--strict` 保证坏行直接报错而不是静默跳过
+
+### 10.4 推荐上线三步
+
+1. 复制 `examples/<category>/<provider>/basic.yml` → 改成自己的账户名
+2. 导入一条测试数据：`-p icbc -s testsets/icbc.csv -c config/icbc.yml --log-level info`
+3. 看到正确 `.bean` 输出后，逐步加规则覆盖误判（看日志中 `success / ignored / failed` 比例）
+
+### 10.5 发布前检查清单
+
+- [ ] mapping: 日期/金额/交易对方/摘要至少 4 列正确映射
+- [ ] provider.yml: 账户名与账本一致（无 typo）
+- [ ] 规则：能区分收入/支出，按类别区分消费桶
+- [ ] 忽略类：第三方支付已单独导入的 via-bank 支付被忽略
+- [ ] 测试数据集 CSV 放到 `testsets/`
+- [ ] `examples/<category>/<provider>/` 同步更新 basic + advanced
+- [ ] `cargo test --quiet` 通过
+- [ ] 至少测试 3 条真实记录的导入输出
+
+## 11. 附录
+
+### 11.1 旧→新字段迁移
 
 | 旧字段或写法 | 新写法 |
 |------------|--------|
@@ -308,7 +402,7 @@ cargo run -- -p alipay -s data.csv -c config.yml --log-level info
 | `default_cash_account` | `securities_accounts.cash_account` |
 | `default_fee_account` | `securities_accounts.fee_account` |
 
-### 10.2 strict × flexible 组合
+### 11.2 strict × flexible 组合
 
 | flexible | strict | 行为 |
 |----------|--------|------|
