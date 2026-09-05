@@ -10,7 +10,7 @@ mod spot;
 use crate::{
     error::{ImporterError, ImporterResult},
     model::{
-        account::{amount::Amount, cost::Cost, posting::Posting, price::Price},
+        account::{amount::Amount, cost::Cost, posting::Posting},
         config::{meta_value::MetaValue, provider::ProviderConfig},
         rule::match_result::MatchResult,
         transaction::Transaction,

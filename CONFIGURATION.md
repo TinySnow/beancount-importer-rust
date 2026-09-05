@@ -203,6 +203,61 @@ date_formats:
   - "%Y/%m/%d %H:%M"
 ```
 
+### 6.0 Mapping 配置推荐写法（人工编写，非大模型生成）
+
+- 我们强烈建议为每个供应商配置 mapping 文件时，将供应商账单里从左往右的所有字段，都在 extra_fields 里从上往下一一对应。
+- 这样的 mapping 文件在 importer 生成 beancount 格式账单后，其 metadata 会包含供应商账单文件里的所有字段。
+  - extra_fields 上方的字段，会匹配 beancount 标准格式，不会生成 metadata 字段。
+  - 举个例子
+    - 如果供应商账单包含这样几个字段：交易日期，交易对象，交易类型，金额，备注
+    - 那么我们推荐这样配置：`date: "交易日期", payee: "交易对象", amount: "金额", narration: "备注", extra_fields: {date: "交易日期", peer: "交易对象", txType: "交易类型", amount: "金额", note: "备注"}`
+    - 请注意
+      - 上方的配置中，因标准字段没有 txType，所以跳过，但是我们希望在 beancount 格式账单中出现 txType 字段，所以在 extra_fields 里没有跳过，导致标准字段顺序和 extra_fields 里的顺序不一致。
+      - 因为标准字段限定了其英文 key，所以标准字段中的备注，与 extra_fields 里的备注，两个英文 key 值不一致，详见下面的说明
+- beancount 标准账单格式在代码中有定义，其英文 metadata 的英文 key 不能改变：`date, flag, payee, narration, tags, links`（详见源代码中的 `Transaction` 结构体，位于 `src/model/transaction/entry.rs`）
+- 但是 extra_fields 里的字段，因每个供应商所提供的账单字段不一致，而这里推荐将供应商账单的所有字段都一一对应，所以其英文 key 值可以任意指定，以下是一些推荐的英文 key 值（同一类内可任选其一，建议同一份 mapping 内保持统一风格）：
+  - 交易日期/时间类：date, time, datetime, transaction_date, transaction_time, transaction_datetime, trade_date, trade_time, trade_datetime, payTime, pay_time, payment_time
+  - 记账日/委托日类：recordDate, record_date, book_date, posting_date, commission_date, order_date, entrust_date
+  - 创建/成功时间类：createTime, create_time, created_at, successTime, success_time, completed_at
+  - 商品/说明类：item, product, goods, item_name, product_name, goods_name, description, detail, transaction_item, transaction_product, transaction_goods
+  - 交易类型类：txType, tx_type, transaction_type, txn_type, type
+  - 交易单号类：orderId, order_id, order_no, order_number, transaction_id, transaction_order_id, txn_id, txnId
+  - 支付方式类：method, payment_method, pay_method, pay_type, payment_type
+  - 交易状态类：status, transaction_status, txn_status, state
+  - 交易对象类：peer, transaction_peer, payee, counterparty, transaction_counterparty, peer_name, counterparty_name
+  - 对方账号类：peerAccount, peer_account, counterparty_account, payee_account
+  - 对方开户行类：peerBank, peer_bank, counterparty_bank, bank_name
+  - 商家类：merchantId, merchant_id, merchant, transaction_merchant, merchant_name
+  - 商家订单号类：merchantOrderId, merchant_order_id, merchant_order_no, merchant_order_number, transaction_merchant_order_id
+  - 金额类：amount, total_amount, amount_total
+  - 收入金额类：incomeAmount, income_amount, creditAmount, credit_amount, amount_in, amount_inflow
+  - 支出金额类：expenseAmount, expense_amount, debitAmount, debit_amount, amount_out, amount_outflow
+  - 订单/实付金额类：orderAmount, order_amount, payAmount, pay_amount, paid_amount
+  - 货币类：currency, transaction_currency, currency_code
+  - 余额类：balance, transaction_balance, remains, remaining_balance, account_balance
+  - 参考类：reference, transaction_reference, ref, reference_no
+  - 交易来源类：source, transaction_source, channel, origin
+  - 交易分类类：category, transaction_category, classification
+  - 交易地点/场所类：location, place, venue, transaction_location, transaction_place
+  - 国家/地区类：country, region, transaction_country, transaction_region
+  - 市场类：market, transaction_market
+  - 账户类：account, transaction_account
+  - 证券代码类：symbol, security_code, code, ticker
+  - 证券名称类：security_name, security_name_full
+  - 成交价格类：unit_price, price, transaction_price, deal_price, trade_price
+  - 数量类：quantity, transaction_quantity, shares, volume
+  - 成交金额类：transaction_amount, deal_amount, trade_amount
+  - 手续费类：fee, commission, commission_fee, fee_amount
+  - 税费类：tax, transaction_tax, tax_amount
+  - 持仓类：position, current_position, holdings
+  - 协议编号类：agreement_number, agreement_id
+  - 股东代码类：shareholder_code, shareholder_id
+  - 产品账号类：product_account, product_id
+  - 备注说明类：note, remark, comment, memo, notes, remarks
+    - 推荐将备注类字段规范化，统一表示各个不同渠道来源的备注
+    - 例如：所有 note 表示供应商账单中的备注字段，所有 comment 表示审阅本项目生成的账单文件时想起来的相关信息备注
+  - 补充说明：importer 输出前会对 metadata key 自动归一化（见 `src/utils/metadata.rs::normalize_metadata_key`），例如 `transaction_type`/`category` → `txType`、`payment_method` → `method`、`transaction_id`/`reference` → `orderId`、`merchant_order_id` → `merchantId`、`payee` → `peer`、`remark`/`memo`/`comment` → `note`，且 `snake_case` 会统一转成 `lowerCamelCase`（`payment_method` → `paymentMethod`）。因此上面的推荐键尽量贴近归一化后的规范键，避免配置的 key 与最终输出的 key 不一致。
+
 ### 6.1 详写格式（可选）
 
 ```yaml

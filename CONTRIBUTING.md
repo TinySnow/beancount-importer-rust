@@ -156,6 +156,9 @@ git push origin v0.2.0
 
 - 现金流硬必填：`date`、`amount`；强烈建议 `transaction_type`（否则靠金额符号判方向，退款/冲正容易误判）。
 - 证券硬必填：`date` +（买卖）`symbol`/`quantity`/`amount 或 unit_price`；银证转账 `amount`/`transaction_type`。
+- **其他 mapping 相关推荐配置做法，参见 [CONFIGURATION](CONFIGURATION.md) 一节的 6.0 Mapping 配置推荐写法（人工编写，非大模型生成），请注意，extra_fields 中的字段与供应商账单文件中的字段一一映射这一层的工作，应交由用户侧自己配置，而非开发者新增供应商的上游侧提前配置**
+  - 如果开发者提前一一映射了 extra_fields 中的字段，可能会出现开发者提供的 extra_fields 映射模板中的英文 key 值习惯与用户不符，需要大面积修改
+  - 用户也会失去自定义字段映射的能力
 
 现金流 mapping 模板：
 
@@ -200,6 +203,8 @@ extra_fields:
 ```
 
 ### 4.5 provider 配置模板
+
+- 基于与 mapping 配置中相同的理由，新增 provider 时，我们也不推荐在 rules 中添加任何规则（自定义规则应交由用户，否则可能发生冲突）
 
 现金流：
 
